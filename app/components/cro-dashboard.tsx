@@ -418,6 +418,412 @@
 //   )
 // }
 
+// "use client"
+
+// import { useState, useEffect } from "react"
+// import { supabase } from "@/lib/supabaseClient"
+// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+// import { Button } from "@/components/ui/button"
+// import { Badge } from "@/components/ui/badge"
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+// import { Calendar, AlertTriangle, CheckCircle, FileSpreadsheet, Upload, Plus } from "lucide-react"
+// import { Input } from "@/components/ui/input"
+// import { Label } from "@/components/ui/label"
+// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+// import { NewClientForm } from "./new-client-form"
+
+// interface CRODashboardProps {
+//   user: any
+//   onLogout: () => void
+// }
+
+// export function CRODashboard({ user, onLogout }: CRODashboardProps) {
+//   const [clients, setClients] = useState<any[]>([])
+//   const [teamLeads, setTeamLeads] = useState<any[]>([])
+//   const [selectedTeamLead, setSelectedTeamLead] = useState("all")
+//   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split("T")[0])
+//   const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0])
+//   const [newClientOpen, setNewClientOpen] = useState(false)
+//   const [importOpen, setImportOpen] = useState(false)
+//   const [sheetsUrl, setSheetsUrl] = useState("")
+//   const [importStatus, setImportStatus] = useState("")
+//   const [cas, setCas] = useState<any[]>([])
+
+
+//   // --- Fetch Team Leads on load ---
+//   useEffect(() => {
+//     const fetchTeamLeads = async () => {
+//       const { data, error } = await supabase.from("users").select("id, name, email").eq("role", "Team Lead")
+//       if (!error && data) setTeamLeads(data)
+//     }
+//     fetchTeamLeads()
+//   }, [])
+
+//   // --- Fetch Clients whenever filters change ---
+//   useEffect(() => {
+//     const fetchClients = async () => {
+//       let query = supabase.from("clients").select("*").gte("date_assigned", dateFrom).lte("date_assigned", dateTo)
+
+//       if (selectedTeamLead !== "all") {
+//         // Find all CAs under the selected team lead
+//         const { data: cas, error: casError } = await supabase
+//           .from("users")
+//           .select("id")
+//           .eq("team_id", selectedTeamLead)
+//           .in("role", ["CA", "Junior CA"])
+
+//         if (!casError && cas.length > 0) {
+//           const caIds = cas.map((ca) => ca.id)
+//           query = query.in("assigned_ca_id", caIds)
+//         } else {
+//           query = query.in("assigned_ca_id", []) // no CA = no clients
+//         }
+//       }
+
+//       const { data, error } = await query
+//       if (!error && data) setClients(data)
+//     }
+//     fetchClients()
+//   }, [selectedTeamLead, dateFrom, dateTo])
+
+//   // --- Fetch CA list whenever filters change ---
+//   useEffect(() => {
+//     const fetchCAs = async () => {
+//       let query = supabase.from("users").select("id, name, email, designation, team_id")
+//         .in("role", ["CA", "Junior CA"])
+
+//       if (selectedTeamLead !== "all") {
+//         // Get selected team_id
+//         const { data: team } = await supabase.from("teams").select("id").eq("lead_id", selectedTeamLead).single()
+//         if (team) query = query.eq("team_id", team.id)
+//       }
+
+//       const { data, error } = await query
+//       if (!error && data) setCas(data)
+//     }
+
+//     fetchCAs()
+//   }, [selectedTeamLead])
+
+//   useEffect(() => {
+//     const fetchClients = async () => {
+//       if (cas.length === 0) {
+//         setClients([])
+//         return
+//       }
+
+//       const caIds = cas.map((c) => c.id)
+//       const { data, error } = await supabase
+//         .from("clients")
+//         .select("*")
+//         .in("assigned_ca_id", caIds)
+
+//       if (!error && data) setClients(data)
+//     }
+
+//     fetchClients()
+//   }, [cas])
+
+//   const [caPerformance, setCaPerformance] = useState<Record<string, any>>({});
+
+//   useEffect(() => {
+//     const fetchCAData = async () => {
+//       let caQuery = supabase.from("users").select("id, name, email, designation").in("role", ["CA", "Junior CA"]);
+//       if (selectedTeamLead !== "all") {
+//         caQuery = caQuery.eq("team_id", selectedTeamLead);
+//       }
+//       const { data: caList } = await caQuery;
+//       if (!caList) return;
+
+//       const today = new Date().toISOString().split("T")[0];
+//       const performance: Record<string, any> = {};
+
+//       for (const ca of caList) {
+//         const { data: logs } = await supabase
+//           .from("work_logs")
+//           .select("emails_sent, jobs_applied, status")
+//           .eq("work_done_by", ca.id)
+//           .eq("date", today);
+
+//         if (logs && logs.length > 0) {
+//           const totalEmails = logs.reduce((sum, l) => sum + (l.emails_sent || 0), 0);
+//           const totalJobs = logs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0);
+//           performance[ca.id] = {
+//             ...ca,
+//             emails_sent: totalEmails,
+//             jobs_applied: totalJobs,
+//             status: logs[logs.length - 1].status,
+//           };
+//         } else {
+//           performance[ca.id] = {
+//             ...ca,
+//             emails_sent: 0,
+//             jobs_applied: 0,
+//             status: "Not Yet Started",
+//           };
+//         }
+//       }
+//       setCaPerformance(performance);
+//     };
+//     fetchCAData();
+//   }, [selectedTeamLead, dateFrom, dateTo]);
+
+
+
+//   // --- KPI Calculations ---
+//   // const totalClients = clients.length
+//   // const submittedClients = clients.filter((c) => c.status === "Completed").length
+//   // const missedToday = clients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
+//   // const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
+
+//   const totalCAs = cas.length
+//   const totalClients = clients.length
+//   const submittedClients = clients.filter((c) => c.status === "Completed").length
+//   const missedToday = clients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
+//   const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
+
+//   // Build a metrics map for each CA
+//   const today = new Date().toISOString().split("T")[0]
+//   const caMetrics = cas.map((ca) => {
+//     const caClients = clients.filter(
+//       (c) => c.assigned_ca_id === ca.id && c.date_assigned === today
+//     )
+
+//     const totalJobs = caClients.reduce((sum, c) => sum + (c.jobs_applied || 0), 0)
+//     const totalEmails = caClients.reduce((sum, c) => sum + (c.emails_submitted || 0), 0)
+
+//     let status = "Not Yet Started"
+//     if (caClients.some((c) => c.status === "Paused")) status = "Paused"
+//     else if (caClients.every((c) => c.status === "Completed" && caClients.length > 0)) status = "Completed"
+//     else if (caClients.some((c) => c.status === "Started")) status = "Started"
+
+//     return { caId: ca.id, totalJobs, totalEmails, status }
+//   })
+
+
+
+//   // --- Handle Google Sheets Import (future integration) ---
+//   const handleGoogleSheetsImport = async () => {
+//     if (!sheetsUrl) {
+//       setImportStatus("Please enter a valid Google Sheets URL")
+//       return
+//     }
+//     setImportStatus("Importing data from Google Sheets...")
+
+//     // Mock import (replace with actual API later)
+//     setTimeout(() => {
+//       setImportStatus(`Successfully imported data from Google Sheets`)
+//       setSheetsUrl("")
+//       setTimeout(() => {
+//         setImportOpen(false)
+//         setImportStatus("")
+//       }, 1500)
+//     }, 1500)
+//   }
+
+//   return (
+//     <div className="min-h-screen bg-slate-50 p-4">
+//       <div className="max-w-7xl mx-auto">
+//         {/* Header */}
+//         <div className="flex justify-between items-start mb-6">
+//           <div>
+//             <h1 className="text-3xl font-bold text-slate-900">CRO Dashboard</h1>
+//             <p className="text-slate-600">Track team performance and CA productivity</p>
+//           </div>
+//           <div className="flex items-center gap-4">
+//             {/* Google Sheets Import */}
+//             <Dialog open={importOpen} onOpenChange={setImportOpen}>
+//               <DialogTrigger asChild>
+//                 <Button variant="outline">
+//                   <FileSpreadsheet className="h-4 w-4 mr-2" />
+//                   Import from Google Sheets
+//                 </Button>
+//               </DialogTrigger>
+//               <DialogContent>
+//                 <DialogHeader>
+//                   <DialogTitle>Import Data from Google Sheets</DialogTitle>
+//                 </DialogHeader>
+//                 <div className="space-y-4">
+//                   <Label htmlFor="sheetsUrl">Google Sheets URL</Label>
+//                   <Input
+//                     id="sheetsUrl"
+//                     value={sheetsUrl}
+//                     onChange={(e) => setSheetsUrl(e.target.value)}
+//                     placeholder="https://docs.google.com/spreadsheets/d/..."
+//                   />
+//                   {importStatus && <div className="text-sm">{importStatus}</div>}
+//                   <Button onClick={handleGoogleSheetsImport}>Import</Button>
+//                 </div>
+//               </DialogContent>
+//             </Dialog>
+
+//             {/* Add New Client */}
+//             <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+//               <DialogTrigger asChild>
+//                 <Button>
+//                   <Plus className="h-4 w-4 mr-2" />
+//                   Add New Client
+//                 </Button>
+//               </DialogTrigger>
+//               <DialogContent>
+//                 <DialogHeader>
+//                   <DialogTitle>Add New Client</DialogTitle>
+//                 </DialogHeader>
+//                 <NewClientForm fetchClients={() => { }} />
+//               </DialogContent>
+//             </Dialog>
+//             <Button variant="outline">Profile</Button>
+//             <Button onClick={onLogout}>Logout</Button>
+//           </div>
+//         </div>
+
+//         {/* Filters */}
+//         <div className="flex gap-4 mb-6">
+//           <div>
+//             <label className="text-sm font-medium text-slate-700 mb-1 block">Select Team Leader</label>
+//             <Select value={selectedTeamLead} onValueChange={setSelectedTeamLead}>
+//               <SelectTrigger className="w-48">
+//                 <SelectValue placeholder="All Team Leaders" />
+//               </SelectTrigger>
+//               <SelectContent>
+//                 <SelectItem value="all">All Team Leaders</SelectItem>
+//                 {teamLeads.map((tl) => (
+//                   <SelectItem key={tl.id} value={tl.id}>
+//                     {tl.name}
+//                   </SelectItem>
+//                 ))}
+//               </SelectContent>
+//             </Select>
+//           </div>
+//           <div className="flex items-center gap-2">
+//             <Label className="text-sm">From:</Label>
+//             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
+//             <Label className="text-sm">To:</Label>
+//             <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
+//             <Button
+//               variant="outline"
+//               size="sm"
+//               onClick={() => {
+//                 const today = new Date().toISOString().split("T")[0]
+//                 setDateFrom(today)
+//                 setDateTo(today)
+//               }}
+//             >
+//               Today
+//             </Button>
+//           </div>
+
+//         </div>
+
+//         {/* KPI Cards */}
+//         {/* <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+//           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
+//           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card>
+//           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card>
+//           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
+//           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Completed</div></CardContent></Card>
+//         </div> */}
+
+//         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+//           <Card>
+//             <CardContent className="p-4 text-center">
+//               <div className="text-2xl font-bold text-blue-600">{totalCAs}</div>
+//               <div className="text-sm text-slate-600">Total CAs</div>
+//             </CardContent>
+//           </Card>
+//           <Card>
+//             <CardContent className="p-4 text-center">
+//               <div className="text-2xl font-bold text-blue-600">{totalClients}</div>
+//               <div className="text-sm text-slate-600">Total Clients</div>
+//             </CardContent>
+//           </Card>
+//           <Card>
+//             <CardContent className="p-4 text-center">
+//               <div className="text-2xl font-bold text-green-600">{submittedClients}</div>
+//               <div className="text-sm text-slate-600">Submitted</div>
+//             </CardContent>
+//           </Card>
+//           <Card>
+//             <CardContent className="p-4 text-center">
+//               <div className="text-2xl font-bold text-red-600">{missedToday}</div>
+//               <div className="text-sm text-slate-600">Missed Today</div>
+//             </CardContent>
+//           </Card>
+//           <Card>
+//             <CardContent className="p-4 text-center">
+//               <div className="text-2xl font-bold text-purple-600">{submissionRate}%</div>
+//               <div className="text-sm text-slate-600">Submission Rate</div>
+//             </CardContent>
+//           </Card>
+//         </div>
+
+
+//         {/* Client List */}
+//         {/* <Card>
+//           <CardHeader><CardTitle>All Clients</CardTitle></CardHeader>
+//           <CardContent>
+//             <div className="space-y-3">
+//               {clients.map((client) => (
+//                 <div key={client.id} className={`flex items-center justify-between p-4 rounded-lg border ${client.status === "Started" && client.jobs_applied === 0 ? "bg-red-50 border-red-200" : "bg-white border-slate-200"}`}>
+//                   <div className="flex items-center gap-3">
+//                     {client.status === "Completed" ? <CheckCircle className="h-5 w-5 text-green-500" /> : client.status === "Started" && client.jobs_applied === 0 ? <AlertTriangle className="h-5 w-5 text-red-500" /> : <CheckCircle className="h-5 w-5 text-green-500" />}
+//                     <div>
+//                       <h3 className="font-semibold">{client.name}</h3>
+//                       <p className="text-sm text-slate-600">CA: {client.assigned_ca_id} • {client.date_assigned}</p>
+//                       {client.status === "Started" && client.jobs_applied === 0 && (
+//                         <Badge variant="destructive" className="mt-1">Missing Update</Badge>
+//                       )}
+//                     </div>
+//                   </div>
+//                   <div className="flex items-center gap-8 text-center">
+//                     <div><div className="text-lg font-bold">{client.jobs_applied}</div><div className="text-xs text-slate-600">Jobs Applied</div></div>
+//                     <div><div className="text-lg font-bold">{client.emails_submitted}</div><div className="text-xs text-slate-600">Emails Received</div></div>
+//                     <Badge variant={client.status === "Completed" ? "default" : client.status === "Paused" ? "secondary" : "outline"}>{client.status}</Badge>
+//                   </div>
+//                 </div>
+//               ))}
+//             </div>
+//           </CardContent>
+//         </Card> */}
+//         {/* CA List */}
+//         <Card>
+//           <CardHeader>
+//             <CardTitle>Career Associates</CardTitle>
+//           </CardHeader>
+//           <CardContent>
+//             <div className="space-y-3">
+//               {Object.values(caPerformance).map((ca: any) => (
+//                 <div key={ca.id} className="flex items-center justify-between p-4 rounded-lg border bg-white">
+//                   <div>
+//                     <h3 className="font-semibold">{ca.name}</h3>
+//                     <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+//                   </div>
+//                   <div className="flex gap-4">
+//                     <Badge variant="secondary">Email Recieved: {ca.emails_sent}</Badge>
+//                     <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
+//                     <Badge
+//                       variant={
+//                         ca.status === "Completed" ? "default"
+//                           : ca.status === "Paused" ? "secondary"
+//                             : ca.status === "Started" ? "outline"
+//                               : "destructive"
+//                       }
+//                     >
+//                       {ca.status}
+//                     </Badge>
+//                   </div>
+//                 </div>
+//               ))}
+//             </div>
+//           </CardContent>
+//         </Card>
+
+
+//       </div>
+//     </div>
+//   )
+// }
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -426,7 +832,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, AlertTriangle, CheckCircle, FileSpreadsheet, Upload, Plus } from "lucide-react"
+import { FileSpreadsheet, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -448,9 +854,10 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [sheetsUrl, setSheetsUrl] = useState("")
   const [importStatus, setImportStatus] = useState("")
   const [cas, setCas] = useState<any[]>([])
+  const [caPerformance, setCaPerformance] = useState<Record<string, any>>({})
+  const [loading, setLoading] = useState(false)
 
-
-  // --- Fetch Team Leads on load ---
+  // --- Fetch Team Leads ---
   useEffect(() => {
     const fetchTeamLeads = async () => {
       const { data, error } = await supabase.from("users").select("id, name, email").eq("role", "Team Lead")
@@ -459,158 +866,146 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     fetchTeamLeads()
   }, [])
 
-  // --- Fetch Clients whenever filters change ---
-  useEffect(() => {
-    const fetchClients = async () => {
-      let query = supabase.from("clients").select("*").gte("date_assigned", dateFrom).lte("date_assigned", dateTo)
-
-      if (selectedTeamLead !== "all") {
-        // Find all CAs under the selected team lead
-        const { data: cas, error: casError } = await supabase
-          .from("users")
-          .select("id")
-          .eq("team_id", selectedTeamLead)
-          .in("role", ["CA", "Junior CA"])
-
-        if (!casError && cas.length > 0) {
-          const caIds = cas.map((ca) => ca.id)
-          query = query.in("assigned_ca_id", caIds)
-        } else {
-          query = query.in("assigned_ca_id", []) // no CA = no clients
-        }
-      }
-
-      const { data, error } = await query
-      if (!error && data) setClients(data)
-    }
-    fetchClients()
-  }, [selectedTeamLead, dateFrom, dateTo])
-
-  // --- Fetch CA list whenever filters change ---
+  // --- Fetch CAs based on Team Lead ---
   useEffect(() => {
     const fetchCAs = async () => {
-      let query = supabase.from("users").select("id, name, email, designation, team_id")
-        .in("role", ["CA", "Junior CA"])
+      setLoading(true)
+      let query = supabase.from("users").select("id, name, email, designation, team_id").in("role", ["CA", "Junior CA"])
 
       if (selectedTeamLead !== "all") {
-        // Get selected team_id
-        const { data: team } = await supabase.from("teams").select("id").eq("lead_id", selectedTeamLead).single()
-        if (team) query = query.eq("team_id", team.id)
-      }
+        const { data: team, error: teamError } = await supabase
+          .from("teams")
+          .select("id")
+          .eq("lead_id", selectedTeamLead)
+          .single()
 
+        if (!teamError && team) {
+          query = query.eq("team_id", team.id)
+        } else {
+          setCas([])
+          return
+        }
+      }
       const { data, error } = await query
       if (!error && data) setCas(data)
+      setLoading(false)
     }
-
     fetchCAs()
   }, [selectedTeamLead])
 
+  // --- Fetch Clients for KPI (all CAs) ---
   useEffect(() => {
+    if (cas.length === 0) {
+      setClients([])
+      return
+    }
     const fetchClients = async () => {
-      if (cas.length === 0) {
-        setClients([])
-        return
-      }
-
+      setLoading(true)
       const caIds = cas.map((c) => c.id)
       const { data, error } = await supabase
         .from("clients")
         .select("*")
         .in("assigned_ca_id", caIds)
-
+        .gte("date_assigned", dateFrom)
+        .lte("date_assigned", dateTo)
       if (!error && data) setClients(data)
+      setLoading(false)
     }
-
     fetchClients()
-  }, [cas])
+  }, [cas, dateFrom, dateTo])
 
-  const [caPerformance, setCaPerformance] = useState<Record<string, any>>({});
+  // --- Performance Metrics for Each CA ---
+  // useEffect(() => {
+  //   const fetchCAData = async () => {
+  //     const today = new Date().toISOString().split("T")[0]
+  //     const performance: Record<string, any> = {}
 
+  //     for (const ca of cas) {
+  //       const { data: logs } = await supabase
+  //         .from("work_logs")
+  //         .select("emails_sent, jobs_applied, status")
+  //         .eq("work_done_by", ca.id)
+  //         .eq("date", today)
+
+  //       if (logs && logs.length > 0) {
+  //         const totalEmails = logs.reduce((sum, l) => sum + (l.emails_sent || 0), 0)
+  //         const totalJobs = logs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0)
+  //         performance[ca.id] = {
+  //           ...ca,
+  //           emails_sent: totalEmails,
+  //           jobs_applied: totalJobs,
+  //           status: logs[logs.length - 1].status,
+  //         }
+  //       } else {
+  //         performance[ca.id] = {
+  //           ...ca,
+  //           emails_sent: 0,
+  //           jobs_applied: 0,
+  //           status: "Not Yet Started",
+  //         }
+  //       }
+  //     }
+  //     setCaPerformance(performance)
+  //   }
+  //   if (cas.length > 0) fetchCAData()
+  // }, [cas, dateFrom, dateTo])
+  // --- Optimized Performance Metrics ---
   useEffect(() => {
     const fetchCAData = async () => {
-      let caQuery = supabase.from("users").select("id, name, email, designation").in("role", ["CA", "Junior CA"]);
-      if (selectedTeamLead !== "all") {
-        caQuery = caQuery.eq("team_id", selectedTeamLead);
+      if (cas.length === 0) {
+        setCaPerformance({})
+        return
       }
-      const { data: caList } = await caQuery;
-      if (!caList) return;
 
-      const today = new Date().toISOString().split("T")[0];
-      const performance: Record<string, any> = {};
+      const today = new Date().toISOString().split("T")[0]
+      const caIds = cas.map((c) => c.id)
 
-      for (const ca of caList) {
-        const { data: logs } = await supabase
-          .from("work_logs")
-          .select("emails_sent, jobs_applied, status")
-          .eq("work_done_by", ca.id)
-          .eq("date", today);
+      // Fetch all work_logs in one query
+      const { data: logs, error } = await supabase
+        .from("work_logs")
+        .select("work_done_by, emails_sent, jobs_applied, status")
+        .in("work_done_by", caIds)
+        .eq("date", today)
 
-        if (logs && logs.length > 0) {
-          const totalEmails = logs.reduce((sum, l) => sum + (l.emails_sent || 0), 0);
-          const totalJobs = logs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0);
-          performance[ca.id] = {
-            ...ca,
-            emails_sent: totalEmails,
-            jobs_applied: totalJobs,
-            status: logs[logs.length - 1].status,
-          };
+      if (error) {
+        console.error("Error fetching work logs:", error)
+        return
+      }
+
+      // Aggregate results
+      const performance: Record<string, any> = {}
+      for (const ca of cas) {
+        const caLogs = logs?.filter((log) => log.work_done_by === ca.id) || []
+        if (caLogs.length > 0) {
+          const totalEmails = caLogs.reduce((sum, l) => sum + (l.emails_sent || 0), 0)
+          const totalJobs = caLogs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0)
+          const lastStatus = caLogs[caLogs.length - 1].status
+          performance[ca.id] = { ...ca, emails_sent: totalEmails, jobs_applied: totalJobs, status: lastStatus }
         } else {
-          performance[ca.id] = {
-            ...ca,
-            emails_sent: 0,
-            jobs_applied: 0,
-            status: "Not Yet Started",
-          };
+          performance[ca.id] = { ...ca, emails_sent: 0, jobs_applied: 0, status: "Not Yet Started" }
         }
       }
-      setCaPerformance(performance);
-    };
-    fetchCAData();
-  }, [selectedTeamLead, dateFrom, dateTo]);
+      setCaPerformance(performance)
+    }
+    fetchCAData()
+  }, [cas, dateFrom, dateTo])
 
 
 
   // --- KPI Calculations ---
-  // const totalClients = clients.length
-  // const submittedClients = clients.filter((c) => c.status === "Completed").length
-  // const missedToday = clients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
-  // const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
-
   const totalCAs = cas.length
   const totalClients = clients.length
   const submittedClients = clients.filter((c) => c.status === "Completed").length
   const missedToday = clients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
   const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
 
-  // Build a metrics map for each CA
-  const today = new Date().toISOString().split("T")[0]
-  const caMetrics = cas.map((ca) => {
-    const caClients = clients.filter(
-      (c) => c.assigned_ca_id === ca.id && c.date_assigned === today
-    )
-
-    const totalJobs = caClients.reduce((sum, c) => sum + (c.jobs_applied || 0), 0)
-    const totalEmails = caClients.reduce((sum, c) => sum + (c.emails_submitted || 0), 0)
-
-    let status = "Not Yet Started"
-    if (caClients.some((c) => c.status === "Paused")) status = "Paused"
-    else if (caClients.every((c) => c.status === "Completed" && caClients.length > 0)) status = "Completed"
-    else if (caClients.some((c) => c.status === "Started")) status = "Started"
-
-    return { caId: ca.id, totalJobs, totalEmails, status }
-  })
-
-
-
-  // --- Handle Google Sheets Import (future integration) ---
+  // --- Google Sheets Import (mock) ---
   const handleGoogleSheetsImport = async () => {
     if (!sheetsUrl) {
       setImportStatus("Please enter a valid Google Sheets URL")
       return
     }
     setImportStatus("Importing data from Google Sheets...")
-
-    // Mock import (replace with actual API later)
     setTimeout(() => {
       setImportStatus(`Successfully imported data from Google Sheets`)
       setSheetsUrl("")
@@ -631,7 +1026,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             <p className="text-slate-600">Track team performance and CA productivity</p>
           </div>
           <div className="flex items-center gap-4">
-            {/* Google Sheets Import */}
             <Dialog open={importOpen} onOpenChange={setImportOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
@@ -656,8 +1050,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                 </div>
               </DialogContent>
             </Dialog>
-
-            {/* Add New Client */}
             <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -712,115 +1104,66 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
               Today
             </Button>
           </div>
-
         </div>
 
         {/* KPI Cards */}
-        {/* <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Completed</div></CardContent></Card>
-        </div> */}
-
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{totalCAs}</div>
-              <div className="text-sm text-slate-600">Total CAs</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{totalClients}</div>
-              <div className="text-sm text-slate-600">Total Clients</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{submittedClients}</div>
-              <div className="text-sm text-slate-600">Submitted</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">{missedToday}</div>
-              <div className="text-sm text-slate-600">Missed Today</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">{submissionRate}%</div>
-              <div className="text-sm text-slate-600">Submission Rate</div>
-            </CardContent>
-          </Card>
         </div>
 
-
-        {/* Client List */}
-        {/* <Card>
-          <CardHeader><CardTitle>All Clients</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {clients.map((client) => (
-                <div key={client.id} className={`flex items-center justify-between p-4 rounded-lg border ${client.status === "Started" && client.jobs_applied === 0 ? "bg-red-50 border-red-200" : "bg-white border-slate-200"}`}>
-                  <div className="flex items-center gap-3">
-                    {client.status === "Completed" ? <CheckCircle className="h-5 w-5 text-green-500" /> : client.status === "Started" && client.jobs_applied === 0 ? <AlertTriangle className="h-5 w-5 text-red-500" /> : <CheckCircle className="h-5 w-5 text-green-500" />}
-                    <div>
-                      <h3 className="font-semibold">{client.name}</h3>
-                      <p className="text-sm text-slate-600">CA: {client.assigned_ca_id} • {client.date_assigned}</p>
-                      {client.status === "Started" && client.jobs_applied === 0 && (
-                        <Badge variant="destructive" className="mt-1">Missing Update</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-8 text-center">
-                    <div><div className="text-lg font-bold">{client.jobs_applied}</div><div className="text-xs text-slate-600">Jobs Applied</div></div>
-                    <div><div className="text-lg font-bold">{client.emails_submitted}</div><div className="text-xs text-slate-600">Emails Received</div></div>
-                    <Badge variant={client.status === "Completed" ? "default" : client.status === "Paused" ? "secondary" : "outline"}>{client.status}</Badge>
-                  </div>
-                </div>
-              ))}
+        {
+          loading && (
+            <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+              Loading...
             </div>
-          </CardContent>
-        </Card> */}
+          )
+        }
+
         {/* CA List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Career Associates</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.values(caPerformance).map((ca: any) => (
-                <div key={ca.id} className="flex items-center justify-between p-4 rounded-lg border bg-white">
-                  <div>
-                    <h3 className="font-semibold">{ca.name}</h3>
-                    <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+        {!loading && (
+          <Card>
+            <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
+            <CardContent>
+              {/* CA List content here */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Career Associates</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.values(caPerformance).map((ca: any) => (
+                      <div key={ca.id} className="flex items-center justify-between p-4 rounded-lg border bg-white">
+                        <div>
+                          <h3 className="font-semibold">{ca.name}</h3>
+                          <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                        </div>
+                        <div className="flex gap-4">
+                          <Badge variant="secondary">Email Received: {ca.emails_sent}</Badge>
+                          <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
+                          <Badge
+                            variant={
+                              ca.status === "Completed" ? "default"
+                                : ca.status === "Paused" ? "secondary"
+                                  : ca.status === "Started" ? "outline"
+                                    : "destructive"
+                            }
+                          >
+                            {ca.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex gap-4">
-                    <Badge variant="secondary">Email Recieved: {ca.emails_sent}</Badge>
-                    <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
-                    <Badge
-                      variant={
-                        ca.status === "Completed" ? "default"
-                          : ca.status === "Paused" ? "secondary"
-                            : ca.status === "Started" ? "outline"
-                              : "destructive"
-                      }
-                    >
-                      {ca.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-
+                </CardContent>
+              </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
 }
-

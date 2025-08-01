@@ -422,7 +422,9 @@ import { Label } from "@/components/ui/label"
 export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [selectedCA, setSelectedCA] = useState("")
-  const [designation, setDesignation] = useState("Junior CA")
+  // const [designation, setDesignation] = useState("Junior CA")
+    const [role, setRole] = useState("Junior CA")
+
   const [salary, setSalary] = useState<number>(6000)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -432,16 +434,16 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
 
   useEffect(() => {
     const fetchTeamMembers = async () => {
-      const { data } = await supabase.from("users").select("id, name, designation, team_id").in("role", ["CA", "Junior CA"])
+      const { data } = await supabase.from("users").select("id, name, role, team_id").in("role", ["CA", "Junior CA"])
       setTeamMembers(data || [])
     }
     fetchTeamMembers()
   }, [])
 
   useEffect(() => {
-    if (designation === "Junior CA") setSalary(6000)
-    else if (designation === "CA") setSalary(10000)
-  }, [designation])
+    if (role === "Junior CA") setSalary(6000)
+    else if (role === "CA") setSalary(10000)
+  }, [role])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -475,7 +477,7 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
       setName("")
       setEmail("")
       setSelectedCA("")
-      setDesignation("Junior CA")
+      setRole("Junior CA")
       setSalary(6000)
       setEmailsRequired(50)
       setStatus("Not Started")
@@ -496,7 +498,7 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>Designation</Label>
-          <Select value={designation} onValueChange={setDesignation}>
+          <Select value={role} onValueChange={setRole}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Junior CA">Junior CA</SelectItem>

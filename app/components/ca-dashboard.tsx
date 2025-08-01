@@ -655,33 +655,84 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
   const [clients, setClients] = useState<any[]>([]) // fetch from Supabase
   const [incentive, setIncentive] = useState<any>(null) // fetch from Supabase
   // -------------------------------------------------------------------
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  // const [selectedCA, setSelectedCA] = useState<string>(user.id)
+
 
   // ---------------------- FETCH DATA FROM SUPABASE ----------------------
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     const userId = user.id // passed as prop from login
+
+  //     // Fetch clients assigned to this CA
+  //     const { data: clientData, error: clientError } = await supabase
+  //       .from("clients")
+  //       .select("*")
+  //       .eq("assigned_ca_id", userId)
+
+  //     if (!clientError) setClients(clientData || [])
+
+  //     // Fetch incentive for current month
+  //     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+  //     const { data: incentiveData, error: incentiveError } = await supabase
+  //       .from("incentives")
+  //       .select("*")
+  //       .eq("user_id", userId)
+  //       .eq("month", startOfMonth)
+
+  //     if (!incentiveError && incentiveData.length > 0) setIncentive(incentiveData[0])
+  //   }
+
+  //   fetchData()
+  // }, [user.id])
   useEffect(() => {
     const fetchData = async () => {
-      const userId = user.id // passed as prop from login
+      const userId = user.id;
 
-      // Fetch clients assigned to this CA
+      // 1. Fetch clients assigned to this CA
       const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .select("*")
-        .eq("assigned_ca_id", userId)
+        .eq("assigned_ca_id", userId);
+      if (!clientError) setClients(clientData || []);
 
-      if (!clientError) setClients(clientData || [])
-
-      // Fetch incentive for current month
-      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+      // 2. Fetch incentive
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       const { data: incentiveData, error: incentiveError } = await supabase
         .from("incentives")
         .select("*")
         .eq("user_id", userId)
-        .eq("month", startOfMonth)
+        .eq("month", startOfMonth);
+      if (!incentiveError && incentiveData.length > 0) setIncentive(incentiveData[0]);
 
-      if (!incentiveError && incentiveData.length > 0) setIncentive(incentiveData[0])
+      // 3. Fetch team members from same team_id
+      const { data: teamData, error: teamError } = await supabase
+        .from("users")
+        .select("id, name, email")
+        .eq("team_id", user.team_id)
+        .neq("id", user.id); // Optional: Exclude self
+      if (!teamError) setTeamMembers(teamData || []);
+    };
+
+    fetchData();
+  }, [user.id, user.team_id]);
+
+  useEffect(() => {
+    const fetchClientsForSelectedCA = async () => {
+      const caId = selectedCA || user.id // fallback to self
+
+      const { data: clientData, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("assigned_ca_id", caId)
+
+      if (!error) setClients(clientData || [])
     }
 
-    fetchData()
-  }, [user.id])
+    fetchClientsForSelectedCA()
+  }, [selectedCA])
+
+
   // ----------------------------------------------------------------------
 
   // const handleStatusUpdate = (
@@ -875,15 +926,33 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
 
               {currentView === "onbehalf" && (
                 <div className="flex items-center gap-2">
+                  {/* <Select value={selectedCA} onValueChange={setSelectedCA}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Choose team member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+
+                  </Select> */}
                   <Select value={selectedCA} onValueChange={setSelectedCA}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Choose team member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Removed mockTeamMembers and replaced with actual DB fetch in future */}
-                      <SelectItem value={user.email}>{user.name}</SelectItem>
+                      <SelectItem value={user.id}>🌟 {user.name} (Myself)</SelectItem>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+
                   <Badge variant="secondary">Performance credit goes to selected CA</Badge>
                 </div>
               )}
@@ -969,7 +1038,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                 </div>
                 <div>
                   <Label className="text-sm text-slate-600">Designation</Label>
-                  <p className="text-lg font-semibold">{user.designation || "Junior CA"}</p>
+                  <p className="text-lg font-semibold">{user.designation}</p>
                 </div>
               </div>
 

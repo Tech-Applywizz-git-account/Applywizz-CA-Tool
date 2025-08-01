@@ -103,117 +103,6 @@
 // export default LoginPage
 // export { LoginPage }
 
-// "use client"
-
-// import { useState } from "react"
-// import { useRouter } from "next/navigation"
-// import { supabase } from "@/lib/supabaseClient"
-// import { Button } from "@/components/ui/button"
-// import { Input } from "@/components/ui/input"
-// import { Label } from "@/components/ui/label"
-
-// export default function LoginPage() {
-//   const [email, setEmail] = useState("")
-//   const [password, setPassword] = useState("")
-//   const [loading, setLoading] = useState(false)
-//   const router = useRouter()
-
-//   const handleLogin = async (e: React.FormEvent) => {
-//     e.preventDefault()
-//     setLoading(true)
-
-//     // ----------- SINGLE PASSWORD CHECK -----------
-//     if (password !== "created@123") {
-//       alert("Invalid password. Use created@123 for demo login.")
-//       setLoading(false)
-//       return
-//     }
-
-//     // ----------- CHECK USER FROM SUPABASE USERS TABLE -----------
-//     const { data: user, error } = await supabase
-//       .from("users")
-//       .select("*")
-//       .eq("email", email)
-//       .single()
-
-//     if (error || !user) {
-//       alert("User not found. Use a valid demo email from the database.")
-//       setLoading(false)
-//       return
-//     }
-
-//     console.log("Supabase user data", user, error);
-
-//     // ----------- REDIRECT BASED ON ROLE -----------
-//     switch (user.role) {
-//       case "CA":
-//         router.push("/ca-dashboard")
-//         break
-//       case "Team Lead":
-//         router.push("/team-lead-dashboard")
-//         break
-//       case "CRO":
-//         router.push("/cro-dashboard")
-//         break
-//       case "COO":
-//         router.push("/coo-dashboard")
-//         break
-//       case "CEO":
-//         router.push("/ceo-dashboard")
-//         break
-//       default:
-//         router.push("/system-admin-dashboard")
-//         break
-//     }
-
-//     setLoading(false)
-//   }
-
-//   return (
-//     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-//       <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
-//         <h1 className="text-3xl font-bold text-center text-blue-600 mb-2">ApplyWizz</h1>
-//         <p className="text-center text-gray-600 mb-6">Career Associate Management Platform</p>
-
-//         <form onSubmit={handleLogin} className="space-y-4">
-//           <div>
-//             <Label>Email</Label>
-//             <Input
-//               type="email"
-//               placeholder="Enter your email"
-//               value={email}
-//               onChange={(e) => setEmail(e.target.value)}
-//               required
-//             />
-//           </div>
-//           <div>
-//             <Label>Password</Label>
-//             <Input
-//               type="password"
-//               placeholder="created@123"
-//               value={password}
-//               onChange={(e) => setPassword(e.target.value)}
-//               required
-//             />
-//           </div>
-//           <Button type="submit" className="w-full" disabled={loading}>
-//             {loading ? "Signing In..." : "Sign In"}
-//           </Button>
-//         </form>
-
-//         <div className="mt-6 text-sm text-gray-500">
-//           <p className="font-semibold mb-1">Demo Credentials:</p>
-//           <p>CA: ca1@applywizz.com / created@123</p>
-//           <p>Team Lead: teamlead1@applywizz.com / created@123</p>
-//           <p>CRO: cro@applywizz.com / created@123</p>
-//           <p>COO: coo@applywizz.com / created@123</p>
-//           <p>CEO: ceo@applywizz.com / created@123</p>
-//           <p>Admin: admin@applywizz.com / created@123</p>
-//         </div>
-//       </div>
-//     </div>
-//   )
-// }
 
 "use client"
 
@@ -228,6 +117,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false) // <-- Added
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -281,14 +171,22 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
-            <input
-              type="password"
-              placeholder="created@123"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border rounded p-2"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="created@123"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border rounded p-2 pr-12"
+                required
+              />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-sm text-blue-600 cursor-pointer select-none"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </span>
+            </div>
           </div>
           <button
             type="submit"

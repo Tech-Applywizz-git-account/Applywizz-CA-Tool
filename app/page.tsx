@@ -92,6 +92,8 @@ export default function ApplyWizzTracker() {
       return <TeamLeadDashboard user={currentUser} onLogout={handleLogout} />
     case "CA":
       return <CADashboard user={currentUser} onLogout={handleLogout} />
+    case "Junior CA":
+      return <CADashboard user={currentUser} onLogout={handleLogout} />
     case "Admin":
     case "SYSTEM":
       return <SystemAdminDashboard user={currentUser} onLogout={handleLogout} />
