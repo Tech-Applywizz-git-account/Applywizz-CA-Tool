@@ -297,25 +297,25 @@
 //         </div>
 
 //         {/* Calendar Section */}
-//         <Card className="mb-6">
-//           <CardContent className="p-4">
-//             <div className="flex items-center gap-4">
-//               <Calendar className="h-4 w-4" />
-//               <Label className="text-sm">From:</Label>
-//               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
-//               <Label className="text-sm">To:</Label>
-//               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
-//               {selectedTeamLead !== "all" && (
-//                 <div className="ml-4 p-2 bg-blue-50 rounded">
-//                   <span className="text-sm font-medium">Team Lead Incentive: </span>
-//                   <span className="text-lg font-bold text-blue-600">
-//                     ₹{calculateTeamLeadIncentives(selectedTeamLead).tlBonus.toLocaleString()}
-//                   </span>
-//                 </div>
-//               )}
-//             </div>
-//           </CardContent>
-//         </Card>
+// <Card className="mb-6">
+//   <CardContent className="p-4">
+//     <div className="flex items-center gap-4">
+//       <Calendar className="h-4 w-4" />
+//       <Label className="text-sm">From:</Label>
+//       <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
+//       <Label className="text-sm">To:</Label>
+//       <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
+//       {selectedTeamLead !== "all" && (
+//         <div className="ml-4 p-2 bg-blue-50 rounded">
+//           <span className="text-sm font-medium">Team Lead Incentive: </span>
+//           <span className="text-lg font-bold text-blue-600">
+//             ₹{calculateTeamLeadIncentives(selectedTeamLead).tlBonus.toLocaleString()}
+//           </span>
+//         </div>
+//       )}
+//     </div>
+//   </CardContent>
+// </Card>
 
 //         {/* KPI Cards */}
 //         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -1106,6 +1106,18 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           </div>
         </div>
 
+        {/* Team Incentives (only when a specific Team Lead is selected) */}
+        {selectedTeamLead !== "all" && (
+          <div className="mb-6">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">₹2000</div>
+                <div className="text-sm text-slate-600">Team Incentives</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
@@ -1129,37 +1141,31 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
             <CardContent>
               {/* CA List content here */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Career Associates</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {Object.values(caPerformance).map((ca: any) => (
-                      <div key={ca.id} className="flex items-center justify-between p-4 rounded-lg border bg-white">
-                        <div>
-                          <h3 className="font-semibold">{ca.name}</h3>
-                          <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
-                        </div>
-                        <div className="flex gap-4">
-                          <Badge variant="secondary">Email Received: {ca.emails_sent}</Badge>
-                          <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
-                          <Badge
-                            variant={
-                              ca.status === "Completed" ? "default"
-                                : ca.status === "Paused" ? "secondary"
-                                  : ca.status === "Started" ? "outline"
-                                    : "destructive"
-                            }
-                          >
-                            {ca.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+
+              <div className="space-y-3">
+                {Object.values(caPerformance).map((ca: any) => (
+                  <div key={ca.id} className="flex items-center justify-between p-4 rounded-lg border bg-white">
+                    <div>
+                      <h3 className="font-semibold">{ca.name}</h3>
+                      <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                    </div>
+                    <div className="flex gap-4">
+                      <Badge variant="secondary">Email Received: {ca.emails_sent}</Badge>
+                      <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
+                      <Badge
+                        variant={
+                          ca.status === "Completed" ? "default"
+                            : ca.status === "Paused" ? "secondary"
+                              : ca.status === "Started" ? "outline"
+                                : "destructive"
+                        }
+                      >
+                        {ca.status}
+                      </Badge>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}

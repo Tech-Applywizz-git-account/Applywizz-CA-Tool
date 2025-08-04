@@ -657,6 +657,8 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
   // -------------------------------------------------------------------
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   // const [selectedCA, setSelectedCA] = useState<string>(user.id)
+  const [baseSalary, setBaseSalary] = useState<number>(0);
+  const [Loading, setLoading] = useState<boolean>(false);
 
 
   // ---------------------- FETCH DATA FROM SUPABASE ----------------------
@@ -690,11 +692,13 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
       const userId = user.id;
 
       // 1. Fetch clients assigned to this CA
+      setLoading(true);
       const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .select("*")
         .eq("assigned_ca_id", userId);
       if (!clientError) setClients(clientData || []);
+      setLoading(false);
 
       // 2. Fetch incentive
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -719,7 +723,10 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
 
   useEffect(() => {
     const fetchClientsForSelectedCA = async () => {
-      const caId = selectedCA || user.id // fallback to self
+      // const caId = selectedCA || user.id // fallback to self
+      const caId =
+        currentView === "myself" ? user.id : selectedCA || user.id
+
 
       const { data: clientData, error } = await supabase
         .from("clients")
@@ -730,7 +737,22 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     }
 
     fetchClientsForSelectedCA()
-  }, [selectedCA])
+  }, [selectedCA, currentView])
+
+  useEffect(() => {
+    const fetchBaseSalary = async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('base_salary')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data) {
+        setBaseSalary(data.base_salary || 0);
+      }
+    };
+    fetchBaseSalary();
+  }, [user.id]);
 
 
   // ----------------------------------------------------------------------
@@ -781,22 +803,40 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     }
 
     // 2) Insert work log in Supabase
-    const { error: logError } = await supabase.from("work_logs").insert([
-      {
-        client_id: clientId,
-        work_done_by: user.id, // CA logged in
-        date: new Date().toISOString().split("T")[0],
-        emails_sent: emailsSent ?? 0,
-        jobs_applied: jobsApplied ?? 0,
-        status: newStatus,
-        remarks: reason || "",
-      },
-    ])
-
-    if (logError) {
-      alert(`Error logging work: ${logError.message}`)
-      return
+    if (newStatus === "Started") {
+      const { error: logError } = await supabase.from("work_logs").insert([
+        {
+          client_id: clientId,
+          work_done_by: user.id, // CA logged in
+          date: new Date().toISOString().split("T")[0],
+          emails_sent: 0,
+          jobs_applied: 0,
+          status: newStatus,
+          remarks: reason || "",
+        },
+      ])
+      if (logError) {
+        alert(`Error logging work: ${logError.message}`)
+        return
+      }
+    }else if (newStatus === "Paused" || newStatus === "Completed") {
+      const { error: logError } = await supabase.from("work_logs").update([
+        {
+          work_done_by: user.id, // CA logged in
+          date: new Date().toISOString().split("T")[0],
+          emails_sent: emailsSent ?? 0,
+          jobs_applied: jobsApplied ?? 0,
+          status: newStatus,
+          remarks: reason || "",
+        },
+      ]).eq("client_id", clientId)
+      if (logError) {
+        alert(`Error logging work: ${logError.message}`)
+        return
+      }     
     }
+
+
 
     // 3) Update local state
     setClients((prev) =>
@@ -853,7 +893,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Fixed Salary</Label>
-                    <p className="text-lg font-bold text-green-600">₹6,000</p>
+                    <p className="text-lg font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
                   </div>
                 </div>
               </DialogContent>
@@ -911,9 +951,18 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="flex gap-4 items-center">
-              <Button
+              {/* <Button
                 variant={currentView === "myself" ? "default" : "outline"}
                 onClick={() => setCurrentView("myself")}
+              >
+                🌟 Myself
+              </Button> */}
+              <Button
+                variant={currentView === "myself" ? "default" : "outline"}
+                onClick={() => {
+                  setCurrentView("myself")
+                  setSelectedCA("")   // <-- Reset to empty so self-fetch triggers
+                }}
               >
                 🌟 Myself
               </Button>
@@ -926,19 +975,6 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
 
               {currentView === "onbehalf" && (
                 <div className="flex items-center gap-2">
-                  {/* <Select value={selectedCA} onValueChange={setSelectedCA}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Choose team member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-
-                  </Select> */}
                   <Select value={selectedCA} onValueChange={setSelectedCA}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Choose team member" />
@@ -1034,7 +1070,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm text-slate-600">Base Salary</Label>
-                  <p className="text-2xl font-bold text-green-600">₹6,000</p>
+                  <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
                 </div>
                 <div>
                   <Label className="text-sm text-slate-600">Designation</Label>
@@ -1120,7 +1156,7 @@ function StatusUpdateForm({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="emails" className="text-sm font-medium">
-                Number of Emails Sent
+                Number of Emails Recieved
               </Label>
               <Input
                 id="emails"
