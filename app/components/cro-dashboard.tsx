@@ -845,6 +845,7 @@ interface CRODashboardProps {
 
 export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [clients, setClients] = useState<any[]>([])
+  const [clients1, setClients1] = useState<any[]>([])
   const [teamLeads, setTeamLeads] = useState<any[]>([])
   const [selectedTeamLead, setSelectedTeamLead] = useState("all")
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split("T")[0])
@@ -913,6 +914,16 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     }
     fetchClients()
   }, [cas, dateFrom, dateTo])
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+      if (!error && data) setClients1(data) 
+    }
+    fetchClients()
+  }, [])  
 
   // --- Performance Metrics for Each CA ---
   // useEffect(() => {
@@ -992,6 +1003,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
 
 
+
   // --- KPI Calculations ---
   const totalCAs = cas.length
   const totalClients = clients.length
@@ -1015,6 +1027,60 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       }, 1500)
     }, 1500)
   }
+  console.log("clients", clients)
+
+  const handleReset = async () => {
+    clients1.forEach(async (client) => {
+      const { error: resetError } = await supabase
+        .from("clients")
+        .update({
+          status: "Not Started",
+          emails_submitted: 0,
+          jobs_applied: 0,
+          work_done_by: null,
+          start_time: null,
+          end_time: null,
+          remarks: null,
+        }).eq("id", client.id)
+        
+        if (resetError) {
+          alert(`Error Resetting daily data: ${resetError.message}`)
+          return
+        }
+      })
+      
+      alert("Reset today's data successfully!")
+    }
+
+  // const handleReset = async () => {
+  //   try {
+  //     // if you want to reset ALL clients in one query (faster & better):
+  //     const { error } = await supabase
+  //       .from("clients")
+  //       .update({
+  //         status: "Not Started",
+  //         emails_submitted: 0,
+  //         jobs_applied: 0,
+  //         work_done_by: null,
+  //         start_time: null,
+  //         end_time: null,
+  //         remarks: null,
+  //       })
+  //       .in("id", clients.map((c) => c.id)); // update only loaded clients
+
+  //     if (error) {
+  //       alert(`Error Resetting daily data: ${error.message}`);
+  //       return;
+  //     }
+
+  //     alert("Reset today's data successfully!");
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Unexpected error while resetting data.");
+  //   }
+  // };
+
+
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -1066,6 +1132,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             </Dialog>
             <Button variant="outline">Profile</Button>
             <Button onClick={onLogout}>Logout</Button>
+            <Button onClick={handleReset}> Reset </Button>
           </div>
         </div>
 
