@@ -846,6 +846,7 @@ interface CRODashboardProps {
 export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [clients, setClients] = useState<any[]>([])
   const [clients1, setClients1] = useState<any[]>([])
+  const [cas1, setCas1] = useState<any[]>([])
   const [teamLeads, setTeamLeads] = useState<any[]>([])
   const [selectedTeamLead, setSelectedTeamLead] = useState("all")
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split("T")[0])
@@ -920,10 +921,20 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       const { data, error } = await supabase
         .from("clients")
         .select("*")
-      if (!error && data) setClients1(data) 
+      if (!error && data) setClients1(data)
     }
     fetchClients()
-  }, [])  
+  }, [])
+  useEffect(() => {
+    const fetchCAs = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .in("role", ["CA", "Junior CA"])
+      if (!error && data) setCas1(data)
+    }
+    fetchCAs()
+  }, [])
 
   // --- Optimized Performance Metrics ---
   useEffect(() => {
@@ -938,9 +949,9 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
       // Fetch all work_logs in one query
       const { data: logs, error } = await supabase
-        .from("work_logs")
-        .select("work_done_by, emails_sent, jobs_applied, status")
-        .in("work_done_by", caIds)
+        .from("clients")
+        .select("assigned_ca_id, work_done_by, emails_submitted, jobs_applied, status")
+        .in("assigned_ca_id", caIds)
         .eq("date", today)
 
       if (error) {
@@ -948,17 +959,23 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         return
       }
 
+      
+      
       // Aggregate results
       const performance: Record<string, any> = {}
       for (const ca of cas) {
+        const { data: logs1, error: error1 } = await supabase
+          .from("work_history")
+          .select("work_done_by, emails_submitted, jobs_applied, status,incentives")
+          .eq("work_done_by", ca.id)
         const caLogs = logs?.filter((log) => log.work_done_by === ca.id) || []
         if (caLogs.length > 0) {
-          const totalEmails = caLogs.reduce((sum, l) => sum + (l.emails_sent || 0), 0)
+          const totalEmails = caLogs.reduce((sum, l) => sum + (l.emails_submitted || 0), 0)
           const totalJobs = caLogs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0)
           const lastStatus = caLogs[caLogs.length - 1].status
-          performance[ca.id] = { ...ca, emails_sent: totalEmails, jobs_applied: totalJobs, status: lastStatus }
+          performance[ca.id] = { ...ca, emails_submitted: totalEmails, jobs_applied: totalJobs, status: lastStatus }
         } else {
-          performance[ca.id] = { ...ca, emails_sent: 0, jobs_applied: 0, status: "Not Yet Started" }
+          performance[ca.id] = { ...ca, emails_submitted: 0, jobs_applied: 0, status: "Not Yet Started" }
         }
       }
       setCaPerformance(performance)
@@ -992,10 +1009,119 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       }, 1500)
     }, 1500)
   }
-  console.log("clients", clients)
 
+  // const handleReset = async () => {
+  //   cas1.forEach(async (ca) => {
+  //     const { data: logData, error: logError } = await supabase
+  //       .from("clients")     
+  //       .select(
+  //         'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'   
+  //       )
+  //       .eq("assigned_ca_id", ca.id) 
+
+  //     if (logError) {
+  //       alert(`Error logging reset data: ${logError.message}`)
+  //       return
+  //     } 
+
+
+  //     let date = new Date().toISOString().split("T")[0]; 
+  //     const { error: logInsertError } = await supabase
+  //       .from("work_history")
+  //       .insert({
+  //         date: date,
+  //         ca_id: ca.id,
+  //         ca_name: ca.name,
+  //         completed_profiles:logData
+  //       })
+  //     if (logInsertError) {
+  //       alert(`Error logging reset data: `)
+  //       console.error("Error logging reset data:", logInsertError)
+  //       return    
+  //     }
+  //     else {
+  //       console.log("ca name:", ca.name);
+  //       console.log("Reset data logged successfully:", logData);
+  //     }   
+  //   })
+
+  //   // Reset all clients data
+
+
+  //   clients1.forEach(async (client) => { 
+  //     // Reset client data
+  //     const { error: resetError } = await supabase
+  //       .from("clients")
+  //       .update({
+  //         status: "Not Started",
+  //         emails_submitted: 0,
+  //         jobs_applied: 0,
+  //         work_done_by: null,
+  //         start_time: null,
+  //         end_time: null,
+  //         remarks: null,
+  //         date: new Date().toISOString().split("T")[0],
+  //       }).eq("id", client.id)
+
+  //     if (resetError) {
+  //       alert(`Error Resetting daily data: `)
+  //       return
+  //     }
+  //   })
+
+  //   alert("Reset today's data successfully!")
+  // }
   const handleReset = async () => {
-    clients1.forEach(async (client) => {
+    // ✅ First loop: Process all CAs one by one
+    for (const ca of cas1) {
+      const { data: logData, error: logError } = await supabase
+        .from("clients")
+        .select(
+          'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+        )
+        .eq("work_done_by", ca.id)
+
+      if (logError) {
+        alert(`Error logging reset data: ${logError.message}`)
+        return
+      }
+
+      let date = new Date().toISOString().split("T")[0];
+      let noofprofiles = logData.length<=2 ?0:logData.length-2;
+
+      const { error: logInsertError } = await supabase
+        .from("work_history")
+        .insert({
+          date: date,
+          ca_id: ca.id,
+          ca_name: ca.name,
+          completed_profiles: logData,
+          incentives: noofprofiles,
+        })
+
+      if (logInsertError) {
+        alert("Error logging reset data")
+        console.error("Error logging reset data:", logInsertError)
+        return
+      } else {
+        console.log("ca name:", ca.name)
+      }
+      const { data: caData, error: caResetError } = await supabase
+        .from("work_history")
+        .select('id,date, ca_id, ca_name, completed_profiles')
+        .eq("ca_id", ca.id)
+      if (caResetError) {
+        alert("Error fetching CA reset data")
+        return
+      } else {
+        console.log("CA reset data fetched successfully:", caData)
+      }
+    }
+
+    // ✅ Second loop: Reset all client data AFTER CAs loop completes
+    for (const client of clients1) {
+      const currentDate = new Date().toISOString().split("T")[0];
+      console.log("Resetting with date:", currentDate);
       const { error: resetError } = await supabase
         .from("clients")
         .update({
@@ -1006,44 +1132,17 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           start_time: null,
           end_time: null,
           remarks: null,
-        }).eq("id", client.id)
-        
-        if (resetError) {
-          alert(`Error Resetting daily data: ${resetError.message}`)
-          return
-        }
-      })
-      
-      alert("Reset today's data successfully!")
+          date: currentDate,
+        })
+        .eq("id", client.id)
+
+      if (resetError) {
+        alert("Error resetting daily data")
+        return
+      }
     }
-
-  // const handleReset = async () => {
-  //   try {
-  //     // if you want to reset ALL clients in one query (faster & better):
-  //     const { error } = await supabase
-  //       .from("clients")
-  //       .update({
-  //         status: "Not Started",
-  //         emails_submitted: 0,
-  //         jobs_applied: 0,
-  //         work_done_by: null,
-  //         start_time: null,
-  //         end_time: null,
-  //         remarks: null,
-  //       })
-  //       .in("id", clients.map((c) => c.id)); // update only loaded clients
-
-  //     if (error) {
-  //       alert(`Error Resetting daily data: ${error.message}`);
-  //       return;
-  //     }
-
-  //     alert("Reset today's data successfully!");
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Unexpected error while resetting data.");
-  //   }
-  // };
+    alert("Reset today's data successfully!")
+  }
 
 
 
@@ -1182,7 +1281,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                       <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
                     </div>
                     <div className="flex gap-4">
-                      <Badge variant="secondary">Email Received: {ca.emails_sent}</Badge>
+                      <Badge variant="secondary">Incentives :  {ca.emails_submitted}</Badge>
+                      <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                       <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                       <Badge
                         variant={
