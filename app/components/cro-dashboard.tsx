@@ -925,41 +925,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     fetchClients()
   }, [])  
 
-  // --- Performance Metrics for Each CA ---
-  // useEffect(() => {
-  //   const fetchCAData = async () => {
-  //     const today = new Date().toISOString().split("T")[0]
-  //     const performance: Record<string, any> = {}
-
-  //     for (const ca of cas) {
-  //       const { data: logs } = await supabase
-  //         .from("work_logs")
-  //         .select("emails_sent, jobs_applied, status")
-  //         .eq("work_done_by", ca.id)
-  //         .eq("date", today)
-
-  //       if (logs && logs.length > 0) {
-  //         const totalEmails = logs.reduce((sum, l) => sum + (l.emails_sent || 0), 0)
-  //         const totalJobs = logs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0)
-  //         performance[ca.id] = {
-  //           ...ca,
-  //           emails_sent: totalEmails,
-  //           jobs_applied: totalJobs,
-  //           status: logs[logs.length - 1].status,
-  //         }
-  //       } else {
-  //         performance[ca.id] = {
-  //           ...ca,
-  //           emails_sent: 0,
-  //           jobs_applied: 0,
-  //           status: "Not Yet Started",
-  //         }
-  //       }
-  //     }
-  //     setCaPerformance(performance)
-  //   }
-  //   if (cas.length > 0) fetchCAData()
-  // }, [cas, dateFrom, dateTo])
   // --- Optimized Performance Metrics ---
   useEffect(() => {
     const fetchCAData = async () => {
