@@ -794,6 +794,8 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
         emails_submitted: emailsSent ?? 0,
         jobs_applied: jobsApplied ?? 0,
         last_update: new Date().toISOString().split("T")[0],
+        work_done_by: user.id,
+        remarks: reason || "",
       })
       .eq("id", clientId)
 
@@ -801,40 +803,39 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
       alert(`Error updating client: ${updateError.message}`)
       return
     }
-
-    // 2) Insert work log in Supabase
-    if (newStatus === "Started") {
-      const { error: logError } = await supabase.from("work_logs").insert([
-        {
-          client_id: clientId,
-          work_done_by: user.id, // CA logged in
-          date: new Date().toISOString().split("T")[0],
-          emails_sent: 0,
-          jobs_applied: 0,
-          status: newStatus,
-          remarks: reason || "",
-        },
-      ])
+    if (newStatus === 'Started') {
+      // 2) Update clients table in Supabase
+      const { error: logError } = await supabase.from("clients").update({
+        start_time: new Date().toISOString(),
+      }).eq("id", clientId)
       if (logError) {
         alert(`Error logging work: ${logError.message}`)
         return
       }
-    }else if (newStatus === "Paused" || newStatus === "Completed") {
-      const { error: logError } = await supabase.from("work_logs").update([
-        {
-          work_done_by: user.id, // CA logged in
-          date: new Date().toISOString().split("T")[0],
-          emails_sent: emailsSent ?? 0,
-          jobs_applied: jobsApplied ?? 0,
-          status: newStatus,
-          remarks: reason || "",
-        },
-      ]).eq("client_id", clientId)
+    }
+    if (newStatus === 'Completed') {
+      const { error: logError } = await supabase.from("clients").update({
+        end_time: new Date().toISOString(),
+      }).eq("id", clientId)
       if (logError) {
         alert(`Error logging work: ${logError.message}`)
         return
-      }     
+      }
     }
+
+    // 2) Update clients table in Supabase
+    // const { error: logError } = await supabase.from("clients").update([
+    //   {
+    //     work_done_by: user.id, // CA logged in
+    //     emails_submitted: emailsSent ?? 0,
+    //     jobs_applied: jobsApplied ?? 0,
+    //     status: newStatus,
+    //   },
+    // ]).eq("id", clientId)
+    // if (logError) {
+    //   alert(`Error logging work: ${logError.message}`)
+    //   return
+    // }
 
 
 
@@ -1143,10 +1144,13 @@ function StatusUpdateForm({
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Not Started">Not Started</SelectItem>
-            <SelectItem value="Started">Started</SelectItem>
-            <SelectItem value="Paused">Paused</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
+            
+                <SelectItem value="Not Started">Not Started</SelectItem>
+                <SelectItem value="Started">Started</SelectItem>
+              
+                <SelectItem value="Paused">Paused</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+             
           </SelectContent>
         </Select>
       </div>
