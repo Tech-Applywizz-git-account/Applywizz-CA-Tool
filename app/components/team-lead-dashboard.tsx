@@ -863,7 +863,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     fetchTeamData()
   }, [user.id])
 
-  const caOptions = [{ value: "all", label: "All CAs" }, ...teamMembers.map((m) => ({ value: m.id, label: m.name }))]
+  const caOptions = [{ value: "all", label: "All Clients" }, ...teamMembers.map((m) => ({ value: m.id, label: m.name }))]
 
   const filteredClients = selectedCA === "all" ? clients : clients.filter((c) => c.assigned_ca_id === selectedCA)
 
@@ -893,7 +893,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
         <div className="flex gap-4 mb-6">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Select CA</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">Select Client</label>
             <Select value={selectedCA} onValueChange={setSelectedCA}>
               <SelectTrigger className="w-48">
                 <SelectValue />
