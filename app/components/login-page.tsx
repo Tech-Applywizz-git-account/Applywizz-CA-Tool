@@ -124,11 +124,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true)
 
     // Check static demo password
-    if (password !== "created@123") {
-      alert("Invalid password. Use created@123 for demo login.")
-      setLoading(false)
-      return
-    }
+    // if (password !== "created@123") {
+    //   alert("Invalid password. Use created@123 for demo login.")
+    //   setLoading(false)
+    //   return
+    // }
 
     // Fetch user from Supabase users table
     const { data: user, error } = await supabase

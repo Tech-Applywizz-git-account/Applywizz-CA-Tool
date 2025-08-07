@@ -648,8 +648,10 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [trackingMode, setTrackingMode] = useState<"daily" | "monthly">("daily")
-  const [dateFrom, setDateFrom] = useState("2024-01-29")
-  const [dateTo, setDateTo] = useState("2024-01-29")
+  const today = new Date().toISOString().split("T")[0]
+  const [dateFrom, setDateFrom] = useState(today)
+  const [dateTo, setDateTo] = useState(today)
+
 
   // ---------------------- NEW STATES FOR DB DATA ----------------------
   const [clients, setClients] = useState<any[]>([]) // fetch from Supabase
@@ -921,13 +923,13 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                 >
                   Daily Tracking
                 </Button>
-                <Button
+                {/* <Button
                   variant={trackingMode === "monthly" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTrackingMode("monthly")}
                 >
                   Monthly Tracking
-                </Button>
+                </Button> */}
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-sm">From:</Label>
@@ -1139,7 +1141,7 @@ function StatusUpdateForm({
         <Label htmlFor="status" className="text-sm font-medium">
           New Status
         </Label>
-        <Select value={status} onValueChange={setStatus}>
+        {/* <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -1152,7 +1154,26 @@ function StatusUpdateForm({
                 <SelectItem value="Completed">Completed</SelectItem>
              
           </SelectContent>
+        </Select> */}
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {client?.status === "Started" ? (
+              <>
+                <SelectItem value="Paused">Paused</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </>
+            ) : (
+              <>
+                <SelectItem value="Not Started">Not Started</SelectItem>
+                <SelectItem value="Started">Started</SelectItem>
+              </>
+            )}
+          </SelectContent>
         </Select>
+
       </div>
 
       {(status === "Paused" || status === "Completed") && (

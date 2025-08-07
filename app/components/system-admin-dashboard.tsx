@@ -622,27 +622,71 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
     fetchUsers();
   }, []);
 
+  // const handleAddUser = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   const { error } = await supabase.from("users").insert([
+  //     {
+  //       name: formData.name,
+  //       email: formData.email,
+  //       role: formData.role,
+  //       department: formData.department,
+  //       isactive: true,
+  //       date_created: new Date().toISOString(),
+  //       last_login: null,
+  //     },
+  //   ]);
+  //   if (error) alert(`Error adding user: ${error.message}`);
+  //   else {
+  //     fetchUsers();
+  //     setAddUserOpen(false);
+  //     resetForm();
+  //   }
+  // };
+
   const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { error } = await supabase.from("users").insert([
+  e.preventDefault();
+
+  // Call API route
+  const res = await fetch("/api/create-user", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: formData.email,
+      password: "Temp@123" // default temporary password
+    }),
+  });
+ 
+
+  const result = await res.json();
+  if (res.ok) {
+    alert("User created. Verification mail sent!");
+    // Insert user details in your `users` table as before
+    const{data:v,error:e}=await supabase.from("users").insert(
       {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        designation: formData.role,
         department: formData.department,
         isactive: true,
-        date_created: new Date().toISOString(),
-        last_login: null,
-      },
-    ]);
-    if (error) alert(`Error adding user: ${error.message}`);
+        created_at: new Date().toISOString(),
+        base_salary: null,
+        // work_log: null,
+      }
+    );
+    if(e) alert(`Error adding user: ${e.message}`);
     else {
-      fetchUsers();
-      setAddUserOpen(false);
-      resetForm();
+      alert("User details added successfully!");
     }
-  };
+    fetchUsers();
+    setAddUserOpen(false);
+    resetForm();
+  } else {
+    alert(`Error: ${result.error}`);
+  }
+};
 
+  
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase
@@ -652,6 +696,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
         email: formData.email,
         role: formData.role,
         department: formData.department,
+        designation:formData.role,
         isactive: formData.isactive,
       })
       .eq("id", selectedUser.id);
