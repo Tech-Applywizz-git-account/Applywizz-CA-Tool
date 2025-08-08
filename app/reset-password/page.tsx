@@ -232,7 +232,7 @@ export default function ResetPasswordPage() {
 
     setLoading(false)
     alert("Password reset successfully!")
-    router.push("/")
+    router.push("/login")
   }
 
   return (
