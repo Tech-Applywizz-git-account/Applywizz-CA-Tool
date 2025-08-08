@@ -857,7 +857,11 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [importStatus, setImportStatus] = useState("")
   const [cas, setCas] = useState<any[]>([])
   const [caPerformance, setCaPerformance] = useState<Record<string, any>>({})
+  const [caPerformance1, setCaPerformance1] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(false)
+  // --- NEW STATES FOR ACCORDION ---
+  const [expandedCA, setExpandedCA] = useState<string | null>(null)
+  const [caClients, setCaClients] = useState<Record<string, any[]>>({})
 
   // --- Fetch Team Leads ---
   useEffect(() => {
@@ -941,6 +945,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     const fetchCAData = async () => {
       if (cas.length === 0) {
         setCaPerformance({})
+        setCaPerformance1({})
         return
       }
 
@@ -951,37 +956,88 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       const { data: logs, error } = await supabase
         .from("clients")
         .select("assigned_ca_id, work_done_by, emails_submitted, jobs_applied, status")
-        .in("assigned_ca_id", caIds)
+        .in("work_done_by", caIds)
         .eq("date", today)
 
       if (error) {
         console.error("Error fetching work logs:", error)
         return
+      } else {
+        console.log('viv', logs)
+        console.log('viv1', new Date().toISOString().split("T")[0])
       }
 
-      
-      
+      const { data: data1, error: error1 } = await supabase
+        .from("work_history")
+        .select(`
+          ca_id,
+          date,
+          completed_profiles 
+          `)
+        .in("ca_id", caIds)
+        .gte("date", dateFrom)
+        .lte("date", dateTo)
+      if (!error1 && data1) console.log('vivek', data1)
+      const workingDays = [...new Set(data1?.map(item => item.date))].length;
+      console.log('bhan', workingDays)
+
+
+
       // Aggregate results
       const performance: Record<string, any> = {}
       for (const ca of cas) {
-        const { data: logs1, error: error1 } = await supabase
-          .from("work_history")
-          .select("work_done_by, emails_submitted, jobs_applied, status,incentives")
-          .eq("work_done_by", ca.id)
+        // const { data: logs1, error: error1 } = await supabase
+        //   .from("work_history")
+        //   .select("work_done_by, emails_submitted, jobs_applied, status,incentives")
+        //   .eq("work_done_by", ca.id)
         const caLogs = logs?.filter((log) => log.work_done_by === ca.id) || []
         if (caLogs.length > 0) {
           const totalEmails = caLogs.reduce((sum, l) => sum + (l.emails_submitted || 0), 0)
           const totalJobs = caLogs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0)
           const lastStatus = caLogs[caLogs.length - 1].status
-          performance[ca.id] = { ...ca, emails_submitted: totalEmails, jobs_applied: totalJobs, status: lastStatus }
+          // performance[ca.id] = { ...ca, emails_submitted: totalEmails, jobs_applied: totalJobs, status: lastStatus }
+          performance[ca.id] = { ...ca, emails_submitted: totalEmails, jobs_applied: totalJobs, status: lastStatus, incentives: 0 }
         } else {
-          performance[ca.id] = { ...ca, emails_submitted: 0, jobs_applied: 0, status: "Not Yet Started" }
+          // performance[ca.id] = { ...ca, emails_submitted: 0, jobs_applied: 0, status: "Not Yet Started" }
+          performance[ca.id] = { ...ca, emails_submitted: 0, jobs_applied: 0, status: "Not Yet Started", incentives: 0 }
         }
       }
       setCaPerformance(performance)
+      const performance1: Record<string, any> = {}
+      for (const ca of cas) {
+
+        const cadata = data1?.filter((data) => data.ca_id === ca.id) || []
+        if (cadata.length > 0) {
+          const totalProfile = cadata.reduce((sum, l) => sum + (l.completed_profiles.length || 0), 0)
+          const incentive = (totalProfile - (2 * workingDays) < 0 ? 0 : totalProfile - (2 * workingDays))
+          const totalWorkingdays = workingDays
+
+          performance1[ca.id] = { ...ca, incentives: incentive, totalProfiles: totalProfile, totalWorkingDays: totalWorkingdays }
+        } else {
+          performance1[ca.id] = { ...ca, incentives: 0 }
+        }
+      }
+      setCaPerformance1(performance1)
+      console.log('caPerformance1', caPerformance1)
     }
     fetchCAData()
   }, [cas, dateFrom, dateTo])
+
+  //Added new function here
+
+  const fetchClientsForCA = async (caId: string) => {
+    if (caClients[caId]) {
+      setExpandedCA(expandedCA === caId ? null : caId)
+      return
+    }
+    const { data, error } = await supabase.from("clients").select("*").eq("assigned_ca_id", caId)
+    if (error) {
+      console.error("Error fetching clients:", error)
+      return
+    }
+    setCaClients((prev) => ({ ...prev, [caId]: data || [] }))
+    setExpandedCA(caId)
+  }
 
 
 
@@ -1087,7 +1143,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       }
 
       let date = new Date().toISOString().split("T")[0];
-      let noofprofiles = logData.length<=2 ?0:logData.length-2;
+      let noofprofiles = logData.length <= 2 ? 0 : logData.length - 2;
 
       const { error: logInsertError } = await supabase
         .from("work_history")
@@ -1258,49 +1314,123 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
         </div>
 
-        {
-          loading && (
-            <div className="text-center my-4 text-blue-600 font-semibold text-lg">
-              Loading...
-            </div>
-          )
-        }
+        {dateFrom === new Date().toISOString().split("T")[0] && dateTo === new Date().toISOString().split("T")[0] &&
+          <>
 
-        {/* CA List */}
-        {!loading && (
-          <Card>
-            <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
-            <CardContent>
-              {/* CA List content here */}
+            {
+              loading && (
+                <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+                  Loading...
+                </div>
+              )
+            }
 
-              <div className="space-y-3">
-                {Object.values(caPerformance).map((ca: any) => (
-                  <div key={ca.id} className="flex items-center justify-between p-4 rounded-lg border bg-white">
-                    <div>
-                      <h3 className="font-semibold">{ca.name}</h3>
-                      <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
-                    </div>
-                    <div className="flex gap-4">
-                      <Badge variant="secondary">Incentives :  {ca.emails_submitted}</Badge>
-                      <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
-                      <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
-                      <Badge
-                        variant={
-                          ca.status === "Completed" ? "default"
-                            : ca.status === "Paused" ? "secondary"
-                              : ca.status === "Started" ? "outline"
-                                : "destructive"
-                        }
-                      >
-                        {ca.status}
-                      </Badge>
-                    </div>
+            {/* CA List */}
+            {!loading && (
+              <Card>
+                <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
+                <CardContent>
+                  {/* CA List content here */}
+
+                  <div className="space-y-3">
+                    {Object.values(caPerformance).map((ca: any) => (
+                      <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
+                        {/* CA Card Summary */}
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer"
+                          onClick={() => fetchClientsForCA(ca.id)}
+                        >
+                          <div>
+                            <h3 className="font-semibold">{ca.name}</h3>
+                            <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                          </div>
+                          <div className="flex gap-4">
+                            <Badge variant="secondary">Incentives : {ca.emails_submitted}</Badge>
+                            <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
+                            <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
+                          </div>
+                        </div>
+
+                        {/* Expanded Clients Section */}
+                        {expandedCA === ca.id && (
+                          <div className="p-4 bg-slate-50 border-t">
+                            {caClients[ca.id]?.length > 0 ? (
+                              <ul className="space-y-2">
+                                {caClients[ca.id].map((client) => (
+                                  <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
+                                    <div>
+                                      <p className="font-medium">{client.name}</p>
+                                      <p className="text-sm text-slate-600">{client.email}</p>
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                      <Badge>{client.status}</Badge>
+                                      <Badge variant="secondary">Emails: {client.emails_submitted}</Badge>
+                                      <Badge variant="secondary">Jobs: {client.jobs_applied}</Badge>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-slate-500">No clients assigned.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
+                </CardContent>
+              </Card>
+            )}
+
+          </>
+        }
+        {/* {(dateFrom !== new Date().toISOString().split("T")[0] || dateTo !== new Date().toISOString().split("T")[0]) &&
+          <>
+
+            {
+              loading && (
+                <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+                  Loading...
+                </div>
+              )
+            }
+
+            {/* CA List * /}
+            {!loading && (
+              <Card>
+                <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
+                <CardContent>
+                  {/* CA List content here * /}
+                  <div className="space-y-3">
+                    {Object.values(caPerformance1).map((ca: any) => (
+
+                      <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
+                        {/* CA Card Summary * /}
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer"
+                          onClick={() => fetchClientsForCA(ca.id)}
+                        >
+                          <div>
+                            <h3 className="font-semibold">{ca.name}</h3>
+                            <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                          </div>
+                          <div className="flex gap-4">
+                            <Badge variant="secondary">Total profiles : {ca.totalProfiles}</Badge>
+                            <Badge variant="secondary">Incentives : {ca.incentives}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+          </>
+        } */}
       </div>
     </div>
   )

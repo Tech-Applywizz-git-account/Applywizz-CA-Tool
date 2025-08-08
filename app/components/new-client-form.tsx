@@ -423,11 +423,12 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [selectedCA, setSelectedCA] = useState("")
   // const [designation, setDesignation] = useState("Junior CA")
-    const [role, setRole] = useState("Junior CA")
+  const [role, setRole] = useState("Junior CA")
 
   const [salary, setSalary] = useState<number>(6000)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [clientDesignation, setClientDesignation] = useState("")
   const [status, setStatus] = useState("Not Started")
   const [emailsRequired, setEmailsRequired] = useState(50)
   const [loading, setLoading] = useState(false)
@@ -457,7 +458,10 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
         name,
         email,
         assigned_ca_id: selectedCA,
+        assigned_ca_name: ca.name,
         team_id: ca.team_id,
+        // team_lead_name: ca.team_id,
+        client_designation: clientDesignation,
         status,
         emails_required: emailsRequired,
         emails_submitted: 0,
@@ -488,6 +492,15 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div><Label>Client Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
       <div><Label>Client Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+      <div>
+        <Label>Client Designation</Label>
+        <Input
+          value={clientDesignation}
+          onChange={(e) => setClientDesignation(e.target.value)}
+          placeholder="e.g., Software Engineer"
+          required
+        />
+      </div>
       <div>
         <Label>Assigned CA</Label>
         <Select value={selectedCA} onValueChange={setSelectedCA}>
