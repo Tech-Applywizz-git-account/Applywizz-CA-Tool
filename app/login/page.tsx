@@ -140,6 +140,8 @@
 //   )
 // }
 
+//app/login/page.tsx
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -181,7 +183,7 @@ export default function LoginPage() {
         router.push("/team-lead-dashboard")
         break
       case "Admin":
-      case "SYSTEM":
+      case "Admin":
         router.push("/system-admin-dashboard")
         break
       case "CA":

@@ -297,6 +297,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="CRO">CRO</SelectItem>
                       <SelectItem value="COO">COO</SelectItem>
                       <SelectItem value="CEO">CEO</SelectItem>
+                      <SelectItem value="Admin">System Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -365,6 +366,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="CRO">CRO</SelectItem>
                             <SelectItem value="COO">COO</SelectItem>
                             <SelectItem value="CEO">CEO</SelectItem>
+                            <SelectItem value="Admin">System Admin</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -577,6 +579,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="CRO">CRO</SelectItem>
                       <SelectItem value="COO">COO</SelectItem>
                       <SelectItem value="CEO">CEO</SelectItem>
+                      <SelectItem value="Admin">System Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

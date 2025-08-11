@@ -1175,7 +1175,6 @@ function StatusUpdateForm({
         </Select>
 
       </div>
-
       {(status === "Paused" || status === "Completed") && ( // Add this condition
         <>
           <div className="grid grid-cols-2 gap-4">
