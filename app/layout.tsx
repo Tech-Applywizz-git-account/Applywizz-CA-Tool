@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "ApplyWizz CA Performance Tracker",
   description: "Track performance and incentives for Career Associates",
-    generator: 'v0.dev'
+    generator: 'Applywizz'
 }
 
 export default function RootLayout({
