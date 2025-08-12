@@ -1,75 +1,56 @@
-//app/api/login/page
-
 "use client"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 
-type AppUser = {
-  id: string
-  email: string
-  name?: string | null
-  role?: string | null
-  designation?: string | null
-  team_id?: string | null
-  department?: string | null
-  isactive?: boolean | null
-}
-
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  const router = useRouter()
+
+  // Auto-redirect if already logged in
   useEffect(() => {
-    // If we already have a valid Supabase session, fetch profile and redirect
-    const checkSession = async () => {
-      const { data: sessionRes } = await supabase.auth.getSession()
-      if (!sessionRes.session) return
-
-      // Use the authed email to look up profile in public.users
-      const userEmail = sessionRes.session.user.email
-      if (!userEmail) return
-
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", userEmail)
-        .maybeSingle()
-
-      if (error || !user) return
-      redirectByRole(user as AppUser)
+    const savedUser = localStorage.getItem("loggedInUser")
+    if (savedUser) {
+      const user = JSON.parse(savedUser)
+      redirectByRole(user)
     }
-
-    checkSession()
-    // Also react to session changes while this page is mounted
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
-      // optional: could re-check session here if needed
-    })
-    return () => sub.subscription.unsubscribe()
   }, [])
 
-  const redirectByRole = (user: AppUser) => {
+  // Role-based redirect function
+  const redirectByRole = (user: any) => {
     const role = user.designation || user.role
+
     switch (role) {
       case "CEO":
-        router.push("/ceo-dashboard"); break
+        router.push("/ceo-dashboard")
+        break
       case "COO":
-        router.push("/coo-dashboard"); break
+        router.push("/coo-dashboard")
+        break
       case "CRO":
-        router.push("/cro-dashboard"); break
+        router.push("/cro-dashboard")
+        break
       case "Team Lead":
-        router.push("/team-lead-dashboard"); break
+        router.push("/team-lead-dashboard")
+        break
       case "Admin":
-        router.push("/system-admin-dashboard"); break
+      case "SYSTEM":
+        router.push("/system-admin-dashboard")
+        break
       case "CA":
       case "Junior CA":
-        router.push("/ca-dashboard"); break
+        router.push("/ca-dashboard")
+        break
       default:
-        alert("Unknown role/designation. Please contact an admin.")
+        alert("Unknown role. Cannot redirect.")
+        localStorage.removeItem("loggedInUser")
+        router.push("/login")
+        break
     }
   }
 
@@ -77,34 +58,23 @@ export default function LoginPage() {
   //   e.preventDefault()
   //   setLoading(true)
 
-  //   // 1) Real Supabase sign-in (no hardcoded password)
-  //   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  //   if (error || !data.session) {
-  //     setLoading(false)
-  //     alert(error?.message || "Invalid email or password.")
-  //     return
-  //   }
 
-  //   // 2) Fetch profile row from public.users (source of truth for role/team)
-  //   const { data: profile, error: profileErr } = await supabase
+  //   const { data: user, error } = await supabase
   //     .from("users")
   //     .select("*")
   //     .eq("email", email)
-  //     .maybeSingle()
+  //     .single()
 
-  //   setLoading(false)
-
-  //   if (profileErr || !profile) {
-  //     // Optional: sign out if we can’t map to a profile row
-  //     await supabase.auth.signOut()
-  //     alert("No matching user profile found. Please contact an admin.")
+  //   if (error || !user) {
+  //     alert("User not found. Please use a valid demo email.")
+  //     setLoading(false)
   //     return
   //   }
 
-  //   // 3) Role-based redirect
-  //   redirectByRole(profile as AppUser)
+  //   localStorage.setItem("loggedInUser", JSON.stringify(user))
+  //   redirectByRole(user)
+  //   setLoading(false)
   // }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -143,7 +113,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white shadow-lg rounded-lg p-8 w-full lg:max-w-md">
+      <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-center text-blue-600 mb-2">ApplyWizz</h1>
         <p className="text-center text-gray-600 mb-6">Career Associate Management Platform</p>
 
@@ -152,15 +122,13 @@ export default function LoginPage() {
             <label className="block text-sm font-medium mb-1">Email</label>
             <input
               type="email"
-              placeholder="you@applywizz.com"
+              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border rounded p-2"
               required
-              autoComplete="username"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
             <div className="relative">
@@ -171,7 +139,6 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border rounded p-2 pr-12"
                 required
-                autoComplete="current-password"
               />
               <span
                 onClick={() => setShowPassword(!showPassword)}
@@ -181,7 +148,6 @@ export default function LoginPage() {
               </span>
             </div>
           </div>
-
           <button
             type="submit"
             disabled={loading}
@@ -191,11 +157,15 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-sm text-gray-500">
-          <p className="mb-2">
-            New user? Please use the invite link from your email to set your password first.
-          </p>
-        </div>
+        {/* <div className="mt-6 text-sm text-gray-500">
+          <p className="font-semibold mb-1">Demo Credentials:</p>
+          <p>CA: ca1@applywizz.com / created@123</p>
+          <p>Team Lead: teamlead1@applywizz.com / created@123</p>
+          <p>CRO: cro@applywizz.com / created@123</p>
+          <p>COO: coo@applywizz.com / created@123</p>
+          <p>CEO: ceo@applywizz.com / created@123</p>
+          <p>Admin: admin@applywizz.com / created@123</p>
+        </div> */}
       </div>
     </div>
   )
