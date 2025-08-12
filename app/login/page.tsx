@@ -10,6 +10,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  // 👇 ADD these two lines after: const [showPassword, setShowPassword] = useState(false)
+  const [showReset, setShowReset] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+
+
   const router = useRouter()
 
   // Auto-redirect if already logged in
@@ -20,6 +25,12 @@ export default function LoginPage() {
       redirectByRole(user)
     }
   }, [])
+
+  // 👇 ADD: keep the resetEmail synced with login email
+  useEffect(() => {
+    setResetEmail(email)
+  }, [email])
+
 
   // Role-based redirect function
   const redirectByRole = (user: any) => {
@@ -54,27 +65,6 @@ export default function LoginPage() {
     }
   }
 
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   setLoading(true)
-
-
-  //   const { data: user, error } = await supabase
-  //     .from("users")
-  //     .select("*")
-  //     .eq("email", email)
-  //     .single()
-
-  //   if (error || !user) {
-  //     alert("User not found. Please use a valid demo email.")
-  //     setLoading(false)
-  //     return
-  //   }
-
-  //   localStorage.setItem("loggedInUser", JSON.stringify(user))
-  //   redirectByRole(user)
-  //   setLoading(false)
-  // }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -109,6 +99,52 @@ export default function LoginPage() {
     redirectByRole(user)
     setLoading(false)
   }
+
+  // 👇 ADD: send password reset email via Supabase
+
+  const sendResetEmail = async () => {
+    const candidate = resetEmail.trim()
+    if (!candidate) {
+      alert("Please enter your email.")
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // 1) Check existence in public.users (case-insensitive exact match)
+      const { data: existingUser, error: findErr } = await supabase
+        .from("users")
+        .select("id")
+        .ilike("email", candidate)  // case-insensitive exact match
+        .maybeSingle()
+
+      if (findErr) {
+        alert(findErr.message || "Could not verify email. Please try again.")
+        return
+      }
+      if (!existingUser) {
+        alert("No account found with this email.")
+        return
+      }
+
+      // 2) Send reset email that lands on /reset-password
+      const redirectTo = `${window.location.origin}/reset-password` // allow this in Supabase Auth > URL Configuration
+      const { error } = await supabase.auth.resetPasswordForEmail(candidate, { redirectTo })
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      alert("Password reset email sent. Please check your inbox.")
+      setShowReset(false)
+    } catch (e: any) {
+      alert(e?.message || "Something went wrong sending the reset email.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
 
   return (
@@ -155,6 +191,47 @@ export default function LoginPage() {
           >
             {loading ? "Signing In..." : "Sign In"}
           </button>
+          <div className="flex items-center justify-end text-sm">
+            <button
+              type="button"
+              className="text-blue-600 hover:underline"
+              onClick={() => setShowReset(true)}
+            >
+              Forgot password?
+            </button>
+          </div>
+          {/* 👇 ADD: Minimal reset modal */}
+          {showReset && (
+            <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
+                <h2 className="text-lg font-semibold mb-2">Reset your password</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Enter your account email. We’ll send you a reset link.
+                </p>
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  className="w-full border rounded p-2 mb-4"
+                  placeholder="you@example.com"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setShowReset(false)}
+                    className="px-3 py-2 rounded border"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={sendResetEmail}
+                    className="px-3 py-2 rounded bg-blue-600 text-white"
+                  >
+                    Send link
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
 
         {/* <div className="mt-6 text-sm text-gray-500">
