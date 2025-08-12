@@ -32,6 +32,14 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
   const [filterStatus, setFilterStatus] = useState("all");
   const [teams, setTeams] = useState<any[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [bulkOpen, setBulkOpen] = useState(false);
+const [bulkFile, setBulkFile] = useState<File | null>(null);
+const [bulkLoading, setBulkLoading] = useState(false);
+const [bulkResult, setBulkResult] = useState<any | null>(null);
+
+
 
 
   const [formData, setFormData] = useState({
@@ -152,6 +160,8 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
     const result = await res.json();
     if (!res.ok) {
       alert(`Error: ${result.error}`);
+          setSubmitting(false); // stop loading
+
       return;
     }
 
@@ -160,7 +170,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
       .from("users")
       .insert({
         name: formData.name,
-        email: formData.email,
+        email: formData.email.toLowerCase(),
         role: formData.role,
         designation: formData.role,
         department: formData.department,
@@ -206,6 +216,8 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
     await fetchUsers();
     setAddUserOpen(false);
     resetForm();
+      setSubmitting(false); // back to normal
+
   };
 
 
@@ -256,17 +268,32 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
     setEditUserOpen(true);
   };
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === "all" || user.role === filterRole;
-    const matchesStatus =
-      filterStatus === "all" ||
-      (filterStatus === "Active" && user.isactive) ||
-      (filterStatus === "Inactive" && !user.isactive);
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  // const filteredUsers = users.filter((user) => {
+  //   const matchesSearch =
+  //     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     user.email.toLowerCase().includes(searchTerm.toLowerCase());
+  //   const matchesRole = filterRole === "all" || user.role === filterRole;
+  //   const matchesStatus =
+  //     filterStatus === "all" ||
+  //     (filterStatus === "Active" && user.isactive) ||
+  //     (filterStatus === "Inactive" && !user.isactive);
+  //   return matchesSearch && matchesRole && matchesStatus;
+  // });
+
+  const lc = (s: unknown) => (typeof s === "string" ? s.toLowerCase() : "");
+const q = lc(searchTerm);
+
+const filteredUsers = users.filter((u) => {
+  const matchesSearch = lc(u?.name).includes(q) || lc(u?.email).includes(q);
+  const matchesRole = filterRole === "all" || u?.role === filterRole;
+  const matchesStatus =
+    filterStatus === "all" ||
+    (filterStatus === "Active" && !!u?.isactive) ||
+    (filterStatus === "Inactive" && !u?.isactive);
+  return matchesSearch && matchesRole && matchesStatus;
+});
+
+
 
   const stats = {
     totalUsers: users.length,
@@ -488,9 +515,13 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       </Select>
                     </div>
                     <div className="flex gap-2">
-                      <Button type="submit" className="flex-1">
+                      {/* <Button type="submit" className="flex-1">
                         Add User
-                      </Button>
+                      </Button> */}
+                      <Button type="submit" className="flex-1" disabled={submitting}>
+  {submitting ? "Adding user..." : "Add User"}
+</Button>
+
                       <Button type="button" variant="outline" onClick={() => setAddUserOpen(false)}>
                         Cancel
                       </Button>
@@ -688,6 +719,104 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
             </form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+  <DialogTrigger asChild>
+    <Button variant="outline">Bulk Import CSV</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Bulk Import Users (CSV)</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-3">
+      <div className="text-sm text-slate-600">
+        Upload a CSV with headers:
+        <code className="ml-1 bg-slate-100 px-1 rounded">
+          name,email,role,department,isactive,team_lead_email
+        </code>
+        <div className="mt-1 text-xs">
+          • <b>email</b> is required and will be lowercased
+          <br />• <b>department</b> is optional (auto-set from role if empty)
+          <br />• <b>isactive</b> defaults to true
+          <br />• For CA/JCA, you may provide <b>team_lead_email</b> to auto-assign
+        </div>
+      </div>
+
+      <Input
+        type="file"
+        accept=".csv"
+        onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+      />
+
+      <div className="flex gap-2">
+        <Button
+          onClick={async () => {
+            if (!bulkFile) {
+              alert("Please choose a CSV file.");
+              return;
+            }
+            setBulkLoading(true);
+            setBulkResult(null);
+
+            const fd = new FormData();
+            fd.append("file", bulkFile);
+
+            const res = await fetch("/api/bulk-invite", {
+              method: "POST",
+              body: fd,
+            });
+
+            const json = await res.json();
+            setBulkLoading(false);
+
+            if (!res.ok) {
+              alert(json.error || "Bulk import failed");
+              return;
+            }
+
+            setBulkResult(json);
+            await fetchUsers(); // refresh table
+          }}
+          disabled={bulkLoading}
+        >
+          {bulkLoading ? "Importing..." : "Import & Send Invites"}
+        </Button>
+
+        <Button variant="outline" onClick={() => setBulkOpen(false)}>
+          Close
+        </Button>
+      </div>
+
+      {bulkResult && (
+        <div className="max-h-64 overflow-auto border rounded p-2">
+          <div className="text-sm font-medium mb-2">
+            Processed: {bulkResult.count}
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Message</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bulkResult.results.map((r: any, idx: number) => (
+                <TableRow key={idx}>
+                  <TableCell>{r.email}</TableCell>
+                  <TableCell className="capitalize">{r.status}</TableCell>
+                  <TableCell className="text-xs text-slate-600">{r.message || "-"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  </DialogContent>
+</Dialog>
+
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         // "http://localhost:3000/reset-password"
-        redirectTo: "https://applywizz-ca-management.vercel.app//reset-password"
+        redirectTo: "https://applywizz-ca-management.vercel.app/reset-password"
     });
 
 
