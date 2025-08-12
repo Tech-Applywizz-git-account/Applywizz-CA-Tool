@@ -142,7 +142,7 @@ export default function LoginPage() {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 m-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="bg-white shadow-lg rounded-lg p-8 w-full lg:max-w-md">
         <h1 className="text-3xl font-bold text-center text-blue-600 mb-2">ApplyWizz</h1>
         <p className="text-center text-gray-600 mb-6">Career Associate Management Platform</p>
