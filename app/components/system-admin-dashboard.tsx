@@ -69,32 +69,14 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
     fetchTeams(); // 🔥 call team fetch here
   }, []);
 
-  // const handleAddUser = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   const { error } = await supabase.from("users").insert([
-  //     {
-  //       name: formData.name,
-  //       email: formData.email,
-  //       role: formData.role,
-  //       department: formData.department,
-  //       isactive: true,
-  //       date_created: new Date().toISOString(),
-  //       last_login: null,
-  //     },
-  //   ]);
-  //   if (error) alert(`Error adding user: ${error.message}`);
-  //   else {
-  //     fetchUsers();
-  //     setAddUserOpen(false);
-  //     resetForm();
-  //   }
-  // };
+
   const fetchTeams = async () => {
     const { data, error } = await supabase
       .from("teams")
       .select(`
       id,
-      users (
+      name,
+      lead:users!teams_lead_id_fkey (
         id,
         name
       )
@@ -108,51 +90,122 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
   };
 
 
+  // const handleAddUser = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+
+  //   // Call API route
+  //   const res = await fetch("/api/create-user", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({
+  //       email: formData.email,
+  //       password: "Temp@123" // default temporary password
+  //     }),
+  //   });
+
+
+  //   const result = await res.json();
+  //   if (res.ok) {
+  //     alert("User created. Verification mail sent!");
+  //     // Insert user details in your `users` table as before
+  //     const { data: v, error: e } = await supabase.from("users").insert(
+  //       {
+  //         name: formData.name,
+  //         email: formData.email,
+  //         role: formData.role,
+  //         designation: formData.role,
+  //         department: formData.department,
+  //         isactive: true,
+  //         created_at: new Date().toISOString(),
+  //         base_salary: null,
+  //         // work_log: null,
+  //         team_id:
+  //           formData.role === "CA" || formData.role === "Junior CA"
+  //             ? selectedTeamId
+  //             : null,
+  //       }
+  //     );
+  //     if (e) alert(`Error adding user: ${e.message}`);
+  //     else {
+  //       alert("User details added successfully!");
+  //     }
+  //     fetchUsers();
+  //     setAddUserOpen(false);
+  //     resetForm();
+  //   } else {
+  //     alert(`Error: ${result.error}`);
+  //   }
+  // };
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Call API route
+    // 1) Invite auth user (keeps your existing flow)
     const res = await fetch("/api/create-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: formData.email,
-        password: "Temp@123" // default temporary password
+        password: "Temp@123", // default temporary password
       }),
     });
 
-
     const result = await res.json();
-    if (res.ok) {
-      alert("User created. Verification mail sent!");
-      // Insert user details in your `users` table as before
-      const { data: v, error: e } = await supabase.from("users").insert(
-        {
-          name: formData.name,
-          email: formData.email,
-          role: formData.role,
-          designation: formData.role,
-          department: formData.department,
-          isactive: true,
-          created_at: new Date().toISOString(),
-          base_salary: null,
-          // work_log: null,
-          team_id:
-            formData.role === "CA" || formData.role === "Junior CA"
-              ? selectedTeamId
-              : null,
-        }
-      );
-      if (e) alert(`Error adding user: ${e.message}`);
-      else {
-        alert("User details added successfully!");
-      }
-      fetchUsers();
-      setAddUserOpen(false);
-      resetForm();
-    } else {
+    if (!res.ok) {
       alert(`Error: ${result.error}`);
+      return;
     }
+
+    // 2) Insert into your public.users table AND return the inserted row (need the id)
+    const { data: insertedUser, error: insertErr } = await supabase
+      .from("users")
+      .insert({
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        designation: formData.role,
+        department: formData.department,
+        isactive: true,
+        created_at: new Date().toISOString(),
+        base_salary: null,
+        team_id:
+          formData.role === "CA" || formData.role === "Junior CA"
+            ? selectedTeamId
+            : null,
+      })
+      .select("id, name, role")   // <-- IMPORTANT: return id
+      .single();
+
+    if (insertErr || !insertedUser) {
+      alert(`Error adding user: ${insertErr?.message || "Unknown error"}`);
+      return;
+    }
+
+    // 3) If the new user is a Team Lead, create a team for them
+    if (insertedUser.role === "Team Lead") {
+      const teamName = insertedUser.name
+        ? `${insertedUser.name} Team`
+        : "New Team";
+
+      const { error: teamErr } = await supabase
+        .from("teams")
+        .insert({
+          name: teamName,
+          lead_id: insertedUser.id, // <-- ties the team to this Team Lead
+        });
+
+      if (teamErr) {
+        alert(`User created, but failed to create team: ${teamErr.message}`);
+        // carry on; user is created, only team creation failed
+      } else {
+        // refresh teams so the new Team Lead is available in the CA/JCA dropdown immediately
+        await fetchTeams();
+      }
+    }
+
+    alert("User created successfully!");
+    await fetchUsers();
+    setAddUserOpen(false);
+    resetForm();
   };
 
 
@@ -399,13 +452,21 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectTrigger>
                               <SelectValue placeholder="Select Team Lead" />
                             </SelectTrigger>
-                            <SelectContent>
+                            {/* <SelectContent>
                               {teams.map((team) => (
                                 <SelectItem key={team.id} value={team.id}>
                                   {team.users?.name || "Unnamed Team Lead"}
                                 </SelectItem>
                               ))}
+                            </SelectContent> */}
+                            <SelectContent>
+                              {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.lead?.name ? `${team.lead.name}${team.name ? ` (${team.name})` : ""}` : (team.name || "Unnamed Team")}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
+
                           </Select>
                         </div>
                       )}
