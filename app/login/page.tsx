@@ -85,7 +85,7 @@ export default function LoginPage() {
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
-      .eq("email", email)
+      .ilike("email", email)
       .single()
 
     if (error || !user) {
