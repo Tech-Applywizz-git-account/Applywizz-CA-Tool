@@ -227,7 +227,7 @@ const [bulkResult, setBulkResult] = useState<any | null>(null);
       .from("users")
       .update({
         name: formData.name,
-        email: formData.email,
+        email: formData.email.toLowerCase(),
         role: formData.role,
         department: formData.department,
         designation: formData.role,
