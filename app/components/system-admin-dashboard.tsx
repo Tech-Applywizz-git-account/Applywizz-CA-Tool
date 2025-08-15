@@ -1,3 +1,5 @@
+//app/components/system-admin-dashboard.tsx
+
 "use client";
 
 import type React from "react";
@@ -13,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Edit, Trash2, UserCheck, UserX, Users, Shield, Building, Mail } from "lucide-react";
+import { User } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface SystemAdminDashboardProps {
   user: any;
@@ -35,9 +39,9 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
   const [submitting, setSubmitting] = useState(false);
 
   const [bulkOpen, setBulkOpen] = useState(false);
-const [bulkFile, setBulkFile] = useState<File | null>(null);
-const [bulkLoading, setBulkLoading] = useState(false);
-const [bulkResult, setBulkResult] = useState<any | null>(null);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResult, setBulkResult] = useState<any | null>(null);
 
 
 
@@ -97,53 +101,6 @@ const [bulkResult, setBulkResult] = useState<any | null>(null);
     }
   };
 
-
-  // const handleAddUser = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-
-  //   // Call API route
-  //   const res = await fetch("/api/create-user", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({
-  //       email: formData.email,
-  //       password: "Temp@123" // default temporary password
-  //     }),
-  //   });
-
-
-  //   const result = await res.json();
-  //   if (res.ok) {
-  //     alert("User created. Verification mail sent!");
-  //     // Insert user details in your `users` table as before
-  //     const { data: v, error: e } = await supabase.from("users").insert(
-  //       {
-  //         name: formData.name,
-  //         email: formData.email,
-  //         role: formData.role,
-  //         designation: formData.role,
-  //         department: formData.department,
-  //         isactive: true,
-  //         created_at: new Date().toISOString(),
-  //         base_salary: null,
-  //         // work_log: null,
-  //         team_id:
-  //           formData.role === "CA" || formData.role === "Junior CA"
-  //             ? selectedTeamId
-  //             : null,
-  //       }
-  //     );
-  //     if (e) alert(`Error adding user: ${e.message}`);
-  //     else {
-  //       alert("User details added successfully!");
-  //     }
-  //     fetchUsers();
-  //     setAddUserOpen(false);
-  //     resetForm();
-  //   } else {
-  //     alert(`Error: ${result.error}`);
-  //   }
-  // };
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -160,7 +117,7 @@ const [bulkResult, setBulkResult] = useState<any | null>(null);
     const result = await res.json();
     if (!res.ok) {
       alert(`Error: ${result.error}`);
-          setSubmitting(false); // stop loading
+      setSubmitting(false); // stop loading
 
       return;
     }
@@ -216,7 +173,7 @@ const [bulkResult, setBulkResult] = useState<any | null>(null);
     await fetchUsers();
     setAddUserOpen(false);
     resetForm();
-      setSubmitting(false); // back to normal
+    setSubmitting(false); // back to normal
 
   };
 
@@ -268,31 +225,18 @@ const [bulkResult, setBulkResult] = useState<any | null>(null);
     setEditUserOpen(true);
   };
 
-  // const filteredUsers = users.filter((user) => {
-  //   const matchesSearch =
-  //     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     user.email.toLowerCase().includes(searchTerm.toLowerCase());
-  //   const matchesRole = filterRole === "all" || user.role === filterRole;
-  //   const matchesStatus =
-  //     filterStatus === "all" ||
-  //     (filterStatus === "Active" && user.isactive) ||
-  //     (filterStatus === "Inactive" && !user.isactive);
-  //   return matchesSearch && matchesRole && matchesStatus;
-  // });
-
   const lc = (s: unknown) => (typeof s === "string" ? s.toLowerCase() : "");
-const q = lc(searchTerm);
+  const q = lc(searchTerm);
 
-const filteredUsers = users.filter((u) => {
-  const matchesSearch = lc(u?.name).includes(q) || lc(u?.email).includes(q);
-  const matchesRole = filterRole === "all" || u?.role === filterRole;
-  const matchesStatus =
-    filterStatus === "all" ||
-    (filterStatus === "Active" && !!u?.isactive) ||
-    (filterStatus === "Inactive" && !u?.isactive);
-  return matchesSearch && matchesRole && matchesStatus;
-});
-
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch = lc(u?.name).includes(q) || lc(u?.email).includes(q);
+    const matchesRole = filterRole === "all" || u?.role === filterRole;
+    const matchesStatus =
+      filterStatus === "all" ||
+      (filterStatus === "Active" && !!u?.isactive) ||
+      (filterStatus === "Inactive" && !u?.isactive);
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
 
   const stats = {
@@ -305,15 +249,137 @@ const filteredUsers = users.filter((u) => {
   return (
     <div className="min-h-screen bg-slate-50 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">System Admin Dashboard</h1>
             <p className="text-slate-600">User Management & System Administration</p>
           </div>
-          <div className="flex items-center gap-4">
+          {/* <div className="flex items-center gap-4">
             <Button variant="outline">Profile</Button>
             <Button onClick={onLogout}>Logout</Button>
+          </div> */}
+
+          <div className="flex items-center gap-4">
+            <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Bulk Import CSV</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Bulk Import Users (CSV)</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-3">
+                  <div className="text-sm text-slate-600">
+                    Upload a CSV with headers:
+                    <code className="ml-1 bg-slate-100 px-1 rounded">
+                      name,email,role,department,isactive,team_lead_email
+                    </code>
+                    <div className="mt-1 text-xs">
+                      • <b>email</b> is required and will be lowercased
+                      <br />• <b>department</b> is optional (auto-set from role if empty)
+                      <br />• <b>isactive</b> defaults to true
+                      <br />• For CA/JCA, you may provide <b>team_lead_email</b> to auto-assign
+                    </div>
+                  </div>
+
+                  <Input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        if (!bulkFile) {
+                          alert("Please choose a CSV file.");
+                          return;
+                        }
+                        setBulkLoading(true);
+                        setBulkResult(null);
+
+                        const fd = new FormData();
+                        fd.append("file", bulkFile);
+
+                        const res = await fetch("/api/bulk-invite", {
+                          method: "POST",
+                          body: fd,
+                        });
+
+                        const json = await res.json();
+                        setBulkLoading(false);
+
+                        if (!res.ok) {
+                          alert(json.error || "Bulk import failed");
+                          return;
+                        }
+
+                        setBulkResult(json);
+                        await fetchUsers(); // refresh table
+                      }}
+                      disabled={bulkLoading}
+                    >
+                      {bulkLoading ? "Importing..." : "Import & Send Invites"}
+                    </Button>
+
+                    <Button variant="outline" onClick={() => setBulkOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+
+                  {bulkResult && (
+                    <div className="max-h-64 overflow-auto border rounded p-2">
+                      <div className="text-sm font-medium mb-2">
+                        Processed: {bulkResult.count}
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Message</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {bulkResult.results.map((r: any, idx: number) => (
+                            <TableRow key={idx}>
+                              <TableCell>{r.email}</TableCell>
+                              <TableCell className="capitalize">{r.status}</TableCell>
+                              <TableCell className="text-xs text-slate-600">{r.message || "-"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="p-0 rounded-full h-10 w-10 flex items-center justify-center bg-black">
+                  <User className="h-6 w-6 text-white" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <p className="font-medium">{user.name}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onLogout}>
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -519,8 +585,8 @@ const filteredUsers = users.filter((u) => {
                         Add User
                       </Button> */}
                       <Button type="submit" className="flex-1" disabled={submitting}>
-  {submitting ? "Adding user..." : "Add User"}
-</Button>
+                        {submitting ? "Adding user..." : "Add User"}
+                      </Button>
 
                       <Button type="button" variant="outline" onClick={() => setAddUserOpen(false)}>
                         Cancel
@@ -720,102 +786,102 @@ const filteredUsers = users.filter((u) => {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-  <DialogTrigger asChild>
-    <Button variant="outline">Bulk Import CSV</Button>
-  </DialogTrigger>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Bulk Import Users (CSV)</DialogTitle>
-    </DialogHeader>
+        {/* <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">Bulk Import CSV</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Bulk Import Users (CSV)</DialogTitle>
+            </DialogHeader>
 
-    <div className="space-y-3">
-      <div className="text-sm text-slate-600">
-        Upload a CSV with headers:
-        <code className="ml-1 bg-slate-100 px-1 rounded">
-          name,email,role,department,isactive,team_lead_email
-        </code>
-        <div className="mt-1 text-xs">
-          • <b>email</b> is required and will be lowercased
-          <br />• <b>department</b> is optional (auto-set from role if empty)
-          <br />• <b>isactive</b> defaults to true
-          <br />• For CA/JCA, you may provide <b>team_lead_email</b> to auto-assign
-        </div>
-      </div>
+            <div className="space-y-3">
+              <div className="text-sm text-slate-600">
+                Upload a CSV with headers:
+                <code className="ml-1 bg-slate-100 px-1 rounded">
+                  name,email,role,department,isactive,team_lead_email
+                </code>
+                <div className="mt-1 text-xs">
+                  • <b>email</b> is required and will be lowercased
+                  <br />• <b>department</b> is optional (auto-set from role if empty)
+                  <br />• <b>isactive</b> defaults to true
+                  <br />• For CA/JCA, you may provide <b>team_lead_email</b> to auto-assign
+                </div>
+              </div>
 
-      <Input
-        type="file"
-        accept=".csv"
-        onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-      />
+              <Input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+              />
 
-      <div className="flex gap-2">
-        <Button
-          onClick={async () => {
-            if (!bulkFile) {
-              alert("Please choose a CSV file.");
-              return;
-            }
-            setBulkLoading(true);
-            setBulkResult(null);
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    if (!bulkFile) {
+                      alert("Please choose a CSV file.");
+                      return;
+                    }
+                    setBulkLoading(true);
+                    setBulkResult(null);
 
-            const fd = new FormData();
-            fd.append("file", bulkFile);
+                    const fd = new FormData();
+                    fd.append("file", bulkFile);
 
-            const res = await fetch("/api/bulk-invite", {
-              method: "POST",
-              body: fd,
-            });
+                    const res = await fetch("/api/bulk-invite", {
+                      method: "POST",
+                      body: fd,
+                    });
 
-            const json = await res.json();
-            setBulkLoading(false);
+                    const json = await res.json();
+                    setBulkLoading(false);
 
-            if (!res.ok) {
-              alert(json.error || "Bulk import failed");
-              return;
-            }
+                    if (!res.ok) {
+                      alert(json.error || "Bulk import failed");
+                      return;
+                    }
 
-            setBulkResult(json);
-            await fetchUsers(); // refresh table
-          }}
-          disabled={bulkLoading}
-        >
-          {bulkLoading ? "Importing..." : "Import & Send Invites"}
-        </Button>
+                    setBulkResult(json);
+                    await fetchUsers(); // refresh table
+                  }}
+                  disabled={bulkLoading}
+                >
+                  {bulkLoading ? "Importing..." : "Import & Send Invites"}
+                </Button>
 
-        <Button variant="outline" onClick={() => setBulkOpen(false)}>
-          Close
-        </Button>
-      </div>
+                <Button variant="outline" onClick={() => setBulkOpen(false)}>
+                  Close
+                </Button>
+              </div>
 
-      {bulkResult && (
-        <div className="max-h-64 overflow-auto border rounded p-2">
-          <div className="text-sm font-medium mb-2">
-            Processed: {bulkResult.count}
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Message</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bulkResult.results.map((r: any, idx: number) => (
-                <TableRow key={idx}>
-                  <TableCell>{r.email}</TableCell>
-                  <TableCell className="capitalize">{r.status}</TableCell>
-                  <TableCell className="text-xs text-slate-600">{r.message || "-"}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
-  </DialogContent>
-</Dialog>
+              {bulkResult && (
+                <div className="max-h-64 overflow-auto border rounded p-2">
+                  <div className="text-sm font-medium mb-2">
+                    Processed: {bulkResult.count}
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Message</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bulkResult.results.map((r: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell>{r.email}</TableCell>
+                          <TableCell className="capitalize">{r.status}</TableCell>
+                          <TableCell className="text-xs text-slate-600">{r.message || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog> */}
 
       </div>
     </div>
