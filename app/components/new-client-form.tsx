@@ -435,7 +435,7 @@ export function NewClientForm({ fetchClients }: { fetchClients: () => void }) {
 
   useEffect(() => {
     const fetchTeamMembers = async () => {
-      const { data } = await supabase.from("users").select("id, name, role, team_id").in("role", ["CA", "Junior CA"])
+      const { data } = await supabase.from("users").select("id, name, role, team_id").in("role", ["CA", "Junior CA"]).order('name', { ascending: true })
       setTeamMembers(data || [])
     }
     fetchTeamMembers()
