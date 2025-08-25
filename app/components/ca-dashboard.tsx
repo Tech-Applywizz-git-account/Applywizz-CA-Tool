@@ -678,7 +678,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
-              {/* <p className="text-2xl font-bold text-green-600"><p>{(monthlyWHIncentive / totalWorkingDays).toLocaleString()} v </p> */}
+              <p className="text-2xl font-bold text-green-600">
                 ₹{user.designation === 'CA' ? (
                   (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
                     <span className="text-red-600">No Earnings</span>
