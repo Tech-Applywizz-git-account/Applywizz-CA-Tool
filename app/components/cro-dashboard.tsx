@@ -4,17 +4,17 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabaseClient"
+import { FileSpreadsheet, Plus } from "lucide-react"
+import { NewClientForm } from "./new-client-form"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileSpreadsheet, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { NewClientForm } from "./new-client-form"
-import { User } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { User } from "lucide-react"
 
 
 interface CRODashboardProps {
@@ -25,6 +25,7 @@ interface CRODashboardProps {
 export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [clients, setClients] = useState<any[]>([])
   const [clients1, setClients1] = useState<any[]>([])
+  const [cas, setCas] = useState<any[]>([])
   const [cas1, setCas1] = useState<any[]>([])
   const [teamLeads, setTeamLeads] = useState<any[]>([])
   const [selectedTeamLead, setSelectedTeamLead] = useState("all")
@@ -34,11 +35,10 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [importOpen, setImportOpen] = useState(false)
   const [sheetsUrl, setSheetsUrl] = useState("")
   const [importStatus, setImportStatus] = useState("")
-  const [cas, setCas] = useState<any[]>([])
   const [caPerformance, setCaPerformance] = useState<Record<string, any>>({})
   const [caPerformance1, setCaPerformance1] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(false)
-  // --- NEW STATES FOR ACCORDION ---
+
   const [expandedCA, setExpandedCA] = useState<string | null>(null)
   const [caClients, setCaClients] = useState<Record<string, any[]>>({})
 
@@ -158,7 +158,20 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         .gte("date", dateFrom)
         .lte("date", dateTo)
       if (!error1 && data1) console.log('vivek', data1)
-      const workingDays = [...new Set(data1?.map(item => item.date))].length;
+
+      
+      const { data: data2, error: error2 } = await supabase
+        .from("work_history")
+        .select(`
+          ca_id,
+          date,
+          completed_profiles 
+          `)
+        .gte("date", dateFrom)
+        .lte("date", dateTo)
+      if (!error2 && data2) console.log('vivek2', data2)
+      
+      const workingDays = [...new Set(data2?.map(item => item.date))].length;
       console.log('bhan', workingDays)
 
 
@@ -185,11 +198,12 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       setCaPerformance(performance)
       const performance1: Record<string, any> = {}
       for (const ca of cas) {
+        console.log('vivek11', ca)
 
         const cadata = data1?.filter((data) => data.ca_id === ca.id) || []
         if (cadata.length > 0) {
           const totalProfile = cadata.reduce((sum, l) => sum + (l.completed_profiles.length || 0), 0)
-          const incentive = (totalProfile - (2 * workingDays) < 0 ? 0 : totalProfile - (2 * workingDays))
+          const incentive = ca.designation === 'Junior CA' ? (totalProfile - (2 * workingDays) < 0 ? 0 : totalProfile - (2 * workingDays)) : (totalProfile - (4 * workingDays) < 0 ? 0 : totalProfile - (4 * workingDays))
           const totalWorkingdays = workingDays
 
           performance1[ca.id] = { ...ca, incentives: incentive, totalProfiles: totalProfile, totalWorkingDays: totalWorkingdays }
@@ -198,7 +212,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         }
       }
       setCaPerformance1(performance1)
-      console.log('caPerformance1', caPerformance1)
     }
     fetchCAData()
   }, [cas, dateFrom, dateTo])
@@ -220,9 +233,9 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   // --- KPI Calculations ---
   const totalCAs = cas.length
-  const totalClients = clients.length
-  const submittedClients = clients.filter((c) => c.status === "Completed").length
-  const missedToday = clients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
+  const totalClients = clients1.length -2
+  const submittedClients = clients1.filter((c) => c.status === "Completed").length
+  const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
   const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
 
   // --- Google Sheets Import (mock) ---
@@ -306,31 +319,31 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const handleReset = async () => {
     // ✅ First loop: Process all CAs one by one
     for (const ca of cas1) {
-      const { data: logData, error: logError } = await supabase
-        .from("clients")
-        .select(
-          'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
-        )
-        .eq("work_done_by", ca.id)
-
+      const { data: logData, error: logError } = await supabase //data1 or data??
+      .from("clients")
+      .select(
+        'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+      )
+      .eq("work_done_by", ca.id)
       if (logError) {
         alert(`Error logging reset data: ${logError.message}`)
         return
       }
-
+      // console.log("log data Bhanutejaaa: ", logData)
+      
       let date = new Date().toISOString().split("T")[0];
-      let noofprofiles = logData.length <= 2 ? 0 : logData.length - 2;
-
+      let noofprofiles = ca.role === 'Junior CA' ? logData.length <= 2 ? 0 : logData.length - 2 : logData.length <= 4 ? 0 : logData.length - 4;
+      
       const { error: logInsertError } = await supabase
-        .from("work_history")
-        .insert({
-          date: date,
-          ca_id: ca.id,
-          ca_name: ca.name,
-          completed_profiles: logData,
-          incentives: noofprofiles,
-        })
-
+      .from("work_history")
+      .insert({
+        date: date,
+        ca_id: ca.id,
+        ca_name: ca.name,
+        completed_profiles: logData,
+        incentives: noofprofiles,
+      })
+      
       if (logInsertError) {
         alert("Error logging reset data")
         console.error("Error logging reset data:", logInsertError)
@@ -340,7 +353,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       }
       const { data: caData, error: caResetError } = await supabase
         .from("work_history")
-        .select('id,date, ca_id, ca_name, completed_profiles')
+        .select('id, date, ca_id, ca_name, completed_profiles')
         .eq("ca_id", ca.id)
       if (caResetError) {
         alert("Error fetching CA reset data")
@@ -348,6 +361,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       } else {
         console.log("CA reset data fetched successfully:", caData)
       }
+       // alert("CA reset data fetched successfully")
     }
 
     // ✅ Second loop: Reset all client data AFTER CAs loop completes
@@ -413,8 +427,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <Plus className="h-4 w-4 mr-2" />
                   Add New Client
+                  <Plus className="h-4 w-4 mr-2" />
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -472,8 +486,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           <div className="mb-6">
             <Card>
               <CardContent className="p-4 text-center">
+                <div className="text-sm text-slate-600"> {teamLeads.find((tl) => tl.id === selectedTeamLead)?.name} Team Incentives</div>
                 <div className="text-2xl font-bold text-green-600">₹2000</div>
-                <div className="text-sm text-slate-600">Team Incentives</div>
               </CardContent>
             </Card>
           </div>
@@ -519,7 +533,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                             <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
                           </div>
                           <div className="flex gap-4">
-                            <Badge variant="secondary">Incentives : {ca.emails_submitted}</Badge>
+                            <Badge variant="secondary">Incentives : {ca.incentives}</Badge>
                             <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                             <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                           </div>
@@ -559,7 +573,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
           </>
         }
-        {/* {(dateFrom !== new Date().toISOString().split("T")[0] || dateTo !== new Date().toISOString().split("T")[0]) &&
+        {(dateFrom !== new Date().toISOString().split("T")[0] || dateTo !== new Date().toISOString().split("T")[0]) &&
           <>
 
             {
@@ -570,17 +584,17 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
               )
             }
 
-            {/* CA List * /}
+            {/* CA List */}
             {!loading && (
               <Card>
                 <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
                 <CardContent>
-                  {/* CA List content here * /}
+                  {/* CA List content here */}
                   <div className="space-y-3">
                     {Object.values(caPerformance1).map((ca: any) => (
 
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
-                        {/* CA Card Summary * /}
+                        {/* CA Card Summary */}
                         <div
                           className="flex items-center justify-between p-4 cursor-pointer"
                           onClick={() => fetchClientsForCA(ca.id)}
@@ -596,15 +610,13 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                         </div>
                       </div>
                     ))}
-
-
                   </div>
                 </CardContent>
               </Card>
             )}
 
           </>
-        } */}
+        }
       </div>
     </div>
   )
