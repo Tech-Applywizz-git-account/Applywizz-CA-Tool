@@ -36,6 +36,27 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     }
   }
 
+  // Add this right after fetchClients()
+  const handleToggleActive = async (clientId: string, currentIsActive: boolean) => {
+    const { data, error } = await supabase
+      .from("clients")
+      .update({ is_active: !currentIsActive })
+      .eq("id", clientId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to toggle active state:", error.message);
+      return;
+    }
+
+    // Optimistically update UI
+    setClients(prev =>
+      prev.map(c => (c.id === clientId ? { ...c, is_active: data.is_active } : c))
+    );
+  };
+
+
   useEffect(() => {
     const fetchTeamData = async () => {
       const { data: teams } = await supabase.from("teams").select("id").eq("lead_id", user.id)
@@ -121,7 +142,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
         <div className="flex gap-4 mb-6">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Select Client</label>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">Select CA</label>
             <Select value={selectedCA} onValueChange={setSelectedCA}>
               <SelectTrigger className="w-48">
                 <SelectValue />
@@ -184,7 +205,6 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
             </CardContent>
           </Card>
         )}
-
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -211,11 +231,46 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                       <p className="text-sm text-slate-600">{client.date_assigned}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-8 text-center">
+                  {/* <div className="flex items-center gap-8 text-center">
                     <div><div className="text-lg font-bold text-blue-600">{client.jobs_applied}</div><div className="text-xs text-slate-600">Jobs Applied</div></div>
                     <div><div className="text-lg font-bold text-blue-600">{client.emails_submitted}</div><div className="text-xs text-slate-600">Emails Received</div></div>
                     <Badge variant={client.status === "Completed" ? "default" : client.status === "Started" ? "secondary" : "destructive"}>{client.status}</Badge>
+                  </div> */}
+                  <div className="flex items-center gap-8 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-blue-600">{client.jobs_applied}</div>
+                      <div className="text-xs text-slate-600">Jobs Applied</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-blue-600">{client.emails_submitted}</div>
+                      <div className="text-xs text-slate-600">Emails Received</div>
+                    </div>
+
+                    {/* Status badge (existing) */}
+                    <Badge
+                      variant={
+                        client.status === "Completed" ? "default" :
+                          client.status === "Started" ? "secondary" : "destructive"
+                      }
+                    >
+                      {client.status}
+                    </Badge>
+
+                    {/* New: Active/Inactive badge */}
+                    <Badge variant={client.is_active ? "outline" : "destructive"}>
+                      {client.is_active ? "Active" : "Inactive"}
+                    </Badge>
+
+                    {/* New: Toggle button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleActive(client.id, client.is_active)}
+                    >
+                      {client.is_active ? "Set Inactive" : "Set Active"}
+                    </Button>
                   </div>
+
                 </div>
               ))}
             </div>
