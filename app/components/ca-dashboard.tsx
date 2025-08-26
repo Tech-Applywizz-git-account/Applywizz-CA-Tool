@@ -771,9 +771,9 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                         <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
                       ) : (
                         (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 3500) / 100) + 4500}</span>
+                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
                         ) : (
-                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 3000) / 100) + 8000}</span>
+                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
                         )
                       )
                     )
