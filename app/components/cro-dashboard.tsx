@@ -159,7 +159,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         .lte("date", dateTo)
       if (!error1 && data1) console.log('vivek', data1)
 
-      
+
       const { data: data2, error: error2 } = await supabase
         .from("work_history")
         .select(`
@@ -170,7 +170,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         .gte("date", dateFrom)
         .lte("date", dateTo)
       if (!error2 && data2) console.log('vivek2', data2)
-      
+
       const workingDays = [...new Set(data2?.map(item => item.date))].length;
       console.log('bhan', workingDays)
 
@@ -231,9 +231,44 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     setExpandedCA(caId)
   }
 
+  // Add this directly under fetchClientsForCA(...)
+  const handleToggleActive = async (
+    clientId: string,
+    currentIsActive: boolean,
+    caId?: string
+  ) => {
+    const { data, error } = await supabase
+      .from("clients")
+      .update({ is_active: !currentIsActive })
+      .eq("id", clientId)
+      .select("id, is_active")
+      .single();
+
+    if (error) {
+      alert("Failed to toggle active state: " + error.message);
+      return;
+    }
+
+    // Update the expanded CA's client list (if provided)
+    if (caId) {
+      setCaClients((prev) => ({
+        ...prev,
+        [caId]: (prev[caId] || []).map((c) =>
+          c.id === clientId ? { ...c, is_active: data.is_active } : c
+        ),
+      }));
+    }
+
+    // Keep global client cache in sync for KPI cards, etc.
+    setClients1((prev) =>
+      prev.map((c) => (c.id === clientId ? { ...c, is_active: data.is_active } : c))
+    );
+  };
+
+
   // --- KPI Calculations ---
   const totalCAs = cas.length
-  const totalClients = clients1.length -2
+  const totalClients = clients1.length - 2
   const submittedClients = clients1.filter((c) => c.status === "Completed").length
   const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
   const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
@@ -320,30 +355,30 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     // ✅ First loop: Process all CAs one by one
     for (const ca of cas1) {
       const { data: logData, error: logError } = await supabase //data1 or data??
-      .from("clients")
-      .select(
-        'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
-      )
-      .eq("work_done_by", ca.id)
+        .from("clients")
+        .select(
+          'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+        )
+        .eq("work_done_by", ca.id)
       if (logError) {
         alert(`Error logging reset data: ${logError.message}`)
         return
       }
       // console.log("log data Bhanutejaaa: ", logData)
-      
+
       let date = new Date().toISOString().split("T")[0];
       let noofprofiles = ca.role === 'Junior CA' ? logData.length <= 2 ? 0 : logData.length - 2 : logData.length <= 4 ? 0 : logData.length - 4;
-      
+
       const { error: logInsertError } = await supabase
-      .from("work_history")
-      .insert({
-        date: date,
-        ca_id: ca.id,
-        ca_name: ca.name,
-        completed_profiles: logData,
-        incentives: noofprofiles,
-      })
-      
+        .from("work_history")
+        .insert({
+          date: date,
+          ca_id: ca.id,
+          ca_name: ca.name,
+          completed_profiles: logData,
+          incentives: noofprofiles,
+        })
+
       if (logInsertError) {
         alert("Error logging reset data")
         console.error("Error logging reset data:", logInsertError)
@@ -361,7 +396,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       } else {
         console.log("CA reset data fetched successfully:", caData)
       }
-       // alert("CA reset data fetched successfully")
+      // alert("CA reset data fetched successfully")
     }
 
     // ✅ Second loop: Reset all client data AFTER CAs loop completes
@@ -546,14 +581,24 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                               <ul className="space-y-2">
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
-                                    <div>
-                                      <p className="font-medium">{client.name}</p>
-                                      <p className="text-sm text-slate-600">{client.email}</p>
-                                    </div>
                                     <div className="flex gap-2 items-center">
                                       <Badge>{client.status}</Badge>
                                       <Badge variant="secondary">Emails: {client.emails_submitted}</Badge>
                                       <Badge variant="secondary">Jobs: {client.jobs_applied}</Badge>
+
+                                      {/* New: show Active/Inactive */}
+                                      <Badge variant={client.is_active ? "outline" : "destructive"}>
+                                        {client.is_active ? "Active" : "Inactive"}
+                                      </Badge>
+
+                                      {/* New: toggle button */}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleToggleActive(client.id, client.is_active, ca.id)}
+                                      >
+                                        {client.is_active ? "Set Inactive" : "Set Active"}
+                                      </Button>
                                     </div>
                                   </li>
                                 ))}

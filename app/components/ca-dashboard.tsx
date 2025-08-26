@@ -13,12 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Users, UserCheck, TrendingUp, Award, Calendar, User } from "lucide-react"
+import { Users, UserCheck, TrendingUp, Award, Calendar, User, Upload, FileCheck, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabaseClient"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import Papa from "papaparse"
-import { Upload, FileCheck, X } from "lucide-react"
-import { useRef } from "react" // you already import useEffect/useState
+// import { Upload, FileCheck, X, ChevronLeft, ChevronRight } from "lucide-react"
 // import { User } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -61,6 +60,114 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
   }
   // Work history (fetched from public.work_history)
   const [workHistory, setWorkHistory] = useState<any[]>([])
+
+  const [datePage, setDatePage] = useState(0);   // which date “page” you’re on
+  const [daysPerPage, setDaysPerPage] = useState(1); // how many dates per page (default 1)
+
+  // --- Work history flat rows (for the table) ---
+  type FlatWHRow = {
+    date: string
+    name: string
+    designation: string
+    emails: number
+    jobs: number
+    start: string | null
+    end: string | null
+    durationMin: number | null
+    status: string
+  }
+
+  const flatWHRows = useMemo<FlatWHRow[]>(() => {
+    const rows: FlatWHRow[] = []
+
+    for (const wh of workHistory || []) {
+      // completed_profiles can be JSON or text-JSON; normalize to array
+      let completed = wh?.completed_profiles
+      if (typeof completed === "string") {
+        try { completed = JSON.parse(completed) } catch { completed = [] }
+      }
+      if (!Array.isArray(completed)) continue
+
+      for (const p of completed) {
+        const startISO = p?.start_time || null
+        const endISO = p?.end_time || null
+
+        let durationMin: number | null = null
+        if (startISO && endISO) {
+          const st = new Date(startISO).getTime()
+          const et = new Date(endISO).getTime()
+          if (!isNaN(st) && !isNaN(et)) durationMin = Math.max(0, Math.round((et - st) / 60000))
+        }
+
+        rows.push({
+          date: wh?.date, // yyyy-mm-dd from DB
+          name: p?.name ?? "-",
+          designation: p?.client_designation ?? "-",
+          emails: Number(p?.emails_submitted ?? 0),
+          jobs: Number(p?.jobs_applied ?? 0),
+          start: startISO,
+          end: endISO,
+          durationMin,
+          status: p?.status ?? "-"
+        })
+      }
+    }
+
+    // Sort: newest date first, then latest end time
+    rows.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1
+      const ae = a.end ? new Date(a.end).getTime() : 0
+      const be = b.end ? new Date(b.end).getTime() : 0
+      return ae < be ? 1 : -1
+    })
+
+    return rows
+  }, [workHistory])
+
+  // Unique dates in desc order (newest first)
+  const uniqueDatesDesc = useMemo(() => {
+    const s = new Set((flatWHRows || []).map(r => r.date));
+    return Array.from(s).sort((a, b) => (a < b ? 1 : -1));
+  }, [flatWHRows]);
+
+  // Total pages (each page shows N dates)
+  const totalDatePages = useMemo(() => {
+    if (!uniqueDatesDesc.length) return 1;
+    return Math.ceil(uniqueDatesDesc.length / Math.max(1, daysPerPage));
+  }, [uniqueDatesDesc, daysPerPage]);
+
+  // Clamp page when deps change
+  useEffect(() => {
+    setDatePage(p => Math.min(Math.max(0, p), Math.max(0, totalDatePages - 1)));
+  }, [totalDatePages]);
+
+  // Dates visible on the current page
+  const datesOnPage = useMemo(() => {
+    const start = datePage * Math.max(1, daysPerPage);
+    const end = Math.min(start + Math.max(1, daysPerPage), uniqueDatesDesc.length);
+    return uniqueDatesDesc.slice(start, end);
+  }, [uniqueDatesDesc, datePage, daysPerPage]);
+
+  // Rows visible for those dates (keeps original sort)
+  const visibleRows = useMemo(() => {
+    const set = new Set(datesOnPage);
+    return flatWHRows.filter(r => set.has(r.date));
+  }, [flatWHRows, datesOnPage]);
+
+  // time/date formatters (IST)
+  const fmtDateLabel = (dateStr: string) =>
+    new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" })
+
+  const fmtTime = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleTimeString("en-IN", { hour12: true, hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) : "-"
+
+  // Pretty “page label”, e.g. “26 Aug 2025” or “26–25 Aug 2025”
+  const pageLabel = useMemo(() => {
+    if (datesOnPage.length === 0) return "—";
+    const nice = (d: string) => fmtDateLabel(d);
+    if (datesOnPage.length === 1) return nice(datesOnPage[0]);
+    return `${nice(datesOnPage[0])} → ${nice(datesOnPage[datesOnPage.length - 1])}`;
+  }, [datesOnPage]);
 
   // Given an offset, return [startOfMonth, startOfNextMonth] as YYYY-MM-DD
   const getMonthRange = (offset: number) => {
@@ -250,42 +357,6 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     }
   }
 
-
-
-  // ---------------------- FETCH DATA FROM SUPABASE ----------------------
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     const userId = user.id;
-
-  //     // 1. Fetch clients assigned to this CA
-  //     setLoading(true);
-  //     const { data: clientData, error: clientError } = await supabase
-  //       .from("clients")
-  //       .select("*")
-  //       .eq("assigned_ca_id", userId);
-  //     if (!clientError) setClients(clientData || []);
-  //     setLoading(false);
-
-  //     // 2. Fetch incentive
-  //     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-  //     const { data: incentiveData, error: incentiveError } = await supabase
-  //       .from("incentives")
-  //       .select("*")
-  //       .eq("user_id", userId)
-  //       .eq("month", startOfMonth);
-  //     if (!incentiveError && incentiveData.length > 0) setIncentive(incentiveData[0]);
-
-  //     // 3. Fetch team members from same team_id
-  //     const { data: teamData, error: teamError } = await supabase
-  //       .from("users")
-  //       .select("id, name, email")
-  //       .eq("team_id", user.team_id)
-  //       .neq("id", user.id); // Optional: Exclude self
-  //     if (!teamError) setTeamMembers(teamData || []);
-  //   };
-
-  //   fetchData();
-  // }, [user.id, user.team_id]);
   useEffect(() => {
     const bootstrap = async () => {
       const userId = user.id
@@ -757,9 +828,20 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                       </TableCell>
                       <TableCell>
                         <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-                          <DialogTrigger asChild>
+                          {/* <DialogTrigger asChild>
                             <Button size="sm" variant="outline" onClick={() => setSelectedClient(client)}>
                               Update Status
+                            </Button>
+                          </DialogTrigger> */}
+                          <DialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedClient(client)}
+                              disabled={client.is_active === false}
+                              title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : ""}
+                            >
+                              {client.is_active === false ? "Inactive" : "Update Status"}
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="bg-white">
@@ -826,6 +908,114 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
             </CardContent>
           </Card>
         </div>
+        {/* Work History Table */}
+        <Card className="mb-6">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2">
+              Daily Work History
+              <Badge variant="secondary">{flatWHRows.length} record{flatWHRows.length !== 1 ? "s" : ""}</Badge>
+            </CardTitle>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDatePage(p => Math.max(0, p - 1))}
+                disabled={datePage === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+              </Button>
+
+              <div className="px-2 text-sm text-slate-600">
+                Page <span className="font-medium">{Math.min(datePage + 1, totalDatePages)}</span> of{" "}
+                <span className="font-medium">{totalDatePages}</span> • <span className="font-medium">{pageLabel}</span>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDatePage(p => Math.min(totalDatePages - 1, p + 1))}
+                disabled={datePage >= totalDatePages - 1}
+              >
+                Next <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+
+              <Select value={String(daysPerPage)} onValueChange={(v) => setDaysPerPage(parseInt(v))}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Days/page" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 day / page</SelectItem>
+                  <SelectItem value="3">3 days / page</SelectItem>
+                  <SelectItem value="7">7 days / page</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[140px]">Date</TableHead>
+                    <TableHead>Candidate</TableHead>
+                    <TableHead>Designation</TableHead>
+                    <TableHead className="text-right">Emails</TableHead>
+                    <TableHead className="text-right">Jobs</TableHead>
+                    <TableHead>Start</TableHead>
+                    <TableHead>End</TableHead>
+                    <TableHead className="text-right">Duration</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-slate-500">
+                        No work history found for this selection.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    visibleRows.map((r, idx) => (
+                      <TableRow key={`${r.date}-${idx}`}>
+                        <TableCell>
+                          <div className="font-medium">{fmtDateLabel(r.date)}</div>
+                          <div className="text-xs text-muted-foreground">{r.date}</div>
+                        </TableCell>
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell>{r.designation}</TableCell>
+                        <TableCell className="text-right">{r.emails}</TableCell>
+                        <TableCell className="text-right">{r.jobs}</TableCell>
+                        <TableCell>{fmtTime(r.start)}</TableCell>
+                        <TableCell>{fmtTime(r.end)}</TableCell>
+                        <TableCell className="text-right">
+                          {r.durationMin !== null ? `${r.durationMin} min` : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              r.status === "Completed"
+                                ? "default"
+                                : r.status === "Started"
+                                  ? "secondary"
+                                  : r.status === "Paused"
+                                    ? "destructive"
+                                    : "outline"
+                            }
+                          >
+                            {r.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

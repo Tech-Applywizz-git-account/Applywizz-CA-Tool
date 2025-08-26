@@ -19,6 +19,8 @@ export function StatusUpdateForm({ client, onUpdate }: StatusUpdateFormProps) {
   const [reason, setReason] = useState("")
   const [emailsSent, setEmailsSent] = useState(client?.emailsSubmitted?.toString() || "")
   const [jobsApplied, setJobsApplied] = useState(client?.jobsApplied?.toString() || "")
+  const inactive = client?.is_active === false;
+
 
   if (!client) return null
 
@@ -35,6 +37,11 @@ export function StatusUpdateForm({ client, onUpdate }: StatusUpdateFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {inactive && (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          This client is <span className="font-semibold">inactive</span>. You can’t update status or progress. Please contact your Team Lead.
+        </div>
+      )}
       <div>
         <Label className="text-sm font-medium">Client: {client.name}</Label>
       </div>
@@ -43,7 +50,7 @@ export function StatusUpdateForm({ client, onUpdate }: StatusUpdateFormProps) {
         <Label htmlFor="status" className="text-sm font-medium">
           New Status
         </Label>
-        <Select value={status} onValueChange={setStatus}>
+        <Select value={status} onValueChange={setStatus} disabled={inactive}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -71,6 +78,7 @@ export function StatusUpdateForm({ client, onUpdate }: StatusUpdateFormProps) {
                 placeholder="Number of emails"
                 className="mt-1"
                 required
+                disabled={inactive}
               />
             </div>
             <div>
@@ -101,14 +109,15 @@ export function StatusUpdateForm({ client, onUpdate }: StatusUpdateFormProps) {
                 placeholder="Enter reason for pausing..."
                 className="mt-1"
                 rows={3}
+                disabled={inactive}
               />
             </div>
           )}
         </>
       )}
 
-      <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-        Update Status
+      <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={inactive}>
+        {inactive ? "Client Inactive" : "Update Status"}
       </Button>
     </form>
   )
