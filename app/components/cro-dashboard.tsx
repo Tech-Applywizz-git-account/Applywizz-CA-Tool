@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { User } from "lucide-react"
+import { User, Loader2 } from "lucide-react"
+
 
 
 interface CRODashboardProps {
@@ -41,6 +42,10 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   const [expandedCA, setExpandedCA] = useState<string | null>(null)
   const [caClients, setCaClients] = useState<Record<string, any[]>>({})
+
+  const [isResetting, setIsResetting] = useState(false)
+  const [resetMsg, setResetMsg] = useState<string>("")
+
 
   // --- Fetch Team Leads ---
   useEffect(() => {
@@ -352,77 +357,87 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   //   alert("Reset today's data successfully!")
   // }
   const handleReset = async () => {
-    // ✅ First loop: Process all CAs one by one
-    for (const ca of cas1) {
-      const { data: logData, error: logError } = await supabase //data1 or data??
-        .from("clients")
-        .select(
-          'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
-        )
-        .eq("work_done_by", ca.id)
-      if (logError) {
-        alert(`Error logging reset data: ${logError.message}`)
-        return
-      }
-      // console.log("log data Bhanutejaaa: ", logData)
+    setIsResetting(true)
+    setResetMsg("Collecting today’s work from clients…")
 
-      let date = new Date().toISOString().split("T")[0];
-      let noofprofiles = ca.role === 'Junior CA' ? logData.length <= 2 ? 0 : logData.length - 2 : logData.length <= 4 ? 0 : logData.length - 4;
+    try {
+      // ✅ First loop: Process all CAs one by one
+      for (const ca of cas1) {
+        setResetMsg(`Logging work for ${ca.name}...`)
+        const { data: logData, error: logError } = await supabase //data1 or data??
+          .from("clients")
+          .select(
+            'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+          )
+          .eq("work_done_by", ca.id)
+        if (logError) {
+          alert(`Error logging reset data: ${logError.message}`)
+          return
+        }
+        // console.log("log data Bhanutejaaa: ", logData)
 
-      const { error: logInsertError } = await supabase
-        .from("work_history")
-        .insert({
-          date: date,
-          ca_id: ca.id,
-          ca_name: ca.name,
-          completed_profiles: logData,
-          incentives: noofprofiles,
-        })
+        let date = new Date().toISOString().split("T")[0];
+        let noofprofiles = ca.role === 'Junior CA' ? logData.length <= 2 ? 0 : logData.length - 2 : logData.length <= 4 ? 0 : logData.length - 4;
 
-      if (logInsertError) {
-        alert("Error logging reset data")
-        console.error("Error logging reset data:", logInsertError)
-        return
-      } else {
-        console.log("ca name:", ca.name)
+        const { error: logInsertError } = await supabase
+          .from("work_history")
+          .insert({
+            date: date,
+            ca_id: ca.id,
+            ca_name: ca.name,
+            completed_profiles: logData,
+            incentives: noofprofiles,
+          })
+
+        if (logInsertError) {
+          alert("Error logging reset data")
+          console.error("Error logging reset data:", logInsertError)
+          return
+        } else {
+          console.log("ca name:", ca.name)
+        }
+        const { data: caData, error: caResetError } = await supabase
+          .from("work_history")
+          .select('id, date, ca_id, ca_name, completed_profiles')
+          .eq("ca_id", ca.id)
+        if (caResetError) {
+          alert("Error fetching CA reset data")
+          return
+        } else {
+          console.log("CA reset data fetched successfully:", caData)
+        }
+        // alert("CA reset data fetched successfully")
       }
-      const { data: caData, error: caResetError } = await supabase
-        .from("work_history")
-        .select('id, date, ca_id, ca_name, completed_profiles')
-        .eq("ca_id", ca.id)
-      if (caResetError) {
-        alert("Error fetching CA reset data")
-        return
-      } else {
-        console.log("CA reset data fetched successfully:", caData)
+
+      // ✅ Second loop: Reset all client data AFTER CAs loop completes
+      setResetMsg("Resetting all clients' for a fresh day...")
+      for (const client of clients1) {
+        const currentDate = new Date().toISOString().split("T")[0];
+        console.log("Resetting with date:", currentDate);
+        const { error: resetError } = await supabase
+          .from("clients")
+          .update({
+            status: "Not Started",
+            emails_submitted: 0,
+            jobs_applied: 0,
+            work_done_by: null,
+            start_time: null,
+            end_time: null,
+            remarks: null,
+            date: currentDate,
+          })
+          .eq("id", client.id)
+
+        if (resetError) {
+          alert("Error resetting daily data")
+          return
+        }
       }
-      // alert("CA reset data fetched successfully")
+      alert("Reset today's data successfully!")
+    } finally {
+      setIsResetting(false)
+      setResetMsg("")
     }
-
-    // ✅ Second loop: Reset all client data AFTER CAs loop completes
-    for (const client of clients1) {
-      const currentDate = new Date().toISOString().split("T")[0];
-      console.log("Resetting with date:", currentDate);
-      const { error: resetError } = await supabase
-        .from("clients")
-        .update({
-          status: "Not Started",
-          emails_submitted: 0,
-          jobs_applied: 0,
-          work_done_by: null,
-          start_time: null,
-          end_time: null,
-          remarks: null,
-          date: currentDate,
-        })
-        .eq("id", client.id)
-
-      if (resetError) {
-        alert("Error resetting daily data")
-        return
-      }
-    }
-    alert("Reset today's data successfully!")
   }
 
   return (
@@ -475,7 +490,17 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             </Dialog>
             <Button variant="outline">Profile</Button>
             <Button onClick={onLogout}>Logout</Button>
-            <Button onClick={handleReset}> Reset </Button>
+            {/* <Button onClick={handleReset}> Reset </Button> */}
+            <Button onClick={handleReset} disabled={isResetting}>
+              {isResetting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Resetting…
+                </span>
+              ) : (
+                "Reset"
+              )}
+            </Button>
           </div>
         </div>
 
@@ -663,6 +688,35 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           </>
         }
       </div>
+      {isResetting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Loader2 className="h-10 w-10 animate-spin" />
+            </div>
+            <h2 className="text-lg font-semibold mb-1">Reset in progress</h2>
+            <p className="text-sm text-slate-600 mb-4">{resetMsg || "Please wait while we finalize your reset…"}</p>
+
+            <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-3">
+              <div className="h-full bg-slate-800 animate-[indeterminate_1.4s_ease_infinite]" />
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Do not close this tab until the reset completes.
+            </p>
+          </div>
+
+          {/* Keyframes for the indeterminate bar */}
+          <style jsx>{`
+      @keyframes indeterminate {
+        0% { transform: translateX(-100%); width: 40%; }
+        50% { transform: translateX(30%); width: 50%; }
+        100% { transform: translateX(100%); width: 40%; }
+      }
+    `}</style>
+        </div>
+      )}
     </div>
   )
+
 }
