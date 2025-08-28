@@ -12,6 +12,7 @@ import { Calendar, Plus, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NewClientForm } from "./new-client-form"
 import { User } from "lucide-react"
+import { Pencil } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 
@@ -27,6 +28,8 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [selectedCA, setSelectedCA] = useState("all")
   const [newClientOpen, setNewClientOpen] = useState(false)
   const [dateTo] = useState(new Date().toISOString().split("T")[0])
+  const [editClientOpen, setEditClientOpen] = useState(false)
+  const [clientToEdit, setClientToEdit] = useState<any | null>(null)
 
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
@@ -55,6 +58,22 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       prev.map(c => (c.id === clientId ? { ...c, is_active: data.is_active } : c))
     );
   };
+
+  const openEditDialog = async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", clientId)
+      .single()
+
+    if (error) {
+      console.error("Failed to load client:", error.message)
+      return
+    }
+    setClientToEdit(data)
+    setEditClientOpen(true)
+  }
+
 
 
   useEffect(() => {
@@ -213,6 +232,25 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                 <DialogTrigger asChild>
                   <Button><Plus className="h-4 w-4 mr-2" />Add New Client</Button>
                 </DialogTrigger>
+
+                <Dialog open={editClientOpen} onOpenChange={setEditClientOpen}>
+                  <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden p-0">
+                    <DialogHeader>
+                      <DialogTitle>Edit Client</DialogTitle>
+                    </DialogHeader>
+                    <NewClientForm
+                      mode="edit"
+                      initialClient={clientToEdit}
+                      fetchClients={async () => {
+                        await fetchClients()
+                        setEditClientOpen(false)
+                      }}
+                      onClose={() => setEditClientOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+
+
                 <DialogContent>
                   <DialogHeader><DialogTitle>Add New Client</DialogTitle></DialogHeader>
                   <NewClientForm fetchClients={fetchClients} />
@@ -269,8 +307,16 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                     >
                       {client.is_active ? "Set Inactive" : "Set Active"}
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-slate-100"
+                      onClick={() => openEditDialog(client.id)}
+                      title="Edit client"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                   </div>
-
                 </div>
               ))}
             </div>
