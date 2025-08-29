@@ -110,11 +110,13 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const filteredClients = selectedCA === "all" ? clients : clients.filter((c) => c.assigned_ca_id === selectedCA)
 
   const stats = {
+    totalCAs: teamMembers.length,
     totalClients: filteredClients.length,
     startedClients: filteredClients.filter((c) => c.status === "Started").length,
-    pausedClients: filteredClients.filter((c) => c.status === "Paused").length,
     completedClients: filteredClients.filter((c) => c.status === "Completed").length,
     missingUpdates: filteredClients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length,
+    pausedClients: filteredClients.filter((c) => c.is_active === false).length,
+    activeClients: filteredClients.filter((c) => c.is_active === true).length,
   }
 
   const selectedCAIncentive = selectedCA !== "all" ? incentives.find((i) => i.user_id === selectedCA) : null
@@ -127,10 +129,6 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
             <h1 className="text-3xl font-bold text-slate-900">Team Lead Dashboard</h1>
             <p className="text-slate-600">Welcome back, {user.name}!</p>
           </div>
-          {/* <div className="flex items-center gap-4">
-            <Button variant="outline">Profile</Button>
-            <Button onClick={onLogout}>Logout</Button>
-          </div> */}
           <div className="flex items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -189,11 +187,13 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.startedClients}</div><div className="text-sm text-slate-600">Started</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-orange-600">{stats.pausedClients}</div><div className="text-sm text-slate-600">Paused</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{stats.completedClients}</div><div className="text-sm text-slate-600">Completed</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-900">{stats.pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{stats.missingUpdates}</div><div className="text-sm text-slate-600">Missing Updates</div></CardContent></Card>
         </div>
 
@@ -269,11 +269,6 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                       <p className="text-sm text-slate-600">{client.date_assigned}</p>
                     </div>
                   </div>
-                  {/* <div className="flex items-center gap-8 text-center">
-                    <div><div className="text-lg font-bold text-blue-600">{client.jobs_applied}</div><div className="text-xs text-slate-600">Jobs Applied</div></div>
-                    <div><div className="text-lg font-bold text-blue-600">{client.emails_submitted}</div><div className="text-xs text-slate-600">Emails Received</div></div>
-                    <Badge variant={client.status === "Completed" ? "default" : client.status === "Started" ? "secondary" : "destructive"}>{client.status}</Badge>
-                  </div> */}
                   <div className="flex items-center gap-8 text-center">
                     <div>
                       <div className="text-lg font-bold text-blue-600">{client.jobs_applied}</div>
@@ -286,16 +281,22 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
                     {/* Status badge (existing) */}
                     <Badge
-                      variant={
-                        client.status === "Completed" ? "default" :
-                          client.status === "Started" ? "secondary" : "destructive"
+                      className={
+                        client.status === "Not Started"
+                          ? "bg-red-500 text-white"
+                          : client.status === "Started"
+                            ? "bg-orange-500 text-white"
+                            : client.status === "Paused"
+                              ? "bg-white text-black border border-slate-300"
+                              : client.status === "Completed"
+                                ? "bg-green-500 text-white"
+                                : ""
                       }
                     >
                       {client.status}
                     </Badge>
 
-                    {/* New: Active/Inactive badge */}
-                    <Badge variant={client.is_active ? "outline" : "destructive"}>
+                    <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
                       {client.is_active ? "Active" : "Inactive"}
                     </Badge>
 
@@ -303,6 +304,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="bg-blue-300"
                       onClick={() => handleToggleActive(client.id, client.is_active)}
                     >
                       {client.is_active ? "Set Inactive" : "Set Active"}
