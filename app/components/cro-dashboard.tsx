@@ -45,6 +45,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   const [isResetting, setIsResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState<string>("")
+  const [confirmClient, setConfirmClient] = useState<{ id: string, isActive: boolean, caId: string } | null>(null)
 
 
   // --- Fetch Team Leads ---
@@ -274,9 +275,12 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   // --- KPI Calculations ---
   const totalCAs = cas.length
   const totalClients = clients1.length - 2
+  const pausedClients = clients1.filter((c) => c.is_active === false).length
+  const activeClients = clients1.filter((c) => c.is_active === true).length - 2
   const submittedClients = clients1.filter((c) => c.status === "Completed").length
   const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
-  const submissionRate = totalClients > 0 ? Math.round((submittedClients / totalClients) * 100) : 0
+  const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
+
 
   // --- Google Sheets Import (mock) ---
   const handleGoogleSheetsImport = async () => {
@@ -554,9 +558,11 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
@@ -606,24 +612,71 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                               <ul className="space-y-2">
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
-                                    <div className="flex gap-2 items-center">
-                                      <Badge>{client.status}</Badge>
-                                      <Badge variant="secondary">Emails: {client.emails_submitted}</Badge>
-                                      <Badge variant="secondary">Jobs: {client.jobs_applied}</Badge>
-
-                                      {/* New: show Active/Inactive */}
-                                      <Badge variant={client.is_active ? "outline" : "destructive"}>
+                                    <div className="flex gap-4 items-center">
+                                      {/* <Badge>{client.status}</Badge> */}
+                                      <span className="w-56 truncate font-medium text-slate-900 mr-16">
+                                        {client.name}
+                                      </span>
+                                      <Badge
+                                        className={
+                                          client.status === "Not Started"
+                                            ? "bg-red-500 text-white"
+                                            : client.status === "Started"
+                                              ? "bg-orange-500 text-white"
+                                              : client.status === "Paused"
+                                                ? "bg-white text-black border border-slate-300"
+                                                : client.status === "Completed"
+                                                  ? "bg-green-500 text-white"
+                                                  : ""
+                                        }
+                                      >
+                                        {client.status}
+                                      </Badge>
+                                      <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
+                                      <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
+                                      <Badge
+                                        className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}
+                                      >
                                         {client.is_active ? "Active" : "Inactive"}
                                       </Badge>
-
-                                      {/* New: toggle button */}
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => handleToggleActive(client.id, client.is_active, ca.id)}
+                                        className="bg-blue-300"
+                                        onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
                                       >
                                         {client.is_active ? "Set Inactive" : "Set Active"}
                                       </Button>
+
+                                      {/* Confirmation Dialog */}
+                                      <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Confirm Status Change</DialogTitle>
+                                          </DialogHeader>
+                                          <p>
+                                            Are you sure you want to{" "}
+                                            <span className="font-semibold">
+                                              {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
+                                            </span>
+                                            ?
+                                          </p>
+                                          <div className="flex justify-end gap-2 mt-4">
+                                            <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
+                                            <Button
+                                              className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                              onClick={() => {
+                                                if (confirmClient) {
+                                                  handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
+                                                  setConfirmClient(null)
+                                                }
+                                              }}
+                                            >
+                                              {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
+                                            </Button>
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
                                     </div>
                                   </li>
                                 ))}

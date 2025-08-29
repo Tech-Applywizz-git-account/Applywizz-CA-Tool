@@ -1,10 +1,17 @@
 // "use client"
 
+// import { useEffect, useState } from "react"
+// import { createClient } from "@supabase/supabase-js"
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 // import { Button } from "@/components/ui/button"
 // import { Badge } from "@/components/ui/badge"
 // import { Progress } from "@/components/ui/progress"
 // import { AlertTriangle, Users, Target, TrendingUp, Activity } from "lucide-react"
+
+// const supabase = createClient(
+//   process.env.NEXT_PUBLIC_SUPABASE_URL!,
+//   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// )
 
 // interface CEODashboardProps {
 //   user: any
@@ -12,6 +19,60 @@
 // }
 
 // export function CEODashboard({ user, onLogout }: CEODashboardProps) {
+//   const [totalTeams, setTotalTeams] = useState(0)
+//   const [totalCAs, setTotalCAs] = useState(0)
+//   const [submittedToday, setSubmittedToday] = useState(0)
+//   const [missedToday, setMissedToday] = useState(0)
+//   const [submissionRate, setSubmissionRate] = useState(0)
+//   const [teamData, setTeamData] = useState<any[]>([])
+
+//   useEffect(() => {
+//     const fetchDashboardData = async () => {
+//       // Fetch total teams
+//       const { data: teams } = await supabase.from("teams").select("id, name")
+//       setTotalTeams(teams?.length || 0)
+
+//       // Fetch total CAs
+//       const { data: cas } = await supabase.from("users").select("id").eq("designation", "CA")
+//       setTotalCAs(cas?.length || 0)
+
+//       // Fetch clients submitted today
+//       const today = new Date().toISOString().split("T")[0]
+//       const { data: clientsToday } = await supabase
+//         .from("clients")
+//         .select("status")
+//         .eq("date_assigned", today)
+
+//       const submitted = clientsToday?.filter((c) => c.status === "Submitted").length || 0
+//       const missed = clientsToday?.filter((c) => c.status === "Missed").length || 0
+//       setSubmittedToday(submitted)
+//       setMissedToday(missed)
+//       const rate = submitted + missed > 0 ? (submitted / (submitted + missed)) * 100 : 0
+//       setSubmissionRate(rate)
+
+//       // Fetch team incentives & performance
+//       const { data: incentives } = await supabase.from("incentives").select("*")
+//       // Combine team incentives with team performance
+//       const teamInfo = teams?.map((team) => {
+//         const teamIncentive = incentives?.filter((i) => i.team_id === team.id)
+//         const teamLeadIncentive = teamIncentive?.find((i) => i.type === "TeamLead")?.amount || 0
+//         const caIncentives = teamIncentive
+//           ?.filter((i) => i.type === "CA")
+//           .reduce((sum, i) => sum + i.amount, 0)
+//         const teamPerf = Math.floor(Math.random() * (90 - 50) + 50) // Replace with actual calculation
+//         return {
+//           teamName: team.name,
+//           teamLeadIncentive,
+//           caIncentives,
+//           performance: teamPerf
+//         }
+//       })
+//       setTeamData(teamInfo || [])
+//     }
+
+//     fetchDashboardData()
+//   }, [])
+
 //   return (
 //     <div className="min-h-screen bg-slate-50 p-4">
 //       <div className="max-w-7xl mx-auto">
@@ -35,7 +96,7 @@
 //               <span className="font-semibold">Team Performance Alert</span>
 //             </div>
 //             <p className="text-red-800 mt-1">
-//               Overall submission rate: 65.5% | Target: 80% | 10 clients missed updates across all teams
+//               Overall submission rate: {submissionRate.toFixed(1)}% | Target: 80% | {missedToday} clients missed updates across all teams
 //             </p>
 //           </CardContent>
 //         </Card>
@@ -45,199 +106,179 @@
 //           <Card>
 //             <CardContent className="p-4 text-center">
 //               <Users className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-//               <div className="text-2xl font-bold text-blue-600">3</div>
+//               <div className="text-2xl font-bold text-blue-600">{totalTeams}</div>
 //               <div className="text-sm text-slate-600">Total Teams</div>
 //             </CardContent>
 //           </Card>
 //           <Card>
 //             <CardContent className="p-4 text-center">
 //               <Target className="h-6 w-6 mx-auto mb-2 text-green-600" />
-//               <div className="text-2xl font-bold text-green-600">7</div>
+//               <div className="text-2xl font-bold text-green-600">{totalCAs}</div>
 //               <div className="text-sm text-slate-600">Total CAs</div>
 //             </CardContent>
 //           </Card>
 //           <Card>
 //             <CardContent className="p-4 text-center">
 //               <TrendingUp className="h-6 w-6 mx-auto mb-2 text-green-600" />
-//               <div className="text-2xl font-bold text-green-600">19</div>
+//               <div className="text-2xl font-bold text-green-600">{submittedToday}</div>
 //               <div className="text-sm text-slate-600">Submitted Today</div>
 //             </CardContent>
 //           </Card>
 //           <Card>
 //             <CardContent className="p-4 text-center">
 //               <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-600" />
-//               <div className="text-2xl font-bold text-red-600">10</div>
+//               <div className="text-2xl font-bold text-red-600">{missedToday}</div>
 //               <div className="text-sm text-slate-600">Missed Today</div>
 //             </CardContent>
 //           </Card>
 //           <Card>
 //             <CardContent className="p-4 text-center">
 //               <Activity className="h-6 w-6 mx-auto mb-2 text-red-600" />
-//               <div className="text-2xl font-bold text-red-600">65.5%</div>
+//               <div className="text-2xl font-bold text-red-600">
+//                 {submissionRate.toFixed(1)}%
+//               </div>
 //               <div className="text-sm text-slate-600">Submission Rate</div>
 //             </CardContent>
 //           </Card>
 //         </div>
 
-//         {/* Executive KPIs with Team Incentives */}
+//         {/* Executive KPIs & Incentives */}
 //         <Card className="mb-6">
 //           <CardHeader>
 //             <CardTitle>Executive Key Performance Indicators & Team Incentives</CardTitle>
 //           </CardHeader>
 //           <CardContent>
-            // <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            //   <div className="text-center">
-            //     <div className="text-3xl font-bold text-orange-600 mb-2">2/3</div>
-            //     <div className="text-sm font-medium text-slate-700">Team Performance</div>
-            //     <div className="text-xs text-slate-500 mb-2">Target: 3/3</div>
-            //     <Badge className="bg-orange-500">Monitor</Badge>
-            //   </div>
-            //   <div className="text-center">
-            //     <div className="text-3xl font-bold text-red-600 mb-2">65.5%</div>
-            //     <div className="text-sm font-medium text-slate-700">Submission Rate</div>
-            //     <div className="text-xs text-slate-500 mb-2">Target: 80%</div>
-            //     <Badge variant="destructive">Action Needed</Badge>
-            //   </div>
-            //   <div className="text-center">
-            //     <div className="text-3xl font-bold text-green-600 mb-2">100%</div>
-            //     <div className="text-sm font-medium text-slate-700">Team Coverage</div>
-            //     <div className="text-xs text-slate-500 mb-2">Target: 100%</div>
-            //     <Badge className="bg-green-500">On Track</Badge>
-            //   </div>
-            //   <div className="text-center">
-            //     <div className="text-3xl font-bold text-green-600 mb-2">99.9%</div>
-            //     <div className="text-sm font-medium text-slate-700">System Health</div>
-            //     <div className="text-xs text-slate-500 mb-2">Target: 99%</div>
-            //     <Badge className="bg-green-500">On Track</Badge>
-            //   </div>
-            // </div>
+//             {/* ... (keep static KPI layout, replace values dynamically if required) */}
+//             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+//               <div className="text-center">
+//                 <div className="text-3xl font-bold text-orange-600 mb-2">2/3</div>
+//                 <div className="text-sm font-medium text-slate-700">Team Performance</div>
+//                 <div className="text-xs text-slate-500 mb-2">Target: 3/3</div>
+//                 <Badge className="bg-orange-500">Monitor</Badge>
+//               </div>
+//               <div className="text-center">
+//                 <div className="text-3xl font-bold text-red-600 mb-2">65.5%</div>
+//                 <div className="text-sm font-medium text-slate-700">Submission Rate</div>
+//                 <div className="text-xs text-slate-500 mb-2">Target: 80%</div>
+//                 <Badge variant="destructive">Action Needed</Badge>
+//               </div>
+//               <div className="text-center">
+//                 <div className="text-3xl font-bold text-green-600 mb-2">100%</div>
+//                 <div className="text-sm font-medium text-slate-700">Team Coverage</div>
+//                 <div className="text-xs text-slate-500 mb-2">Target: 100%</div>
+//                 <Badge className="bg-green-500">On Track</Badge>
+//               </div>
+//               <div className="text-center">
+//                 <div className="text-3xl font-bold text-green-600 mb-2">99.9%</div>
+//                 <div className="text-sm font-medium text-slate-700">System Health</div>
+//                 <div className="text-xs text-slate-500 mb-2">Target: 99%</div>
+//                 <Badge className="bg-green-500">On Track</Badge>
+//               </div>
+//             </div>
 
-//             {/* Team Level Incentives */}
 //             <div className="border-t pt-6">
 //               <h3 className="text-lg font-semibold mb-4">Team Level Incentive Summary</h3>
 //               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-//                 <Card className="p-4">
-//                   <h4 className="font-semibold text-blue-600">North Team</h4>
-//                   <div className="mt-2 space-y-1 text-sm">
-//                     <p>
-//                       Team Lead Incentive: <span className="font-bold">₹2,000</span>
-//                     </p>
-//                     <p>
-//                       Total CA Incentives: <span className="font-bold">₹15,500</span>
-//                     </p>
-//                     <p>
-//                       Team Performance: <span className="text-red-600 font-bold">53%</span>
-//                     </p>
-//                   </div>
-//                 </Card>
-//                 <Card className="p-4">
-//                   <h4 className="font-semibold text-green-600">South Team</h4>
-//                   <div className="mt-2 space-y-1 text-sm">
-//                     <p>
-//                       Team Lead Incentive: <span className="font-bold">₹3,000</span>
-//                     </p>
-//                     <p>
-//                       Total CA Incentives: <span className="font-bold">₹19,000</span>
-//                     </p>
-//                     <p>
-//                       Team Performance: <span className="text-green-600 font-bold">75%</span>
-//                     </p>
-//                   </div>
-//                 </Card>
-//                 <Card className="p-4">
-//                   <h4 className="font-semibold text-green-600">East Team</h4>
-//                   <div className="mt-2 space-y-1 text-sm">
-//                     <p>
-//                       Team Lead Incentive: <span className="font-bold">₹3,000</span>
-//                     </p>
-//                     <p>
-//                       Total CA Incentives: <span className="font-bold">₹22,000</span>
-//                     </p>
-//                     <p>
-//                       Team Performance: <span className="text-green-600 font-bold">82%</span>
-//                     </p>
-//                   </div>
-//                 </Card>
+//                 {teamData.map((team, idx) => (
+//                   <Card key={idx} className="p-4">
+//                     <h4 className="font-semibold text-blue-600">{team.teamName}</h4>
+//                     <div className="mt-2 space-y-1 text-sm">
+//                       <p>
+//                         Team Lead Incentive: <span className="font-bold">₹{team.teamLeadIncentive}</span>
+//                       </p>
+//                       <p>
+//                         Total CA Incentives: <span className="font-bold">₹{team.caIncentives}</span>
+//                       </p>
+//                       <p>
+//                         Team Performance:{" "}
+//                         <span className={`font-bold ${team.performance < 60 ? "text-red-600" : "text-green-600"}`}>
+//                           {team.performance}%
+//                         </span>
+//                       </p>
+//                     </div>
+//                   </Card>
+//                 ))}
 //               </div>
 //             </div>
 //           </CardContent>
 //         </Card>
 
-        // {/* Charts Section */}
-        // <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        //   {/* Submission Status Chart */}
-        //   <Card>
-        //     <CardHeader>
-        //       <CardTitle>Today's Submission Status</CardTitle>
-        //     </CardHeader>
-        //     <CardContent>
-        //       <div className="flex items-center justify-center h-48">
-        //         <div className="relative">
-        //           <div className="w-32 h-32 rounded-full bg-gradient-to-r from-green-400 to-green-600"></div>
-        //           <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-red-500"></div>
-        //           <div className="absolute inset-0 flex items-center justify-center">
-        //             <div className="text-center">
-        //               <div className="text-2xl font-bold">65.5%</div>
-        //               <div className="text-sm text-slate-600">Submitted</div>
-        //             </div>
-        //           </div>
-        //         </div>
-        //       </div>
-        //     </CardContent>
-        //   </Card>
+//         {/* Charts remain same, just use submissionRate and teamData for dynamic rendering */}
+//         {/* Charts Section */}
+//         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+//           {/* Submission Status Chart */}
+//           <Card>
+//             <CardHeader>
+//               <CardTitle>Today's Submission Status</CardTitle>
+//             </CardHeader>
+//             <CardContent>
+//               <div className="flex items-center justify-center h-48">
+//                 <div className="relative">
+//                   <div className="w-32 h-32 rounded-full bg-gradient-to-r from-green-400 to-green-600"></div>
+//                   <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-red-500"></div>
+//                   <div className="absolute inset-0 flex items-center justify-center">
+//                     <div className="text-center">
+//                       <div className="text-2xl font-bold">65.5%</div>
+//                       <div className="text-sm text-slate-600">Submitted</div>
+//                     </div>
+//                   </div>
+//                 </div>
+//               </div>
+//             </CardContent>
+//           </Card>
 
-        //   {/* Team Performance Comparison */}
-        //   <Card>
-        //     <CardHeader>
-        //       <CardTitle>Team Performance Comparison</CardTitle>
-        //     </CardHeader>
-        //     <CardContent>
-        //       <div className="space-y-4">
-        //         <div className="flex items-center justify-between">
-        //           <span className="text-sm font-medium">North Team</span>
-        //           <div className="flex items-center gap-2">
-        //             <Progress value={53} className="w-24" />
-        //             <span className="text-sm">53%</span>
-        //           </div>
-        //         </div>
-        //         <div className="flex items-center justify-between">
-        //           <span className="text-sm font-medium">South Team</span>
-        //           <div className="flex items-center gap-2">
-        //             <Progress value={75} className="w-24" />
-        //             <span className="text-sm">75%</span>
-        //           </div>
-        //         </div>
-        //         <div className="flex items-center justify-between">
-        //           <span className="text-sm font-medium">East Team</span>
-        //           <div className="flex items-center gap-2">
-        //             <Progress value={82} className="w-24" />
-        //             <span className="text-sm">82%</span>
-        //           </div>
-        //         </div>
-        //       </div>
-        //     </CardContent>
-        //   </Card>
+//           {/* Team Performance Comparison */}
+//           <Card>
+//             <CardHeader>
+//               <CardTitle>Team Performance Comparison</CardTitle>
+//             </CardHeader>
+//             <CardContent>
+//               <div className="space-y-4">
+//                 <div className="flex items-center justify-between">
+//                   <span className="text-sm font-medium">North Team</span>
+//                   <div className="flex items-center gap-2">
+//                     <Progress value={53} className="w-24" />
+//                     <span className="text-sm">53%</span>
+//                   </div>
+//                 </div>
+//                 <div className="flex items-center justify-between">
+//                   <span className="text-sm font-medium">South Team</span>
+//                   <div className="flex items-center gap-2">
+//                     <Progress value={75} className="w-24" />
+//                     <span className="text-sm">75%</span>
+//                   </div>
+//                 </div>
+//                 <div className="flex items-center justify-between">
+//                   <span className="text-sm font-medium">East Team</span>
+//                   <div className="flex items-center gap-2">
+//                     <Progress value={82} className="w-24" />
+//                     <span className="text-sm">82%</span>
+//                   </div>
+//                 </div>
+//               </div>
+//             </CardContent>
+//           </Card>
 //         </div>
 //       </div>
 //     </div>
 //   )
 // }
 
+// app/components/ceo-dashboard.tsx
 
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabaseClient"
+import { FileSpreadsheet, Plus, Loader2 } from "lucide-react"
+import { NewClientForm } from "./new-client-form"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { AlertTriangle, Users, Target, TrendingUp, Activity } from "lucide-react"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 interface CEODashboardProps {
   user: any
@@ -245,59 +286,336 @@ interface CEODashboardProps {
 }
 
 export function CEODashboard({ user, onLogout }: CEODashboardProps) {
-  const [totalTeams, setTotalTeams] = useState(0)
-  const [totalCAs, setTotalCAs] = useState(0)
-  const [submittedToday, setSubmittedToday] = useState(0)
-  const [missedToday, setMissedToday] = useState(0)
-  const [submissionRate, setSubmissionRate] = useState(0)
-  const [teamData, setTeamData] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
+  const [clients1, setClients1] = useState<any[]>([])
+  const [cas, setCas] = useState<any[]>([])
+  const [cas1, setCas1] = useState<any[]>([])
+  const [teamLeads, setTeamLeads] = useState<any[]>([])
+  const [selectedTeamLead, setSelectedTeamLead] = useState("all")
 
+  const [dateFrom, setDateFrom] = useState(new Date().toISOString().split("T")[0])
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0])
+
+  const [newClientOpen, setNewClientOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [sheetsUrl, setSheetsUrl] = useState("")
+  const [importStatus, setImportStatus] = useState("")
+
+  const [caPerformance, setCaPerformance] = useState<Record<string, any>>({})
+  const [caPerformance1, setCaPerformance1] = useState<Record<string, any>>({})
+  const [loading, setLoading] = useState(false)
+
+  const [expandedCA, setExpandedCA] = useState<string | null>(null)
+  const [caClients, setCaClients] = useState<Record<string, any[]>>({})
+
+  const [isResetting, setIsResetting] = useState(false)
+  const [resetMsg, setResetMsg] = useState<string>("")
+  const [confirmClient, setConfirmClient] = useState<{ id: string, isActive: boolean, caId: string } | null>(null)
+
+  // --- Fetch Team Leads ---
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      // Fetch total teams
-      const { data: teams } = await supabase.from("teams").select("id, name")
-      setTotalTeams(teams?.length || 0)
+    const fetchTeamLeads = async () => {
+      const { data, error } = await supabase.from("users").select("id, name, email").eq("role", "Team Lead")
+      if (!error && data) setTeamLeads(data)
+    }
+    fetchTeamLeads()
+  }, [])
 
-      // Fetch total CAs
-      const { data: cas } = await supabase.from("users").select("id").eq("designation", "CA")
-      setTotalCAs(cas?.length || 0)
+  // --- Fetch CAs based on Team Lead ---
+  useEffect(() => {
+    const fetchCAs = async () => {
+      setLoading(true)
+      let query = supabase.from("users").select("id, name, email, designation, team_id").in("role", ["CA", "Junior CA"])
 
-      // Fetch clients submitted today
-      const today = new Date().toISOString().split("T")[0]
-      const { data: clientsToday } = await supabase
-        .from("clients")
-        .select("status")
-        .eq("date_assigned", today)
+      if (selectedTeamLead !== "all") {
+        const { data: team, error: teamError } = await supabase
+          .from("teams")
+          .select("id")
+          .eq("lead_id", selectedTeamLead)
+          .single()
 
-      const submitted = clientsToday?.filter((c) => c.status === "Submitted").length || 0
-      const missed = clientsToday?.filter((c) => c.status === "Missed").length || 0
-      setSubmittedToday(submitted)
-      setMissedToday(missed)
-      const rate = submitted + missed > 0 ? (submitted / (submitted + missed)) * 100 : 0
-      setSubmissionRate(rate)
-
-      // Fetch team incentives & performance
-      const { data: incentives } = await supabase.from("incentives").select("*")
-      // Combine team incentives with team performance
-      const teamInfo = teams?.map((team) => {
-        const teamIncentive = incentives?.filter((i) => i.team_id === team.id)
-        const teamLeadIncentive = teamIncentive?.find((i) => i.type === "TeamLead")?.amount || 0
-        const caIncentives = teamIncentive
-          ?.filter((i) => i.type === "CA")
-          .reduce((sum, i) => sum + i.amount, 0)
-        const teamPerf = Math.floor(Math.random() * (90 - 50) + 50) // Replace with actual calculation
-        return {
-          teamName: team.name,
-          teamLeadIncentive,
-          caIncentives,
-          performance: teamPerf
+        if (!teamError && team) {
+          query = query.eq("team_id", team.id)
+        } else {
+          setCas([])
+          setLoading(false)
+          return
         }
-      })
-      setTeamData(teamInfo || [])
+      }
+      const { data, error } = await query
+      if (!error && data) setCas(data)
+      setLoading(false)
+    }
+    fetchCAs()
+  }, [selectedTeamLead])
+
+  // --- Fetch Clients for KPI (all CAs in scope) ---
+  useEffect(() => {
+    if (cas.length === 0) {
+      setClients([])
+      return
+    }
+    const fetchClients = async () => {
+      setLoading(true)
+      const caIds = cas.map((c) => c.id)
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .in("assigned_ca_id", caIds)
+        .gte("date_assigned", dateFrom)
+        .lte("date_assigned", dateTo)
+      if (!error && data) setClients(data)
+      setLoading(false)
+    }
+    fetchClients()
+  }, [cas, dateFrom, dateTo])
+
+  // --- Global: all clients (for KPI cards parity with CRO) ---
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data, error } = await supabase.from("clients").select("*")
+      if (!error && data) setClients1(data)
+    }
+    fetchClients()
+  }, [])
+
+  // --- Global: all CAs (for reset parity with CRO) ---
+  useEffect(() => {
+    const fetchCAs = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .in("role", ["CA", "Junior CA"])
+      if (!error && data) setCas1(data)
+    }
+    fetchCAs()
+  }, [])
+
+  // --- Performance Metrics (Today + Range parity with CRO) ---
+  useEffect(() => {
+    const fetchCAData = async () => {
+      if (cas.length === 0) {
+        setCaPerformance({})
+        setCaPerformance1({})
+        return
+      }
+
+      const today = new Date().toISOString().split("T")[0]
+      const caIds = cas.map((c) => c.id)
+
+      // Today: use clients table by work_done_by + date == today
+      const { data: logs, error } = await supabase
+        .from("clients")
+        .select("assigned_ca_id, work_done_by, emails_submitted, jobs_applied, status")
+        .in("work_done_by", caIds)
+        .eq("date", today)
+
+      if (error) {
+        console.error("Error fetching work logs:", error)
+        return
+      }
+
+      // Range: from work_history summary (completed_profiles array)
+      const { data: data1, error: error1 } = await supabase
+        .from("work_history")
+        .select(`
+          ca_id,
+          date,
+          completed_profiles
+        `)
+        .in("ca_id", caIds)
+        .gte("date", dateFrom)
+        .lte("date", dateTo)
+
+      const { data: data2, error: error2 } = await supabase
+        .from("work_history")
+        .select(`
+          ca_id,
+          date,
+          completed_profiles
+        `)
+        .gte("date", dateFrom)
+        .lte("date", dateTo)
+
+      const workingDays = [...new Set(data2?.map(item => item.date))].length
+
+      // Today performance
+      const performance: Record<string, any> = {}
+      for (const ca of cas) {
+        const caLogs = logs?.filter((l) => l.work_done_by === ca.id) || []
+        if (caLogs.length > 0) {
+          const totalEmails = caLogs.reduce((sum, l) => sum + (l.emails_submitted || 0), 0)
+          const totalJobs = caLogs.reduce((sum, l) => sum + (l.jobs_applied || 0), 0)
+          const lastStatus = caLogs[caLogs.length - 1].status
+          performance[ca.id] = { ...ca, emails_submitted: totalEmails, jobs_applied: totalJobs, status: lastStatus, incentives: 0 }
+        } else {
+          performance[ca.id] = { ...ca, emails_submitted: 0, jobs_applied: 0, status: "Not Yet Started", incentives: 0 }
+        }
+      }
+      setCaPerformance(performance)
+
+      // Range performance (parity with CRO math)
+      const performance1: Record<string, any> = {}
+      for (const ca of cas) {
+        const cadata = data1?.filter((d) => d.ca_id === ca.id) || []
+        if (cadata.length > 0) {
+          const totalProfile = cadata.reduce((sum, l) => sum + (l.completed_profiles.length || 0), 0)
+          const incentive =
+            ca.designation === "Junior CA"
+              ? (totalProfile - (2 * workingDays) < 0 ? 0 : totalProfile - (2 * workingDays))
+              : (totalProfile - (4 * workingDays) < 0 ? 0 : totalProfile - (4 * workingDays))
+          performance1[ca.id] = { ...ca, incentives: incentive, totalProfiles: totalProfile, totalWorkingDays: workingDays }
+        } else {
+          performance1[ca.id] = { ...ca, incentives: 0 }
+        }
+      }
+      setCaPerformance1(performance1)
+    }
+    fetchCAData()
+  }, [cas, dateFrom, dateTo])
+
+  const fetchClientsForCA = async (caId: string) => {
+    if (caClients[caId]) {
+      setExpandedCA(expandedCA === caId ? null : caId)
+      return
+    }
+    const { data, error } = await supabase.from("clients").select("*").eq("assigned_ca_id", caId)
+    if (error) {
+      console.error("Error fetching clients:", error)
+      return
+    }
+    setCaClients((prev) => ({ ...prev, [caId]: data || [] }))
+    setExpandedCA(caId)
+  }
+
+  const handleToggleActive = async (clientId: string, currentIsActive: boolean, caId?: string) => {
+    const { data, error } = await supabase
+      .from("clients")
+      .update({ is_active: !currentIsActive })
+      .eq("id", clientId)
+      .select("id, is_active")
+      .single()
+
+    if (error) {
+      alert("Failed to toggle active state: " + error.message)
+      return
     }
 
-    fetchDashboardData()
-  }, [])
+    if (caId) {
+      setCaClients((prev) => ({
+        ...prev,
+        [caId]: (prev[caId] || []).map((c) => (c.id === clientId ? { ...c, is_active: data.is_active } : c)),
+      }))
+    }
+
+    setClients1((prev) => prev.map((c) => (c.id === clientId ? { ...c, is_active: data.is_active } : c)))
+  }
+
+  // --- KPI Calculations (parity with CRO) ---
+  const totalCAs = cas.length
+  const totalClients = clients1.length - 2
+  const pausedClients = clients1.filter((c) => c.is_active === false).length
+  const activeClients = clients1.filter((c) => c.is_active === true).length - 2
+  const submittedClients = clients1.filter((c) => c.status === "Completed").length
+  const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
+  const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
+
+  // --- Google Sheets Import (mock parity) ---
+  const handleGoogleSheetsImport = async () => {
+    if (!sheetsUrl) {
+      setImportStatus("Please enter a valid Google Sheets URL")
+      return
+    }
+    setImportStatus("Importing data from Google Sheets...")
+    setTimeout(() => {
+      setImportStatus(`Successfully imported data from Google Sheets`)
+      setSheetsUrl("")
+      setTimeout(() => {
+        setImportOpen(false)
+        setImportStatus("")
+      }, 1500)
+    }, 1500)
+  }
+
+  // --- Reset (parity with CRO) ---
+  const handleReset = async () => {
+    setIsResetting(true)
+    setResetMsg("Collecting today’s work from clients…")
+    try {
+      for (const ca of cas1) {
+        setResetMsg(`Logging work for ${ca.name}...`)
+        const { data: logData, error: logError } = await supabase
+          .from("clients")
+          .select(
+            "id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by"
+          )
+          .eq("work_done_by", ca.id)
+
+        if (logError) {
+          alert(`Error logging reset data: ${logError.message}`)
+          return
+        }
+
+        const date = new Date().toISOString().split("T")[0]
+        const noofprofiles =
+          ca.role === "Junior CA"
+            ? logData.length <= 2 ? 0 : logData.length - 2
+            : logData.length <= 4 ? 0 : logData.length - 4
+
+        const { error: logInsertError } = await supabase
+          .from("work_history")
+          .insert({
+            date,
+            ca_id: ca.id,
+            ca_name: ca.name,
+            completed_profiles: logData,
+            incentives: noofprofiles,
+          })
+
+        if (logInsertError) {
+          alert("Error logging reset data")
+          console.error("Error logging reset data:", logInsertError)
+          return
+        }
+
+        await supabase // sanity read (optional, parity with CRO)
+          .from("work_history")
+          .select("id")
+          .eq("ca_id", ca.id)
+      }
+
+      setResetMsg("Resetting all clients' for a fresh day...")
+      for (const client of clients1) {
+        const currentDate = new Date().toISOString().split("T")[0]
+        const { error: resetError } = await supabase
+          .from("clients")
+          .update({
+            status: "Not Started",
+            emails_submitted: 0,
+            jobs_applied: 0,
+            work_done_by: null,
+            start_time: null,
+            end_time: null,
+            remarks: null,
+            date: currentDate,
+          })
+          .eq("id", client.id)
+
+        if (resetError) {
+          alert("Error resetting daily data")
+          return
+        }
+      }
+      alert("Reset today's data successfully!")
+    } finally {
+      setIsResetting(false)
+      setResetMsg("")
+    }
+  }
+
+  const isToday =
+    dateFrom === new Date().toISOString().split("T")[0] &&
+    dateTo === new Date().toISOString().split("T")[0]
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -306,186 +624,309 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">CEO Dashboard</h1>
-            <p className="text-slate-600">Executive Performance Overview</p>
+            <p className="text-slate-600">Executive Performance Overview (CRO parity)</p>
           </div>
           <div className="flex items-center gap-4">
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import from Google Sheets
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Import Data from Google Sheets</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Label htmlFor="sheetsUrl">Google Sheets URL</Label>
+                  <Input
+                    id="sheetsUrl"
+                    value={sheetsUrl}
+                    onChange={(e) => setSheetsUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                  />
+                  {importStatus && <div className="text-sm">{importStatus}</div>}
+                  <Button onClick={handleGoogleSheetsImport}>Import</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  Add New Client
+                  <Plus className="h-4 w-4 mr-2" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Client</DialogTitle>
+                </DialogHeader>
+                <NewClientForm fetchClients={() => { }} />
+              </DialogContent>
+            </Dialog>
             <Button variant="outline">Profile</Button>
             <Button onClick={onLogout}>Logout</Button>
+            <Button onClick={handleReset} disabled={isResetting}>
+              {isResetting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Resetting…
+                </span>
+              ) : (
+                "Reset"
+              )}
+            </Button>
           </div>
         </div>
 
-        {/* Performance Alert */}
-        <Card className="mb-6 border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-red-700">
-              <AlertTriangle className="h-5 w-5" />
-              <span className="font-semibold">Team Performance Alert</span>
-            </div>
-            <p className="text-red-800 mt-1">
-              Overall submission rate: {submissionRate.toFixed(1)}% | Target: 80% | {missedToday} clients missed updates across all teams
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Users className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-              <div className="text-2xl font-bold text-blue-600">{totalTeams}</div>
-              <div className="text-sm text-slate-600">Total Teams</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Target className="h-6 w-6 mx-auto mb-2 text-green-600" />
-              <div className="text-2xl font-bold text-green-600">{totalCAs}</div>
-              <div className="text-sm text-slate-600">Total CAs</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <TrendingUp className="h-6 w-6 mx-auto mb-2 text-green-600" />
-              <div className="text-2xl font-bold text-green-600">{submittedToday}</div>
-              <div className="text-sm text-slate-600">Submitted Today</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-600" />
-              <div className="text-2xl font-bold text-red-600">{missedToday}</div>
-              <div className="text-sm text-slate-600">Missed Today</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <Activity className="h-6 w-6 mx-auto mb-2 text-red-600" />
-              <div className="text-2xl font-bold text-red-600">
-                {submissionRate.toFixed(1)}%
-              </div>
-              <div className="text-sm text-slate-600">Submission Rate</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Executive KPIs & Incentives */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Executive Key Performance Indicators & Team Incentives</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* ... (keep static KPI layout, replace values dynamically if required) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-600 mb-2">2/3</div>
-                <div className="text-sm font-medium text-slate-700">Team Performance</div>
-                <div className="text-xs text-slate-500 mb-2">Target: 3/3</div>
-                <Badge className="bg-orange-500">Monitor</Badge>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-red-600 mb-2">65.5%</div>
-                <div className="text-sm font-medium text-slate-700">Submission Rate</div>
-                <div className="text-xs text-slate-500 mb-2">Target: 80%</div>
-                <Badge variant="destructive">Action Needed</Badge>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-2">100%</div>
-                <div className="text-sm font-medium text-slate-700">Team Coverage</div>
-                <div className="text-xs text-slate-500 mb-2">Target: 100%</div>
-                <Badge className="bg-green-500">On Track</Badge>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-2">99.9%</div>
-                <div className="text-sm font-medium text-slate-700">System Health</div>
-                <div className="text-xs text-slate-500 mb-2">Target: 99%</div>
-                <Badge className="bg-green-500">On Track</Badge>
-              </div>
-            </div>
-
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">Team Level Incentive Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {teamData.map((team, idx) => (
-                  <Card key={idx} className="p-4">
-                    <h4 className="font-semibold text-blue-600">{team.teamName}</h4>
-                    <div className="mt-2 space-y-1 text-sm">
-                      <p>
-                        Team Lead Incentive: <span className="font-bold">₹{team.teamLeadIncentive}</span>
-                      </p>
-                      <p>
-                        Total CA Incentives: <span className="font-bold">₹{team.caIncentives}</span>
-                      </p>
-                      <p>
-                        Team Performance:{" "}
-                        <span className={`font-bold ${team.performance < 60 ? "text-red-600" : "text-green-600"}`}>
-                          {team.performance}%
-                        </span>
-                      </p>
-                    </div>
-                  </Card>
+        {/* Filters */}
+        <div className="flex gap-4 mb-6">
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">Select Team Leader</label>
+            <Select value={selectedTeamLead} onValueChange={setSelectedTeamLead}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Team Leaders" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Team Leaders</SelectItem>
+                {teamLeads.map((tl) => (
+                  <SelectItem key={tl.id} value={tl.id}>
+                    {tl.name}
+                  </SelectItem>
                 ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Charts remain same, just use submissionRate and teamData for dynamic rendering */}
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Submission Status Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Today's Submission Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-48">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-r from-green-400 to-green-600"></div>
-                  <div className="absolute top-0 right-0 w-16 h-16 rounded-full bg-red-500"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">65.5%</div>
-                      <div className="text-sm text-slate-600">Submitted</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Performance Comparison */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Performance Comparison</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">North Team</span>
-                  <div className="flex items-center gap-2">
-                    <Progress value={53} className="w-24" />
-                    <span className="text-sm">53%</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">South Team</span>
-                  <div className="flex items-center gap-2">
-                    <Progress value={75} className="w-24" />
-                    <span className="text-sm">75%</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">East Team</span>
-                  <div className="flex items-center gap-2">
-                    <Progress value={82} className="w-24" />
-                    <span className="text-sm">82%</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm">From:</Label>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
+            <Label className="text-sm">To:</Label>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const today = new Date().toISOString().split("T")[0]
+                setDateFrom(today)
+                setDateTo(today)
+              }}
+            >
+              Today
+            </Button>
+          </div>
         </div>
+
+        {/* Team Incentives (only when a specific Team Lead is selected) */}
+        {selectedTeamLead !== "all" && (
+          <div className="mb-6">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-sm text-slate-600">
+                  {teamLeads.find((tl) => tl.id === selectedTeamLead)?.name} Team Incentives
+                </div>
+                <div className="text-2xl font-bold text-green-600">₹2000</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* KPI Cards (parity with CRO) */}
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
+        </div>
+
+        {/* Lists */}
+        {isToday ? (
+          <>
+            {loading && (
+              <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+                Loading...
+              </div>
+            )}
+
+            {!loading && (
+              <Card>
+                <CardHeader><CardTitle>Career Associates — Today</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.values(caPerformance).map((ca: any) => (
+                      <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
+                        {/* CA Card Summary */}
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer"
+                          onClick={() => fetchClientsForCA(ca.id)}
+                        >
+                          <div>
+                            <h3 className="font-semibold">{ca.name}</h3>
+                            <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                          </div>
+                          <div className="flex gap-4">
+                            <Badge variant="secondary">Incentives : {ca.incentives}</Badge>
+                            <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
+                            <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
+                          </div>
+                        </div>
+
+                        {/* Expanded Clients Section */}
+                        {expandedCA === ca.id && (
+                          <div className="p-4 bg-slate-50 border-t">
+                            {caClients[ca.id]?.length > 0 ? (
+                              <ul className="space-y-2">
+                                {caClients[ca.id].map((client) => (
+                                  <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
+                                    <div className="flex gap-3 items-center">
+                                      {/* Client name (added for clarity) */}
+                                      <span className="w-56 truncate font-medium text-slate-900">
+                                        {client.name}
+                                      </span>
+
+                                      <Badge
+                                        className={
+                                          client.status === "Not Started"
+                                            ? "bg-red-500 text-white"
+                                            : client.status === "Started"
+                                              ? "bg-orange-500 text-white"
+                                              : client.status === "Paused"
+                                                ? "bg-white text-black border border-slate-300"
+                                                : client.status === "Completed"
+                                                  ? "bg-green-500 text-white"
+                                                  : ""
+                                        }
+                                      >
+                                        {client.status}
+                                      </Badge>
+                                      <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
+                                      <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
+                                      <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
+                                        {client.is_active ? "Active" : "Inactive"}
+                                      </Badge>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="bg-blue-300"
+                                        onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
+                                      >
+                                        {client.is_active ? "Set Inactive" : "Set Active"}
+                                      </Button>
+
+                                      {/* Confirmation Dialog */}
+                                      <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Confirm Status Change</DialogTitle>
+                                          </DialogHeader>
+                                          <p>
+                                            Are you sure you want to{" "}
+                                            <span className="font-semibold">
+                                              {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
+                                            </span>
+                                            ?
+                                          </p>
+                                          <div className="flex justify-end gap-2 mt-4">
+                                            <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
+                                            <Button
+                                              className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                              onClick={() => {
+                                                if (confirmClient) {
+                                                  handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
+                                                  setConfirmClient(null)
+                                                }
+                                              }}
+                                            >
+                                              {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
+                                            </Button>
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-slate-500">No clients assigned.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        ) : (
+          <>
+            {loading && (
+              <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+                Loading...
+              </div>
+            )}
+
+            {!loading && (
+              <Card>
+                <CardHeader><CardTitle>Career Associates — Range</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.values(caPerformance1).map((ca: any) => (
+                      <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer"
+                          onClick={() => fetchClientsForCA(ca.id)}
+                        >
+                          <div>
+                            <h3 className="font-semibold">{ca.name}</h3>
+                            <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                          </div>
+                          <div className="flex gap-4">
+                            <Badge variant="secondary">Total profiles : {ca.totalProfiles}</Badge>
+                            <Badge variant="secondary">Incentives : {ca.incentives}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
       </div>
+
+      {isResetting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Loader2 className="h-10 w-10 animate-spin" />
+            </div>
+            <h2 className="text-lg font-semibold mb-1">Reset in progress</h2>
+            <p className="text-sm text-slate-600 mb-4">{resetMsg || "Please wait while we finalize your reset…"}</p>
+
+            <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-3">
+              <div className="h-full bg-slate-800 animate-[indeterminate_1.4s_ease_infinite]" />
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Do not close this tab until the reset completes.
+            </p>
+          </div>
+
+          {/* Keyframes for the indeterminate bar */}
+          <style jsx>{`
+            @keyframes indeterminate {
+              0% { transform: translateX(-100%); width: 40%; }
+              50% { transform: translateX(30%); width: 50%; }
+              100% { transform: translateX(100%); width: 40%; }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   )
 }
