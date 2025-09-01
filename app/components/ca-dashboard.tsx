@@ -308,8 +308,6 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
       .from("clients")
       .select("*")
       .eq("assigned_ca_id", caId)
-      .gte("last_update", start)
-      .lt("last_update", end)
 
     if (!error) setClients(data || [])
   }
