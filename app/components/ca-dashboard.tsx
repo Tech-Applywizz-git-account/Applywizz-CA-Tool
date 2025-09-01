@@ -13,12 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Users, UserCheck, TrendingUp, Award, Calendar, User, Upload, FileCheck, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { Users, UserCheck, TrendingUp, Award, Calendar, User, Upload, FileCheck, X, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
 import { supabase } from "@/lib/supabaseClient"
 import { useEffect, useState, useMemo, useRef } from "react"
 import Papa from "papaparse"
-// import { Upload, FileCheck, X, ChevronLeft, ChevronRight } from "lucide-react"
-// import { User } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface CADashboardProps {
@@ -49,6 +47,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
   const [importing, setImporting] = useState(false)
   const [importNote, setImportNote] = useState<string>("")
   const [totalWorkingDays, setTotalWorkingDays] = useState<number>(0);
+  const [showEarnings, setShowEarnings] = useState(false)
   // Month navigation: 0 = this month, -1 = previous, -2 = two months back...
   const [monthOffset, setMonthOffset] = useState<number>(0)
   // Format YYYY-MM-DD safely
@@ -429,6 +428,84 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     fetchBaseSalary();
   }, [user.id]);
 
+  // const handleStatusUpdate = async (
+  //   clientId: string,
+  //   newStatus: string,
+  //   reason?: string,
+  //   emailsSent?: number,
+  //   jobsApplied?: number,
+  // ) => {
+  //   // 1) Update client in Supabase
+  //   const { error: updateError } = await supabase
+  //     .from("clients")
+  //     .update({
+  //       status: newStatus,
+  //       emails_submitted: emailsSent ?? 0,
+  //       jobs_applied: jobsApplied ?? 0,
+  //       last_update: new Date().toISOString().split("T")[0],
+  //       work_done_by: user.id,
+  //       remarks: reason || "",
+  //     })
+  //     .eq("id", clientId)
+
+  //   if (updateError) {
+  //     alert(`Error updating client: ${updateError.message}`)
+  //     return
+  //   }
+  //   if (newStatus === 'Started') {
+  //     // 2) Update clients table in Supabase
+  //     const { error: logError } = await supabase.from("clients").update({
+  //       start_time: new Date().toISOString(),
+  //     }).eq("id", clientId)
+  //     if (logError) {
+  //       alert(`Error logging work: ${logError.message}`)
+  //       return
+  //     }
+  //   }
+  //   if (newStatus === 'Completed') {
+  //     const { error: logError } = await supabase.from("clients").update({
+  //       end_time: new Date().toISOString(),
+  //     }).eq("id", clientId)
+  //     if (logError) {
+  //       alert(`Error logging work: ${logError.message}`)
+  //       return
+  //     }
+  //   }
+
+  //   // 2) Update clients table in Supabase
+  //   // const { error: logError } = await supabase.from("clients").update([
+  //   //   {
+  //   //     work_done_by: user.id, // CA logged in
+  //   //     emails_submitted: emailsSent ?? 0,
+  //   //     jobs_applied: jobsApplied ?? 0,
+  //   //     status: newStatus,
+  //   //   },
+  //   // ]).eq("id", clientId)
+  //   // if (logError) {
+  //   //   alert(`Error logging work: ${logError.message}`)
+  //   //   return
+  //   // }
+
+
+
+  //   // 3) Update local state
+  //   setClients((prev) =>
+  //     prev.map((client) =>
+  //       client.id === clientId
+  //         ? {
+  //           ...client,
+  //           status: newStatus,
+  //           emails_submitted: emailsSent ?? client.emails_submitted,
+  //           jobs_applied: jobsApplied ?? client.jobs_applied,
+  //           last_update: new Date().toISOString().split("T")[0],
+  //         }
+  //         : client,
+  //     ),
+  //   )
+  //   setStatusUpdateOpen(false)
+  //   alert("Status updated and work logged successfully!")
+  // }
+
   const handleStatusUpdate = async (
     clientId: string,
     newStatus: string,
@@ -436,76 +513,89 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     emailsSent?: number,
     jobsApplied?: number,
   ) => {
-    // 1) Update client in Supabase
+    // Shared fields for any status change
+    const baseUpdate: any = {
+      status: newStatus,
+      emails_submitted: emailsSent ?? 0,
+      jobs_applied: jobsApplied ?? 0,
+      last_update: new Date().toISOString().split("T")[0],
+      work_done_by: user.id,
+      remarks: reason || "",
+    };
+
+    // 1) Persist shared fields
     const { error: updateError } = await supabase
       .from("clients")
-      .update({
-        status: newStatus,
-        emails_submitted: emailsSent ?? 0,
-        jobs_applied: jobsApplied ?? 0,
-        last_update: new Date().toISOString().split("T")[0],
-        work_done_by: user.id,
-        remarks: reason || "",
-      })
-      .eq("id", clientId)
+      .update(baseUpdate)
+      .eq("id", clientId);
 
     if (updateError) {
-      alert(`Error updating client: ${updateError.message}`)
-      return
+      alert(`Error updating client: ${updateError.message}`);
+      return;
     }
-    if (newStatus === 'Started') {
-      // 2) Update clients table in Supabase
-      const { error: logError } = await supabase.from("clients").update({
-        start_time: new Date().toISOString(),
-      }).eq("id", clientId)
-      if (logError) {
-        alert(`Error logging work: ${logError.message}`)
-        return
+
+    // 2) Time control branches
+    if (newStatus === "Started") {
+      // Set start_time only if it's not already set; also clear any stale end_time
+      const { error: startErr } = await supabase
+        .from("clients")
+        .update({
+          start_time: new Date().toISOString(),
+          end_time: null,
+        })
+        .eq("id", clientId)
+        .is("start_time", null); // <- protects existing start
+
+      if (startErr) {
+        alert(`Error setting start time: ${startErr.message}`);
+        return;
       }
     }
-    if (newStatus === 'Completed') {
-      const { error: logError } = await supabase.from("clients").update({
-        end_time: new Date().toISOString(),
-      }).eq("id", clientId)
-      if (logError) {
-        alert(`Error logging work: ${logError.message}`)
-        return
+
+    if (newStatus === "Paused" || newStatus === "Completed") {
+      // Freeze the clock on Pause or Completed
+      const { error: endErr } = await supabase
+        .from("clients")
+        .update({ end_time: new Date().toISOString() })
+        .eq("id", clientId);
+
+      if (endErr) {
+        alert(`Error setting end time: ${endErr.message}`);
+        return;
       }
     }
 
-    // 2) Update clients table in Supabase
-    // const { error: logError } = await supabase.from("clients").update([
-    //   {
-    //     work_done_by: user.id, // CA logged in
-    //     emails_submitted: emailsSent ?? 0,
-    //     jobs_applied: jobsApplied ?? 0,
-    //     status: newStatus,
-    //   },
-    // ]).eq("id", clientId)
-    // if (logError) {
-    //   alert(`Error logging work: ${logError.message}`)
-    //   return
-    // }
-
-
-
-    // 3) Update local state
+    // 3) Update local state so UI reflects start/end right away
     setClients((prev) =>
-      prev.map((client) =>
-        client.id === clientId
-          ? {
-            ...client,
-            status: newStatus,
-            emails_submitted: emailsSent ?? client.emails_submitted,
-            jobs_applied: jobsApplied ?? client.jobs_applied,
-            last_update: new Date().toISOString().split("T")[0],
+      prev.map((client) => {
+        if (client.id !== clientId) return client;
+
+        // Start with the base updates we already wrote to DB
+        const next = {
+          ...client,
+          ...baseUpdate,
+        } as any;
+
+        if (newStatus === "Started") {
+          // Only set start_time locally if it wasn't already set
+          if (!client.start_time) {
+            next.start_time = new Date().toISOString();
+            next.end_time = null;
           }
-          : client,
-      ),
-    )
-    setStatusUpdateOpen(false)
-    alert("Status updated and work logged successfully!")
-  }
+        }
+
+        if (newStatus === "Paused" || newStatus === "Completed") {
+          next.end_time = new Date().toISOString();
+        }
+
+        return next;
+      })
+    );
+
+    setStatusUpdateOpen(false);
+    alert("Status updated successfully!");
+  };
+
 
   // Sum of incentives from work_history for the active CA and month
   const monthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
@@ -513,6 +603,23 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     return sum + (isNaN(v) ? 0 : v)
   }, 0)
   // console.log('viv3',monthlyWHIncentive)
+  const computedEarnings = useMemo(() => {
+    if (!totalWorkingDays || totalWorkingDays <= 0) return null
+    const perDay = monthlyWHIncentive / totalWorkingDays
+
+    if (user.designation === "CA") {
+      if (perDay <= 0) return null
+      if (perDay <= 1) return (Math.round(perDay * 100) * 4500) / 100
+      return (((Math.round((perDay - 1) * 100)) * 4000) / 100) + 4500
+    } else {
+      if (perDay <= 0) return null
+      if (perDay <= 1) return (Math.round(perDay * 100) * 2000) / 100
+      if (perDay <= 2) return (((Math.round((perDay - 1) * 100)) * 2500) / 100) + 2000
+      if (perDay <= 3) return (((Math.round((perDay - 1) * 100)) * 3500) / 100) + 4500
+      return (((Math.round((perDay - 1) * 100)) * 3000) / 100) + 8000
+    }
+  }, [monthlyWHIncentive, totalWorkingDays, user.designation])
+
 
   // Get the month name based on monthOffset
   const getMonthName = () => {
@@ -520,6 +627,40 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
     return target.toLocaleString("default", { month: "long" })
   }
+
+  // ---- Time helpers (IST) ----
+  const fmtIST = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("en-IN", {
+        hour12: true,
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      })
+      : "—";
+
+  const calcDurationLabel = (startISO?: string | null, endISO?: string | null) => {
+    if (!startISO) return "—";
+    const st = new Date(startISO).getTime();
+    if (Number.isNaN(st)) return "—";
+
+    // If there's no end, show "In progress (Xm)" relative to now
+    if (!endISO) {
+      const now = Date.now();
+      const mins = Math.max(0, Math.round((now - st) / 60000));
+      return `In progress (${mins} min)`;
+    }
+
+    const et = new Date(endISO).getTime();
+    if (Number.isNaN(et) || et < st) return "—";
+
+    const mins = Math.round((et - st) / 60000);
+    if (mins < 60) return `${mins} min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  };
+
 
 
 
@@ -744,42 +885,55 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
             <CardTitle className="flex items-center gap-2">
               {getMonthName()} Month: Total Earnings
             </CardTitle>
+
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
               <p className="text-2xl font-bold text-green-600">
-                ₹{user.designation === 'CA' ? (
-                  (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                    <span className="text-red-600">No Earnings</span>
-                  ) : (
-                    (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                      <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
+                ₹
+                {showEarnings ? (
+                  user.designation === 'CA' ? (
+                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                      <span className="text-red-600">No Earnings</span>
                     ) : (
-                      <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
-                    )
-                  )
-                ) : (
-                  (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                    <span className="text-red-600">No Earnings</span>
-                  ) : (
-                    (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                      <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
-                    ) : (
-                      (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                        <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
+                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
                       ) : (
-                        (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 3500) / 100) + 4500}</span>
+                        <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
+                      )
+                    )
+                  ) : (
+                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                      <span className="text-red-600">No Earnings</span>
+                    ) : (
+                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
+                      ) : (
+                        (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
                         ) : (
-                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 3000) / 100) + 8000}</span>
+                          (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 3500) / 100) + 4500}</span>
+                          ) : (
+                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 3000) / 100) + 8000}</span>
+                          )
                         )
                       )
                     )
                   )
+                ) : (
+                  <span className="select-none">•••••</span>
                 )}
-                {/* ₹{(monthlyWHIncentive / totalWorkingDays).toLocaleString()} */}
-                {/* const vb=monthlyWHIncentive/workingDays; */}
               </p>
+              {/* Toggle button */}
+              <button
+                type="button"
+                onClick={() => setShowEarnings((v) => !v)}
+                className="ml-2 text-slate-600 hover:text-slate-800"
+                title={showEarnings ? "Hide earnings" : "Show earnings"}
+              >
+                {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -801,6 +955,12 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                     <TableHead>Client Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
+
+                    {/* NEW */}
+                    <TableHead>Start (IST)</TableHead>
+                    <TableHead>End (IST)</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -824,13 +984,13 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                           {client.status}
                         </Badge>
                       </TableCell>
+                      <TableCell>{fmtIST(client.start_time)}</TableCell>
+                      <TableCell>{fmtIST(client.end_time)}</TableCell>
+                      <TableCell className="text-right">
+                        {calcDurationLabel(client.start_time, client.end_time)}
+                      </TableCell>
                       <TableCell>
                         <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-                          {/* <DialogTrigger asChild>
-                            <Button size="sm" variant="outline" onClick={() => setSelectedClient(client)}>
-                              Update Status
-                            </Button>
-                          </DialogTrigger> */}
                           <DialogTrigger asChild>
                             <Button
                               size="sm"

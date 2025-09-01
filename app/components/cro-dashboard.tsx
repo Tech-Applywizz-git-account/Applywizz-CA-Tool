@@ -271,6 +271,40 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     );
   };
 
+  // ---- Time helpers (IST) ----
+  const fmtIST = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("en-IN", {
+        hour12: true,
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      })
+      : "—";
+
+  const calcDurationLabel = (startISO?: string | null, endISO?: string | null) => {
+    if (!startISO) return "—";
+    const st = new Date(startISO).getTime();
+    if (Number.isNaN(st)) return "—";
+
+    // If there's no end, show "In progress (Xm)"
+    if (!endISO) {
+      const now = Date.now();
+      const mins = Math.max(0, Math.round((now - st) / 60000));
+      return `In progress (${mins} min)`;
+    }
+
+    const et = new Date(endISO).getTime();
+    if (Number.isNaN(et) || et < st) return "—";
+
+    const mins = Math.round((et - st) / 60000);
+    if (mins < 60) return `${mins} min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  };
+
+
 
   // --- KPI Calculations ---
   const totalCAs = cas.length
@@ -617,6 +651,18 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                                       <span className="w-56 truncate font-medium text-slate-900 mr-16">
                                         {client.name}
                                       </span>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                        {/* <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">Start:</span> {fmtIST(client.start_time)}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">End:</span> {fmtIST(client.end_time)}
+                                        </span> */}
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
+                                        </span>
+                                      </div>
+                                    </div>
                                       <Badge
                                         className={
                                           client.status === "Not Started"
@@ -677,7 +723,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                                           </div>
                                         </DialogContent>
                                       </Dialog>
-                                    </div>
+                                    {/* </div> */}
                                   </li>
                                 ))}
                               </ul>

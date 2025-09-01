@@ -34,7 +34,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
     if (memberIds.length > 0) {
-      const { data, error } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds).order("name", { ascending: true })
+      const { data, error } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
       if (!error && data) setClients(data)
     }
   }
@@ -90,7 +90,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       setTeamMembers(members || [])
       const memberIds = members?.map((m) => m.id) || []
       if (memberIds.length > 0) {
-        const { data: clientData } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds).order("name", { ascending: true })
+        const { data: clientData } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
         setClients(clientData || [])
       }
 
