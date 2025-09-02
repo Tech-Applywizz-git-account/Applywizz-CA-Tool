@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { User, Loader2 } from "lucide-react"
+import Link from "next/link"
 
 
 
@@ -271,6 +272,40 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     );
   };
 
+  // ---- Time helpers (IST) ----
+  const fmtIST = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("en-IN", {
+        hour12: true,
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      })
+      : "—";
+
+  const calcDurationLabel = (startISO?: string | null, endISO?: string | null) => {
+    if (!startISO) return "—";
+    const st = new Date(startISO).getTime();
+    if (Number.isNaN(st)) return "—";
+
+    // If there's no end, show "In progress (Xm)"
+    if (!endISO) {
+      const now = Date.now();
+      const mins = Math.max(0, Math.round((now - st) / 60000));
+      return `In progress (${mins} min)`;
+    }
+
+    const et = new Date(endISO).getTime();
+    if (Number.isNaN(et) || et < st) return "—";
+
+    const mins = Math.round((et - st) / 60000);
+    if (mins < 60) return `${mins} min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  };
+
+
 
   // --- KPI Calculations ---
   const totalCAs = cas.length
@@ -360,6 +395,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   //   alert("Reset today's data successfully!")
   // }
+  
   const handleReset = async () => {
     setIsResetting(true)
     setResetMsg("Collecting today’s work from clients…")
@@ -560,11 +596,16 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/active" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/paused" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/completed" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/inprogress" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card></Link>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
         </div>
 
@@ -617,6 +658,18 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                                       <span className="w-56 truncate font-medium text-slate-900 mr-16">
                                         {client.name}
                                       </span>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                        {/* <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">Start:</span> {fmtIST(client.start_time)}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">End:</span> {fmtIST(client.end_time)}
+                                        </span> */}
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
+                                        </span>
+                                      </div>
+                                    </div>
                                       <Badge
                                         className={
                                           client.status === "Not Started"
@@ -677,7 +730,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                                           </div>
                                         </DialogContent>
                                       </Dialog>
-                                    </div>
+                                    {/* </div> */}
                                   </li>
                                 ))}
                               </ul>

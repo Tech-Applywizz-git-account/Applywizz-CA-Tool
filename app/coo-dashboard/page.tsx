@@ -1,8 +1,11 @@
+//app/coo-dashboard/page.tsx
+
 "use client"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { COODashboard } from "../components/coo-dashboard"
+import RoleShell from "../components/RoleShell"
 
 export default function COODashboardPage() {
   const router = useRouter()
@@ -24,5 +27,9 @@ export default function COODashboardPage() {
 
   if (!user) return null
 
-  return <COODashboard user={user} onLogout={handleLogout} />
+  return (
+  <RoleShell basePath="/coo-dashboard">
+    <COODashboard user={user} onLogout={handleLogout} />
+  </RoleShell>
+)
 }
