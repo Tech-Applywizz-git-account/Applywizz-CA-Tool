@@ -371,8 +371,10 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
       const { data: teamData } = await supabase
         .from("users")
         .select("id, name, email")
-        .eq("team_id", user.team_id)
-        .neq("id", user.id)
+        .or("role.eq.Junior CA,role.eq.CA")
+        .order("name", { ascending: true })
+        // .eq("team_id", user.team_id)
+        // .neq("id", user.id)
       setTeamMembers(teamData || [])
 
       // Initial month-scoped clients (defaults to 'Myself')

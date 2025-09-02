@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { User, Loader2 } from "lucide-react"
+import Link from "next/link"
 
 
 
@@ -394,6 +395,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   //   alert("Reset today's data successfully!")
   // }
+  
   const handleReset = async () => {
     setIsResetting(true)
     setResetMsg("Collecting today’s work from clients…")
@@ -594,11 +596,16 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/active" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/paused" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/completed" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card></Link>
+          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card> */}
+          <Link href="/cro-dashboard/clients/inprogress" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card></Link>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
         </div>
 

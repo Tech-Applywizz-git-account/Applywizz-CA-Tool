@@ -1,8 +1,11 @@
+//app/cro-dashboard/page.tsx
+
 "use client"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CRODashboard } from "../components/cro-dashboard"
+import RoleShell from "../components/RoleShell"
 
 export default function CRODashboardPage() {
   const router = useRouter()
@@ -24,5 +27,10 @@ export default function CRODashboardPage() {
 
   if (!user) return null
 
-  return <CRODashboard user={user} onLogout={handleLogout} />
+  // return <CRODashboard user={user} onLogout={handleLogout} />
+  return (
+  <RoleShell basePath="/cro-dashboard">
+    <CRODashboard user={user} onLogout={handleLogout} />
+  </RoleShell>
+)
 }

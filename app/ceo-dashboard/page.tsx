@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CEODashboard } from "../components/ceo-dashboard"
+import RoleShell from "../components/RoleShell"
 
 export default function CEODashboardPage() {
   const router = useRouter()
@@ -24,5 +25,9 @@ export default function CEODashboardPage() {
 
   if (!user) return null
 
-  return <CEODashboard user={user} onLogout={handleLogout} />
+  return (
+    <RoleShell basePath="/ceo-dashboard">
+      <CEODashboard user={user} onLogout={handleLogout} />
+    </RoleShell>
+  )
 }
