@@ -395,7 +395,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   //   alert("Reset today's data successfully!")
   // }
-  
+
   const handleReset = async () => {
     setIsResetting(true)
     setResetMsg("Collecting today’s work from clients…")
