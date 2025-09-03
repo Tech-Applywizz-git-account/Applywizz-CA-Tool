@@ -87,56 +87,6 @@ export default function ClientsList({
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  // const fetchClients = useCallback(async () => {
-  //   setLoading(true)
-
-  //   // Base select with exact count for pagination
-  //   let query = supabase
-  //     .from("clients")
-  //     .select(
-  //       "id, name, email, status, assigned_ca_id, assigned_ca_name, team_id, emails_required, emails_submitted, jobs_applied, date_assigned, last_update, created_at, client_designation, is_active",
-  //       { count: "exact" }
-  //     )
-
-  //   // role-aware filters
-  //   if (teamId) query = query.eq("team_id", teamId)
-  //   if (assignedCAId) query = query.eq("assigned_ca_id", assignedCAId)
-
-  //   // status / active filters
-  //   if (status !== "all") query = query.eq("status", status)
-  //   if (active !== "all") query = query.eq("is_active", active === "active")
-
-  //   // text search — client-side for simplicity; for large tables consider pg_trgm/ilike here
-  //   // We'll still fetch paginated rows, but the search will be re-run client-side on the page slice.
-  //   query = query.order(sortKey, { ascending: sortDir === "asc", nullsFirst: sortDir === "asc" }).range(from, to)
-
-  //   const { data, error, count } = await query
-
-  //   if (error) {
-  //     console.error("Error fetching clients:", error.message)
-  //     setClients([])
-  //     setTotal(0)
-  //     setLoading(false)
-  //     return
-  //   }
-
-  //   setTotal(count || 0)
-
-  //   // client-side text filter
-  //   const needle = q.trim().toLowerCase()
-  //   const sliced = (data as Client[]) || []
-  //   const searched = needle
-  //     ? sliced.filter(
-  //       (c) =>
-  //         (c.name || "").toLowerCase().includes(needle) ||
-  //         (c.email || "").toLowerCase().includes(needle) ||
-  //         (c.assigned_ca_name || "").toLowerCase().includes(needle)
-  //     )
-  //     : sliced
-
-  //   setClients(searched)
-  //   setLoading(false)
-  // }, [teamId, assignedCAId, status, active, sortKey, sortDir, from, to, q, pageSize])
   const fetchClients = useCallback(async () => {
     setLoading(true)
 
