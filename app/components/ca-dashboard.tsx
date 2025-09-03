@@ -140,6 +140,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
     setDatePage(p => Math.min(Math.max(0, p), Math.max(0, totalDatePages - 1)));
   }, [totalDatePages]);
 
+
   // Dates visible on the current page
   const datesOnPage = useMemo(() => {
     const start = datePage * Math.max(1, daysPerPage);
@@ -367,14 +368,27 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
         .eq("month", startOfMonthISO)
       if (incentiveData && incentiveData.length > 0) setIncentive(incentiveData[0])
 
+      // const { data: logData, error: logError } = await supabase //data1 or data??
+      //   .from("clients")
+      //   .select(
+      //     'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+      //   )
+      //   .eq("work_done_by", user.id)
+      // if (logError) {
+      //   alert(`Error logging reset data: ${logError.message}`)
+      //   return
+      // }
+      // console.log("log data Bhanutejaaa: ", logData)
+
+
       // Team members in same team (excluding self)
       const { data: teamData } = await supabase
         .from("users")
         .select("id, name, email")
       .or("role.eq.Junior CA,role.eq.CA")
         .order("name", { ascending: true })
-        // .eq("team_id", user.team_id)
-        // .neq("id", user.id)
+      // .eq("team_id", user.team_id)
+      // .neq("id", user.id)
       setTeamMembers(teamData || [])
 
       // Initial month-scoped clients (defaults to 'Myself')
