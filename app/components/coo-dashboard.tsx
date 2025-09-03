@@ -142,7 +142,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
         .from("clients")
         .select("*")
       if (!error && data) setClients1(data)
-      console.log('Clients:', data)  
+      console.log('Clients:', data)
     }
     fetchClients()
   }, [])
@@ -267,14 +267,42 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
     setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, is_active: data?.is_active ?? !currentIsActive } : c)))
   }
 
+  // Team-aware visible clients (used by KPI cards)
+  const visibleClients = useMemo(() => {
+    // No team filter → all clients
+    if (selectedTeam === "all") return clients1
 
+    // Prefer CA-based filter so KPI aligns with the CA list you actually filtered
+    if (cas.length > 0) {
+      const caIds = new Set(cas.map(c => c.id))
+      return clients1.filter(c => c.assigned_ca_id && caIds.has(c.assigned_ca_id as string))
+    }
+
+    // Fallback: filter by team_id if for some reason cas isn't populated yet
+    return clients1.filter(c => c.team_id === selectedTeam)
+  }, [clients1, cas, selectedTeam])
+
+
+
+  // const totalCAs = cas.length
+  // const totalClients = clients1.length
+  // const submittedClients = clients1.filter((c) => c.status === "Completed").length
+  // const missedToday = clients1.filter((c) => c.status === "Started" && (c.jobs_applied || 0) === 0).length
+  // const pausedClients = clients1.filter((c) => c.is_active === false).length
+  // const activeClients = clients1.filter((c) => c.is_active === true).length
+  // const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
   const totalCAs = cas.length
-  const totalClients = clients1.length
-  const submittedClients = clients1.filter((c) => c.status === "Completed").length
-  const missedToday = clients1.filter((c) => c.status === "Started" && (c.jobs_applied || 0) === 0).length
-  const pausedClients = clients1.filter((c) => c.is_active === false).length
-  const activeClients = clients1.filter((c) => c.is_active === true).length
-  const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
+
+  const totalClients = visibleClients.length
+  const submittedClients = visibleClients.filter((c) => c.status === "Completed").length
+  const missedToday = visibleClients.filter((c) => c.status === "Started" && ((c.jobs_applied ?? 0) === 0)).length
+  const pausedClients = visibleClients.filter((c) => c.is_active === false).length
+  const activeClients = visibleClients.filter((c) => c.is_active === true).length
+
+  const submissionRate = activeClients > 0
+    ? Math.round((submittedClients / activeClients) * 100)
+    : 0
+
 
   const alerts = useMemo(() => {
     const out: { message: string; level: "HIGH" | "MEDIUM" }[] = []
@@ -512,7 +540,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
         </div>
 
         {/* Alerts */}
-        {alerts.length > 0 && (
+        {/* {alerts.length > 0 && (
           <Card className="mb-6 border-red-200 bg-red-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-700">
@@ -542,22 +570,129 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
               ))}
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* KPI Cards (filtered) */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+        {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card> */}
+        {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card> */}
+        {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card> */}
+        {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card> */}
+        {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card> */}
+        {/* <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card> */}
           <Link href="/coo-dashboard/clients" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card> */}
           <Link href="/coo-dashboard/clients/active" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card> */}
           <Link href="/coo-dashboard/clients/paused" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card> */}
           <Link href="/coo-dashboard/clients/completed" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card> */}
           <Link href="/coo-dashboard/clients/inprogress" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card></Link>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
+        </div> */}
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{totalCAs}</div>
+              <div className="text-sm text-slate-600">Total CAs</div>
+            </CardContent>
+          </Card>
+
+          {/* Total Clients */}
+          <Link
+            href={{
+              pathname: "/coo-dashboard/clients",
+              query: selectedTeam !== "all" ? { teamId: selectedTeam } : {},
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{totalClients}</div>
+                <div className="text-sm text-slate-600">Total Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Active Clients */}
+          <Link
+            href={{
+              pathname: "/coo-dashboard/clients/active",
+              query:
+                selectedTeam !== "all"
+                  ? { teamId: selectedTeam, active: "active" }
+                  : { active: "active" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{activeClients}</div>
+                <div className="text-sm text-slate-600">Active Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Paused Clients */}
+          <Link
+            href={{
+              pathname: "/coo-dashboard/clients/paused",
+              query:
+                selectedTeam !== "all"
+                  ? { teamId: selectedTeam, active: "inactive" }
+                  : { active: "inactive" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-amber-600">{pausedClients}</div>
+                <div className="text-sm text-slate-600">Paused Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Submitted (Completed) */}
+          <Link
+            href={{
+              pathname: "/coo-dashboard/clients/completed",
+              query:
+                selectedTeam !== "all"
+                  ? { teamId: selectedTeam, status: "Completed" }
+                  : { status: "Completed" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{submittedClients}</div>
+                <div className="text-sm text-slate-600">Submitted</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* In-progress Today (initially status=Started; we can refine later) */}
+          <Link
+            href={{
+              pathname: "/coo-dashboard/clients/inprogress",
+              query:
+                selectedTeam !== "all"
+                  ? { teamId: selectedTeam, status: "Started" }
+                  : { status: "Started" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-red-600">{missedToday}</div>
+                <div className="text-sm text-slate-600">Inprogress Today</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-purple-600">{submissionRate}%</div>
+              <div className="text-sm text-slate-600">Submission Rate</div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Today vs Range CA list (same behavior as CRO) */}

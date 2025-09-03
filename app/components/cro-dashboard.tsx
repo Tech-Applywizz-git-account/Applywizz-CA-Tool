@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { FileSpreadsheet, Plus } from "lucide-react"
 import { NewClientForm } from "./new-client-form"
@@ -47,6 +47,9 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [isResetting, setIsResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState<string>("")
   const [confirmClient, setConfirmClient] = useState<{ id: string, isActive: boolean, caId: string } | null>(null)
+  // Track currently selected team id (derived from Team Lead)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+
 
 
   // --- Fetch Team Leads ---
@@ -59,10 +62,39 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   }, [])
 
   // --- Fetch CAs based on Team Lead ---
+  // useEffect(() => {
+  //   const fetchCAs = async () => {
+  //     setLoading(true)
+  //     let query = supabase.from("users").select("id, name, email, designation, team_id").in("role", ["CA", "Junior CA"])
+
+  //     if (selectedTeamLead !== "all") {
+  //       const { data: team, error: teamError } = await supabase
+  //         .from("teams")
+  //         .select("id")
+  //         .eq("lead_id", selectedTeamLead)
+  //         .single()
+
+  //       if (!teamError && team) {
+  //         query = query.eq("team_id", team.id)
+  //       } else {
+  //         setCas([])
+  //         return
+  //       }
+  //     }
+  //     const { data, error } = await query
+  //     if (!error && data) setCas(data)
+  //     setLoading(false)
+  //   }
+  //   fetchCAs()
+  // }, [selectedTeamLead])
+  // --- Fetch CAs based on Team Lead ---
   useEffect(() => {
     const fetchCAs = async () => {
       setLoading(true)
-      let query = supabase.from("users").select("id, name, email, designation, team_id").in("role", ["CA", "Junior CA"])
+      let query = supabase
+        .from("users")
+        .select("id, name, email, designation, team_id")
+        .in("role", ["CA", "Junior CA"])
 
       if (selectedTeamLead !== "all") {
         const { data: team, error: teamError } = await supabase
@@ -72,18 +104,27 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           .single()
 
         if (!teamError && team) {
+          // store the selected team id
+          setSelectedTeamId(team.id)
           query = query.eq("team_id", team.id)
         } else {
+          setSelectedTeamId(null)
           setCas([])
+          setLoading(false)
           return
         }
+      } else {
+        // "All Team Leaders"
+        setSelectedTeamId(null)
       }
+
       const { data, error } = await query
       if (!error && data) setCas(data)
       setLoading(false)
     }
     fetchCAs()
   }, [selectedTeamLead])
+
 
   // --- Fetch Clients for KPI (all CAs) ---
   useEffect(() => {
@@ -305,16 +346,37 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     return m ? `${h}h ${m}m` : `${h}h`;
   };
 
+  // Team-aware visible clients (used by KPI cards)
+  const visibleClients = useMemo(() => {
+    // If no TL filter, show all
+    if (selectedTeamId === null) return clients1
+
+    // Filter by the CAs that belong to the selected team
+    const caIds = new Set(cas.map(c => c.id))
+    return clients1.filter(c => c.assigned_ca_id && caIds.has(c.assigned_ca_id as string))
+  }, [clients1, cas, selectedTeamId])
 
 
   // --- KPI Calculations ---
+  // const totalCAs = cas.length
+  // const totalClients = clients1.length - 2
+  // const pausedClients = clients1.filter((c) => c.is_active === false).length
+  // const activeClients = clients1.filter((c) => c.is_active === true).length - 2
+  // const submittedClients = clients1.filter((c) => c.status === "Completed").length
+  // const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
+  // const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
+  // --- KPI Calculations (team-aware via visibleClients) ---
   const totalCAs = cas.length
-  const totalClients = clients1.length - 2
-  const pausedClients = clients1.filter((c) => c.is_active === false).length
-  const activeClients = clients1.filter((c) => c.is_active === true).length - 2
-  const submittedClients = clients1.filter((c) => c.status === "Completed").length
-  const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
-  const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
+
+  const totalClients = visibleClients.length
+  const pausedClients = visibleClients.filter((c) => c.is_active === false).length
+  const activeClients = visibleClients.filter((c) => c.is_active === true).length
+  const submittedClients = visibleClients.filter((c) => c.status === "Completed").length
+  const missedToday = visibleClients.filter((c) => c.status === "Started" && (c.jobs_applied ?? 0) === 0).length
+  const submissionRate = activeClients > 0
+    ? Math.round((submittedClients / activeClients) * 100)
+    : 0
+
 
 
   // --- Google Sheets Import (mock) ---
@@ -587,27 +649,119 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             <Card>
               <CardContent className="p-4 text-center">
                 <div className="text-sm text-slate-600"> {teamLeads.find((tl) => tl.id === selectedTeamLead)?.name} Team Incentives</div>
-                <div className="text-2xl font-bold text-green-600">₹2000</div>
+                <div className="text-2xl font-bold text-green-600">Adding feature soon...</div>
               </CardContent>
             </Card>
           </div>
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+        {/* <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card> */}
           <Link href="/cro-dashboard/clients" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card> */}
           <Link href="/cro-dashboard/clients/active" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card> */}
           <Link href="/cro-dashboard/clients/paused" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card> */}
           <Link href="/cro-dashboard/clients/completed" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card></Link>
-          {/* <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card> */}
           <Link href="/cro-dashboard/clients/inprogress" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card></Link>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
+        </div> */}
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{totalCAs}</div>
+              <div className="text-sm text-slate-600">Total CAs</div>
+            </CardContent>
+          </Card>
+
+          {/* Total Clients */}
+          <Link
+            href={{
+              pathname: "/cro-dashboard/clients",
+              query: selectedTeamId ? { teamId: selectedTeamId } : {},
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{totalClients}</div>
+                <div className="text-sm text-slate-600">Total Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Active Clients */}
+          <Link
+            href={{
+              pathname: "/cro-dashboard/clients/active",
+              query: selectedTeamId ? { teamId: selectedTeamId, active: "active" } : { active: "active" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{activeClients}</div>
+                <div className="text-sm text-slate-600">Active Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Paused Clients (inactive) */}
+          <Link
+            href={{
+              pathname: "/cro-dashboard/clients/paused",
+              query: selectedTeamId ? { teamId: selectedTeamId, active: "inactive" } : { active: "inactive" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-amber-600">{pausedClients}</div>
+                <div className="text-sm text-slate-600">Paused Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Submitted (Completed) */}
+          <Link
+            href={{
+              pathname: "/cro-dashboard/clients/completed",
+              query: selectedTeamId ? { teamId: selectedTeamId, status: "Completed" } : { status: "Completed" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{submittedClients}</div>
+                <div className="text-sm text-slate-600">Submitted</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* In-progress Today (for now: status=Started; we’ll refine jobsApplied=0 next step) */}
+          <Link
+            href={{
+              pathname: "/cro-dashboard/clients/inprogress",
+              query: selectedTeamId ? { teamId: selectedTeamId, status: "Started" } : { status: "Started" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-red-600">{missedToday}</div>
+                <div className="text-sm text-slate-600">Inprogress Today</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-purple-600">{submissionRate}%</div>
+              <div className="text-sm text-slate-600">Submission Rate</div>
+            </CardContent>
+          </Card>
         </div>
+
 
         {dateFrom === new Date().toISOString().split("T")[0] && dateTo === new Date().toISOString().split("T")[0] &&
           <>
@@ -670,66 +824,66 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                                         </span>
                                       </div>
                                     </div>
-                                      <Badge
-                                        className={
-                                          client.status === "Not Started"
-                                            ? "bg-red-500 text-white"
-                                            : client.status === "Started"
-                                              ? "bg-orange-500 text-white"
-                                              : client.status === "Paused"
-                                                ? "bg-white text-black border border-slate-300"
-                                                : client.status === "Completed"
-                                                  ? "bg-green-500 text-white"
-                                                  : ""
-                                        }
-                                      >
-                                        {client.status}
-                                      </Badge>
-                                      <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
-                                      <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
-                                      <Badge
-                                        className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}
-                                      >
-                                        {client.is_active ? "Active" : "Inactive"}
-                                      </Badge>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-blue-300"
-                                        onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
-                                      >
-                                        {client.is_active ? "Set Inactive" : "Set Active"}
-                                      </Button>
+                                    <Badge
+                                      className={
+                                        client.status === "Not Started"
+                                          ? "bg-red-500 text-white"
+                                          : client.status === "Started"
+                                            ? "bg-orange-500 text-white"
+                                            : client.status === "Paused"
+                                              ? "bg-white text-black border border-slate-300"
+                                              : client.status === "Completed"
+                                                ? "bg-green-500 text-white"
+                                                : ""
+                                      }
+                                    >
+                                      {client.status}
+                                    </Badge>
+                                    <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
+                                    <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
+                                    <Badge
+                                      className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}
+                                    >
+                                      {client.is_active ? "Active" : "Inactive"}
+                                    </Badge>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="bg-blue-300"
+                                      onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
+                                    >
+                                      {client.is_active ? "Set Inactive" : "Set Active"}
+                                    </Button>
 
-                                      {/* Confirmation Dialog */}
-                                      <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
-                                        <DialogContent>
-                                          <DialogHeader>
-                                            <DialogTitle>Confirm Status Change</DialogTitle>
-                                          </DialogHeader>
-                                          <p>
-                                            Are you sure you want to{" "}
-                                            <span className="font-semibold">
-                                              {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
-                                            </span>
-                                            ?
-                                          </p>
-                                          <div className="flex justify-end gap-2 mt-4">
-                                            <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
-                                            <Button
-                                              className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
-                                              onClick={() => {
-                                                if (confirmClient) {
-                                                  handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
-                                                  setConfirmClient(null)
-                                                }
-                                              }}
-                                            >
-                                              {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
-                                            </Button>
-                                          </div>
-                                        </DialogContent>
-                                      </Dialog>
+                                    {/* Confirmation Dialog */}
+                                    <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>Confirm Status Change</DialogTitle>
+                                        </DialogHeader>
+                                        <p>
+                                          Are you sure you want to{" "}
+                                          <span className="font-semibold">
+                                            {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
+                                          </span>
+                                          ?
+                                        </p>
+                                        <div className="flex justify-end gap-2 mt-4">
+                                          <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
+                                          <Button
+                                            className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                            onClick={() => {
+                                              if (confirmClient) {
+                                                handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
+                                                setConfirmClient(null)
+                                              }
+                                            }}
+                                          >
+                                            {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
+                                          </Button>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
                                     {/* </div> */}
                                   </li>
                                 ))}
