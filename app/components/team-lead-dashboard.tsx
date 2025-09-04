@@ -5,8 +5,10 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Plus, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -30,6 +32,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [dateTo] = useState(new Date().toISOString().split("T")[0])
   const [editClientOpen, setEditClientOpen] = useState(false)
   const [clientToEdit, setClientToEdit] = useState<any | null>(null)
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
@@ -105,9 +108,24 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     fetchTeamData()
   }, [user.id])
 
-  const caOptions = [{ value: "all", label: "All Clients" }, ...teamMembers.map((m) => ({ value: m.id, label: m.name }))]
+  const caOptions = [{ value: "all", label: "All CA Clients" }, ...teamMembers.map((m) => ({ value: m.id, label: m.name }))]
 
-  const filteredClients = selectedCA === "all" ? clients : clients.filter((c) => c.assigned_ca_id === selectedCA)
+  // const filteredClients = selectedCA === "all" ? clients : clients.filter((c) => c.assigned_ca_id === selectedCA)
+  const baseClients =
+    selectedCA === "all"
+      ? clients
+      : clients.filter((c) => c.assigned_ca_id === selectedCA);
+
+  const q = searchTerm.trim().toLowerCase();
+
+  const filteredClients = !q
+    ? baseClients
+    : baseClients.filter((c) => {
+      const name = (c.name ?? "").toLowerCase();
+      const email = (c.email ?? "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+
 
   const stats = {
     totalCAs: teamMembers.length,
@@ -184,6 +202,15 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                 Today
               </Button>
             </div>
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Search Clients</Label>
+            <Input
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64"
+            />
           </div>
         </div>
 
