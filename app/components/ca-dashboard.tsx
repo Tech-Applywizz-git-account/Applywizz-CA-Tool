@@ -725,41 +725,6 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                 </>
               )}
             </div>
-
-            {/* Existing Profile / Logout */}
-            {/* <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-    <DialogTrigger asChild>
-      <Button variant="outline">
-        <User className="h-4 w-4 mr-2" />
-        Profile
-      </Button>
-    </DialogTrigger>
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Profile Information</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4">
-        <div>
-          <Label className="text-sm font-medium">Name</Label>
-          <p className="text-lg">{user.name}</p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Email</Label>
-          <p className="text-lg">{user.email}</p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Role</Label>
-          <p className="text-lg">{user.role}</p>
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Fixed Salary</Label>
-          <p className="text-lg font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
-        </div>
-      </div>
-    </DialogContent>
-  </Dialog>
-
-  <Button onClick={onLogout}>Logout</Button> */}
             <div className="flex items-center gap-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1042,7 +1007,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-sm text-slate-600">Base Salary</Label>
                   <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
@@ -1051,24 +1016,29 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                   <Label className="text-sm text-slate-600">Designation</Label>
                   <p className="text-lg font-semibold">{user.designation}</p>
                 </div>
+                <div>
+                  <Label className="text-sm text-slate-600">Badge</Label>
+                  <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
+                </div>
               </div>
 
-              <div>
-                <Label className="text-sm text-slate-600">Incentive</Label>
-                <p className="text-xl font-bold text-blue-600">
-                  {/* ₹{monthlyWHIncentive.toLocaleString()} */}
-                  {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-slate-600">Total Profile Count <br /> <span className="text-xs text-slate-400">(sum of profile count - This month)</span> </Label>
+                  <p className="text-lg font-semibold text-green-600">{flatWHRows.length}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-slate-600"> Average profile count <br /> <span className="text-xs text-slate-400">(sum of profile count / total working days={totalWorkingDays})</span></Label>
+                  <p className="text-lg font-semibold text-green-600">{((flatWHRows.length) / totalWorkingDays).toFixed(2)}</p>
+                </div>
               </div>
-              {/* <div>
-                <Label className="text-sm text-slate-600">Work History Incentive (This View)</Label>
-                <p className="text-lg font-semibold">
-                  ₹{monthlyWHIncentive.toLocaleString()}
-                </p>
-              </div> */}
-              <div>
-                <Label className="text-sm text-slate-600">Badge</Label>
-                <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
+              <div className="grid gap-4">
+                <div>
+                  <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2" }))</span></Label>
+                  <p className="text-xl font-bold text-blue-600">
+                    {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
+                  </p>
+                </div>
               </div>
 
               {incentive?.badge && (

@@ -62,32 +62,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   }, [])
 
   // --- Fetch CAs based on Team Lead ---
-  // useEffect(() => {
-  //   const fetchCAs = async () => {
-  //     setLoading(true)
-  //     let query = supabase.from("users").select("id, name, email, designation, team_id").in("role", ["CA", "Junior CA"])
-
-  //     if (selectedTeamLead !== "all") {
-  //       const { data: team, error: teamError } = await supabase
-  //         .from("teams")
-  //         .select("id")
-  //         .eq("lead_id", selectedTeamLead)
-  //         .single()
-
-  //       if (!teamError && team) {
-  //         query = query.eq("team_id", team.id)
-  //       } else {
-  //         setCas([])
-  //         return
-  //       }
-  //     }
-  //     const { data, error } = await query
-  //     if (!error && data) setCas(data)
-  //     setLoading(false)
-  //   }
-  //   fetchCAs()
-  // }, [selectedTeamLead])
-  // --- Fetch CAs based on Team Lead ---
   useEffect(() => {
     const fetchCAs = async () => {
       setLoading(true)
@@ -357,14 +331,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   }, [clients1, cas, selectedTeamId])
 
 
-  // --- KPI Calculations ---
-  // const totalCAs = cas.length
-  // const totalClients = clients1.length - 2
-  // const pausedClients = clients1.filter((c) => c.is_active === false).length
-  // const activeClients = clients1.filter((c) => c.is_active === true).length - 2
-  // const submittedClients = clients1.filter((c) => c.status === "Completed").length
-  // const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
-  // const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
   // --- KPI Calculations (team-aware via visibleClients) ---
   const totalCAs = cas.length
 
