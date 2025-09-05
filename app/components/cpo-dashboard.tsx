@@ -57,7 +57,7 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
     fetchTeamLeads()
   }, [])
 
-  // --- Fetch CAs based on Team Lead ---
+  // -- Fetch CAs based on Team Lead --
   useEffect(() => {
     const fetchCAs = async () => {
       setLoading(true)
@@ -476,6 +476,7 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
                         </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem>Reset Password</DropdownMenuItem>
                     <DropdownMenuItem onClick={onLogout}>
                         Logout
                     </DropdownMenuItem>
