@@ -1,21 +1,22 @@
-// app/cro-dashboard/clients/paused/page.tsx
+// app/cpo-dashboard/clients/comleted/page.tsx
+
 import RoleShell from "@/app/components/RoleShell"
 import ClientsList from "@/app/components/ClientsList"
 
 type SearchParams = { teamId?: string }
 
-export default function CROPausedClientsPage({
+export default function CPOCompletedClientsPage({
   searchParams,
 }: { searchParams: SearchParams }) {
   const teamId =
     typeof searchParams.teamId === "string" ? searchParams.teamId : null
 
   return (
-    <RoleShell basePath="/cro-dashboard">
+    <RoleShell basePath="/cpo-dashboard">
       <ClientsList
-        title="Clients Information — CRO"
+        title="Clients Information — CPO"
         teamId={teamId}
-        initialActive="inactive"
+        initialStatus="Completed"
         pageSize={20}
       />
     </RoleShell>
