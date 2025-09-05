@@ -57,7 +57,7 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
     fetchTeamLeads()
   }, [])
 
-  // --- Fetch CAs based on Team Lead ---
+  // -- Fetch CAs based on Team Lead --
   useEffect(() => {
     const fetchCAs = async () => {
       setLoading(true)
@@ -476,21 +476,12 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
                         </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem>Reset Password</DropdownMenuItem>
                     <DropdownMenuItem onClick={onLogout}>
                         Logout
                     </DropdownMenuItem>
                     </DropdownMenuContent>
                     </DropdownMenu>
-            {/* <Button onClick={handleReset} disabled={isResetting}>
-              {isResetting ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Resetting…
-                </span>
-              ) : (
-                "Reset"
-              )}
-            </Button> */}
           </div>
         </div>
 
