@@ -717,7 +717,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                             <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
                           </div>
                           <div className="flex gap-4">
-                            <Badge variant="secondary">Incentives : {ca.incentives}</Badge>
+                            {/* <Badge variant="secondary">Incentives : {ca.incentives}</Badge> */}
                             <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                             <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                           </div>
