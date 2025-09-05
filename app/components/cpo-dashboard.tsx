@@ -481,16 +481,6 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
                     </DropdownMenuItem>
                     </DropdownMenuContent>
                     </DropdownMenu>
-            {/* <Button onClick={handleReset} disabled={isResetting}>
-              {isResetting ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Resetting…
-                </span>
-              ) : (
-                "Reset"
-              )}
-            </Button> */}
           </div>
         </div>
 
