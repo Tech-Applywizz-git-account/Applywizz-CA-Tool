@@ -1,10 +1,10 @@
-
+// app/components/cpo-dashboard.tsx
 
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { FileSpreadsheet, Plus, Loader2 } from "lucide-react"
+import { FileSpreadsheet, Plus, User, Loader2 } from "lucide-react"
 import { NewClientForm } from "./new-client-form"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,28 +14,27 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import Link from "next/link"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-interface CEODashboardProps {
+
+interface CPODashboardProps {
   user: any
   onLogout: () => void
 }
 
-export function CEODashboard({ user, onLogout }: CEODashboardProps) {
+export function CPODashboard({ user, onLogout }: CPODashboardProps) {
   const [clients, setClients] = useState<any[]>([])
   const [clients1, setClients1] = useState<any[]>([])
   const [cas, setCas] = useState<any[]>([])
   const [cas1, setCas1] = useState<any[]>([])
   const [teamLeads, setTeamLeads] = useState<any[]>([])
   const [selectedTeamLead, setSelectedTeamLead] = useState("all")
-
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split("T")[0])
   const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0])
-
   const [newClientOpen, setNewClientOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [sheetsUrl, setSheetsUrl] = useState("")
   const [importStatus, setImportStatus] = useState("")
-
   const [caPerformance, setCaPerformance] = useState<Record<string, any>>({})
   const [caPerformance1, setCaPerformance1] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(false)
@@ -46,6 +45,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
   const [isResetting, setIsResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState<string>("")
   const [confirmClient, setConfirmClient] = useState<{ id: string, isActive: boolean, caId: string } | null>(null)
+  // Track currently selected team id (derived from Team Lead)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
 
   // --- Fetch Team Leads ---
@@ -56,33 +56,6 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     }
     fetchTeamLeads()
   }, [])
-
-  // useEffect(() => {
-  //   const fetchCAs = async () => {
-  //     setLoading(true)
-  //     let query = supabase.from("users").select("id, name, email, designation, team_id").in("role", ["CA", "Junior CA"])
-
-  //     if (selectedTeamLead !== "all") {
-  //       const { data: team, error: teamError } = await supabase
-  //         .from("teams")
-  //         .select("id")
-  //         .eq("lead_id", selectedTeamLead)
-  //         .single()
-
-  //       if (!teamError && team) {
-  //         query = query.eq("team_id", team.id)
-  //       } else {
-  //         setCas([])
-  //         setLoading(false)
-  //         return
-  //       }
-  //     }
-  //     const { data, error } = await query
-  //     if (!error && data) setCas(data)
-  //     setLoading(false)
-  //   }
-  //   fetchCAs()
-  // }, [selectedTeamLead])
 
   // --- Fetch CAs based on Team Lead ---
   useEffect(() => {
@@ -101,7 +74,6 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
           .single()
 
         if (!teamError && team) {
-          // store the selected team id
           setSelectedTeamId(team.id)
           query = query.eq("team_id", team.id)
         } else {
@@ -111,7 +83,6 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
           return
         }
       } else {
-        // "All Team Leaders"
         setSelectedTeamId(null)
       }
 
@@ -122,7 +93,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     fetchCAs()
   }, [selectedTeamLead])
 
-  // --- Fetch Clients for KPI (all CAs in scope) ---
+  // --- Fetch Clients for KPI (all CAs) ---
   useEffect(() => {
     if (cas.length === 0) {
       setClients([])
@@ -143,7 +114,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     fetchClients()
   }, [cas, dateFrom, dateTo])
 
-  // --- Global: all clients (for KPI cards parity with CRO) ---
+  // All clients (cache)
   useEffect(() => {
     const fetchClients = async () => {
       const { data, error } = await supabase.from("clients").select("*")
@@ -152,7 +123,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     fetchClients()
   }, [])
 
-  // --- Global: all CAs (for reset parity with CRO) ---
+  // All CAs (cache)
   useEffect(() => {
     const fetchCAs = async () => {
       const { data, error } = await supabase
@@ -164,7 +135,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     fetchCAs()
   }, [])
 
-  // --- Performance Metrics (Today + Range parity with CRO) ---
+  // --- Optimized Performance Metrics ---
   useEffect(() => {
     const fetchCAData = async () => {
       if (cas.length === 0) {
@@ -176,43 +147,38 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
       const today = new Date().toISOString().split("T")[0]
       const caIds = cas.map((c) => c.id)
 
-      // Today: use clients table by work_done_by + date == today
+      // "Today" snapshot from clients table by work_done_by
       const { data: logs, error } = await supabase
         .from("clients")
         .select("assigned_ca_id, work_done_by, emails_submitted, jobs_applied, status")
         .in("work_done_by", caIds)
         .eq("date", today)
-
       if (error) {
         console.error("Error fetching work logs:", error)
         return
       }
 
-      // Range: from work_history summary (completed_profiles array)
+      // Historical from work_history for given range
       const { data: data1, error: error1 } = await supabase
         .from("work_history")
-        .select(`
-          ca_id,
-          date,
-          completed_profiles
-        `)
+        .select(`ca_id, date, completed_profiles`)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
       const { data: data2, error: error2 } = await supabase
         .from("work_history")
-        .select(`
-          ca_id,
-          date,
-          completed_profiles
-        `)
+        .select(`ca_id, date, completed_profiles`)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
+      if (error1 || error2) {
+        console.error("Error fetching work_history:", error1 || error2)
+      }
+
       const workingDays = [...new Set(data2?.map(item => item.date))].length
 
-      // Today performance
+      // Aggregate "today"
       const performance: Record<string, any> = {}
       for (const ca of cas) {
         const caLogs = logs?.filter((l) => l.work_done_by === ca.id) || []
@@ -227,7 +193,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
       }
       setCaPerformance(performance)
 
-      // Range performance (parity with CRO math)
+      // Aggregate historical
       const performance1: Record<string, any> = {}
       for (const ca of cas) {
         const cadata = data1?.filter((d) => d.ca_id === ca.id) || []
@@ -280,41 +246,58 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         [caId]: (prev[caId] || []).map((c) => (c.id === clientId ? { ...c, is_active: data.is_active } : c)),
       }))
     }
-
     setClients1((prev) => prev.map((c) => (c.id === clientId ? { ...c, is_active: data.is_active } : c)))
   }
 
-  const visibleClients = useMemo(() => {
-    // If no TL filter, show all
-    if (selectedTeamId === null) return clients1
+  // ---- Time helpers (IST) ----
+  const fmtIST = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("en-IN", {
+          hour12: true,
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Kolkata",
+        })
+      : "—"
 
-    // Filter by the CAs that belong to the selected team
+  const calcDurationLabel = (startISO?: string | null, endISO?: string | null) => {
+    if (!startISO) return "—"
+    const st = new Date(startISO).getTime()
+    if (Number.isNaN(st)) return "—"
+
+    if (!endISO) {
+      const now = Date.now()
+      const mins = Math.max(0, Math.round((now - st) / 60000))
+      return `In progress (${mins} min)`
+    }
+
+    const et = new Date(endISO).getTime()
+    if (Number.isNaN(et) || et < st) return "—"
+
+    const mins = Math.round((et - st) / 60000)
+    if (mins < 60) return `${mins} min`
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    return m ? `${h}h ${m}m` : `${h}h`
+  }
+
+  // Team-aware visible clients (used by KPI cards)
+  const visibleClients = useMemo(() => {
+    if (selectedTeamId === null) return clients1
     const caIds = new Set(cas.map(c => c.id))
     return clients1.filter(c => c.assigned_ca_id && caIds.has(c.assigned_ca_id as string))
   }, [clients1, cas, selectedTeamId])
 
-  // --- KPI Calculations (parity with CRO) ---
-  // const totalCAs = cas.length
-  // const totalClients = clients1.length - 2
-  // const pausedClients = clients1.filter((c) => c.is_active === false).length
-  // const activeClients = clients1.filter((c) => c.is_active === true).length - 2
-  // const submittedClients = clients1.filter((c) => c.status === "Completed").length
-  // const missedToday = clients1.filter((c) => c.status === "Started" && c.jobs_applied === 0).length
-  // const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
-
+  // --- KPI Calculations (team-aware via visibleClients) ---
   const totalCAs = cas.length
-
   const totalClients = visibleClients.length
   const pausedClients = visibleClients.filter((c) => c.is_active === false).length
   const activeClients = visibleClients.filter((c) => c.is_active === true).length
   const submittedClients = visibleClients.filter((c) => c.status === "Completed").length
   const missedToday = visibleClients.filter((c) => c.status === "Started" && (c.jobs_applied ?? 0) === 0).length
+  const submissionRate = activeClients > 0 ? Math.round((submittedClients / activeClients) * 100) : 0
 
-  const submissionRate = activeClients > 0
-    ? Math.round((submittedClients / activeClients) * 100)
-    : 0
-
-  // --- Google Sheets Import (mock parity) ---
+  // --- Google Sheets Import (mock) ---
   const handleGoogleSheetsImport = async () => {
     if (!sheetsUrl) {
       setImportStatus("Please enter a valid Google Sheets URL")
@@ -331,84 +314,98 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     }, 1500)
   }
 
-  // const handleReset = async () => {
-  //   setIsResetting(true)
-  //   setResetMsg("Collecting today’s work from clients…")
-  //   try {
-  //     for (const ca of cas1) {
-  //       setResetMsg(`Logging work for ${ca.name}...`)
-  //       const { data: logData, error: logError } = await supabase
-  //         .from("clients")
-  //         .select(
-  //           "id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by"
-  //         )
-  //         .eq("work_done_by", ca.id)
+//   const handleReset = async () => {
+//     setIsResetting(true)
+//     setResetMsg("Collecting today’s work from clients…")
 
-  //       if (logError) {
-  //         alert(`Error logging reset data: ${logError.message}`)
-  //         return
-  //       }
+//     try {
+//       // First: log each CA's work
+//       for (const ca of cas1) {
+//         setResetMsg(`Logging work for ${ca.name}...`)
+//         const { data: logData, error: logError } = await supabase
+//           .from("clients")
+//           .select(
+//             "id, name, emails_required, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by"
+//           )
+//           .eq("work_done_by", user.id) // NOTE: mirrors your CRO code
+//         if (logError) {
+//           alert(`Error logging reset data: ${logError.message}`)
+//           return
+//         }
 
-  //       const date = new Date().toISOString().split("T")[0]
-  //       const noofprofiles =
-  //         ca.role === "Junior CA"
-  //           ? logData.length <= 2 ? 0 : logData.length - 2
-  //           : logData.length <= 4 ? 0 : logData.length - 4
+//         let totalProfiles = 0
+//         for (let i = 0; i < logData.length; i++) {
+//           const required = logData[i].emails_required
+//           const submitted = logData[i].emails_submitted ?? 0
+//           if (required === 25) totalProfiles += 1
+//           else if (required === 40) {
+//             if (submitted >= 40) totalProfiles += 1.5
+//             else if (submitted >= 36) totalProfiles += 1.3
+//             else if (submitted >= 30) totalProfiles += 1.2
+//             else totalProfiles += 1
+//           } else if (required === 50) {
+//             if (submitted >= 50) totalProfiles += 2
+//             else if (submitted >= 45) totalProfiles += 1.8
+//             else if (submitted >= 41) totalProfiles += 1.7
+//             else if (submitted >= 36) totalProfiles += 1.3
+//             else if (submitted >= 30) totalProfiles += 1.2
+//             else totalProfiles += 1
+//           }
+//         }
 
-  //       const { error: logInsertError } = await supabase
-  //         .from("work_history")
-  //         .insert({
-  //           date,
-  //           ca_id: ca.id,
-  //           ca_name: ca.name,
-  //           completed_profiles: logData,
-  //           incentives: noofprofiles,
-  //         })
+//         const d = new Date()
+//         d.setDate(d.getDate() - 1)
+//         const yesterday = d.toISOString().split("T")[0]
+//         const incentives =
+//           ca.role === "Junior CA" ? (totalProfiles <= 2 ? 0 : totalProfiles - 2) : (totalProfiles <= 4 ? 0 : totalProfiles - 4)
 
-  //       if (logInsertError) {
-  //         alert("Error logging reset data")
-  //         console.error("Error logging reset data:", logInsertError)
-  //         return
-  //       }
+//         const { error: logInsertError } = await supabase.from("work_history").insert({
+//           date: yesterday,
+//           ca_id: ca.id,
+//           ca_name: ca.name,
+//           completed_profiles: logData,
+//           incentives: incentives,
+//         })
+//         if (logInsertError) {
+//           alert("Error logging reset data")
+//           console.error("Error logging reset data:", logInsertError)
+//           return
+//         }
 
-  //       await supabase // sanity read (optional, parity with CRO)
-  //         .from("work_history")
-  //         .select("id")
-  //         .eq("ca_id", ca.id)
-  //     }
+//         await supabase
+//           .from("work_history")
+//           .select("id, date, ca_id, ca_name, completed_profiles")
+//           .eq("ca_id", ca.id)
+//       }
 
-  //     setResetMsg("Resetting all clients' for a fresh day...")
-  //     for (const client of clients1) {
-  //       const currentDate = new Date().toISOString().split("T")[0]
-  //       const { error: resetError } = await supabase
-  //         .from("clients")
-  //         .update({
-  //           status: "Not Started",
-  //           emails_submitted: 0,
-  //           jobs_applied: 0,
-  //           work_done_by: null,
-  //           start_time: null,
-  //           end_time: null,
-  //           remarks: null,
-  //           date: currentDate,
-  //         })
-  //         .eq("id", client.id)
-
-  //       if (resetError) {
-  //         alert("Error resetting daily data")
-  //         return
-  //       }
-  //     }
-  //     alert("Reset today's data successfully!")
-  //   } finally {
-  //     setIsResetting(false)
-  //     setResetMsg("")
-  //   }
-  // }
-
-  const isToday =
-    dateFrom === new Date().toISOString().split("T")[0] &&
-    dateTo === new Date().toISOString().split("T")[0]
+//       // Second: reset all clients
+//       setResetMsg("Resetting all clients' for a fresh day...")
+//       for (const client of clients1) {
+//         const currentDate = new Date().toISOString().split("T")[0]
+//         const { error: resetError } = await supabase
+//           .from("clients")
+//           .update({
+//             status: "Not Started",
+//             emails_submitted: 0,
+//             jobs_applied: 0,
+//             work_done_by: null,
+//             start_time: null,
+//             end_time: null,
+//             remarks: null,
+//             date: currentDate,
+//           })
+//           .eq("id", client.id)
+//         if (resetError) {
+//           alert("Error resetting daily data")
+//           return
+//         }
+//       }
+//       alert("Reset today's data successfully!")
+//     } finally {
+//       setIsResetting(false)
+//       setResetMsg("")
+//     }
+//   }
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -416,16 +413,16 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">CEO Dashboard</h1>
-            {/* <p className="text-slate-600">Executive Performance Overview (CRO parity)</p> */}
+            <h1 className="text-3xl font-bold text-slate-900">CPO Dashboard</h1>
+            <p className="text-slate-600">Track team performance and CA productivity</p>
           </div>
           <div className="flex items-center gap-4">
             <Dialog open={importOpen} onOpenChange={setImportOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">
+                {/* <Button variant="outline">
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Import from Google Sheets
-                </Button>
+                </Button> */}
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -458,8 +455,32 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
                 <NewClientForm fetchClients={() => { }} />
               </DialogContent>
             </Dialog>
-            <Button variant="outline">Profile</Button>
-            <Button onClick={onLogout}>Logout</Button>
+            {/* <Button variant="outline">Profile</Button>
+            <Button onClick={onLogout}>Logout</Button> */}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="p-0 rounded-full h-10 w-10 flex items-center justify-center bg-black">
+                        <User className="h-6 w-6 text-white" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel>
+                        <div className="flex flex-col">
+                            <p className="font-medium">{user.name}</p>
+                        </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>
+                        <div className="flex flex-col">
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onLogout}>
+                        Logout
+                    </DropdownMenuItem>
+                    </DropdownMenuContent>
+                    </DropdownMenu>
             {/* <Button onClick={handleReset} disabled={isResetting}>
               {isResetting ? (
                 <span className="inline-flex items-center gap-2">
@@ -515,130 +536,209 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
           <div className="mb-6">
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-sm text-slate-600">
-                  {teamLeads.find((tl) => tl.id === selectedTeamLead)?.name} Team Incentives
-                </div>
+                <div className="text-sm text-slate-600">{teamLeads.find((tl) => tl.id === selectedTeamLead)?.name} Team Incentives</div>
                 <div className="text-2xl font-bold text-green-600">Adding feature soon...</div>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* KPI Cards (parity with CRO) */}
+        {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
-          <Link href="/ceo-dashboard/clients" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card></Link>
-          <Link href="/ceo-dashboard/clients/active" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card></Link>
-          <Link href="/ceo-dashboard/clients/paused" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card></Link>
-          <Link href="/ceo-dashboard/clients/completed" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card></Link>
-          <Link href="/ceo-dashboard/clients/inprogress" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Missed Today</div></CardContent></Card></Link>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{totalCAs}</div>
+              <div className="text-sm text-slate-600">Total CAs</div>
+            </CardContent>
+          </Card>
+
+          {/* Total Clients */}
+          <Link
+            href={{
+              pathname: "/cpo-dashboard/clients",
+              query: selectedTeamId ? { teamId: selectedTeamId } : {},
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{totalClients}</div>
+                <div className="text-sm text-slate-600">Total Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Active Clients */}
+          <Link
+            href={{
+              pathname: "/cpo-dashboard/clients/active",
+              query: selectedTeamId ? { teamId: selectedTeamId, active: "active" } : { active: "active" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{activeClients}</div>
+                <div className="text-sm text-slate-600">Active Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Paused Clients */}
+          <Link
+            href={{
+              pathname: "/cpo-dashboard/clients/paused",
+              query: selectedTeamId ? { teamId: selectedTeamId, active: "inactive" } : { active: "inactive" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-amber-600">{pausedClients}</div>
+                <div className="text-sm text-slate-600">Paused Clients</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Submitted (Completed) */}
+          <Link
+            href={{
+              pathname: "/cpo-dashboard/clients/completed",
+              query: selectedTeamId ? { teamId: selectedTeamId, status: "Completed" } : { status: "Completed" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{submittedClients}</div>
+                <div className="text-sm text-slate-600">Submitted</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* In-progress Today */}
+          <Link
+            href={{
+              pathname: "/cpo-dashboard/clients/inprogress",
+              query: selectedTeamId ? { teamId: selectedTeamId, status: "Started" } : { status: "Started" },
+            }}
+            className="block"
+          >
+            <Card className="cursor-pointer hover:shadow-md transition">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-red-600">{missedToday}</div>
+                <div className="text-sm text-slate-600">Inprogress Today</div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-purple-600">{submissionRate}%</div>
+              <div className="text-sm text-slate-600">Submission Rate</div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Lists */}
-        {isToday ? (
+        {/* CA list: Today vs Range */}
+        {dateFrom === new Date().toISOString().split("T")[0] && dateTo === new Date().toISOString().split("T")[0] ? (
           <>
             {loading && (
               <div className="text-center my-4 text-blue-600 font-semibold text-lg">
                 Loading...
               </div>
             )}
-
             {!loading && (
               <Card>
-                <CardHeader><CardTitle>Career Associates — Today</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {Object.values(caPerformance).map((ca: any) => (
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
-                        {/* CA Card Summary */}
-                        <div
-                          className="flex items-center justify-between p-4 cursor-pointer"
-                          onClick={() => fetchClientsForCA(ca.id)}
-                        >
+                        <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => fetchClientsForCA(ca.id)}>
                           <div>
                             <h3 className="font-semibold">{ca.name}</h3>
                             <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
                           </div>
                           <div className="flex gap-4">
-                            {/* <Badge variant="secondary">Incentives : {ca.incentives}</Badge> */}
                             <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                             <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                           </div>
                         </div>
 
-                        {/* Expanded Clients Section */}
                         {expandedCA === ca.id && (
                           <div className="p-4 bg-slate-50 border-t">
                             {caClients[ca.id]?.length > 0 ? (
                               <ul className="space-y-2">
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
-                                    <div className="flex gap-3 items-center">
-                                      {/* Client name (added for clarity) */}
-                                      <span className="w-56 truncate font-medium text-slate-900">
+                                    <div className="flex gap-4 items-center">
+                                      <span className="w-56 truncate font-medium text-slate-900 mr-16">
                                         {client.name}
                                       </span>
-
-                                      <Badge
-                                        className={
-                                          client.status === "Not Started"
-                                            ? "bg-red-500 text-white"
-                                            : client.status === "Started"
-                                              ? "bg-orange-500 text-white"
-                                              : client.status === "Paused"
-                                                ? "bg-white text-black border border-slate-300"
-                                                : client.status === "Completed"
-                                                  ? "bg-green-500 text-white"
-                                                  : ""
-                                        }
-                                      >
-                                        {client.status}
-                                      </Badge>
-                                      <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
-                                      <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
-                                      <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
-                                        {client.is_active ? "Active" : "Inactive"}
-                                      </Badge>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-blue-300"
-                                        onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
-                                      >
-                                        {client.is_active ? "Set Inactive" : "Set Active"}
-                                      </Button>
-
-                                      {/* Confirmation Dialog */}
-                                      <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
-                                        <DialogContent>
-                                          <DialogHeader>
-                                            <DialogTitle>Confirm Status Change</DialogTitle>
-                                          </DialogHeader>
-                                          <p>
-                                            Are you sure you want to{" "}
-                                            <span className="font-semibold">
-                                              {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
-                                            </span>
-                                            ?
-                                          </p>
-                                          <div className="flex justify-end gap-2 mt-4">
-                                            <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
-                                            <Button
-                                              className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
-                                              onClick={() => {
-                                                if (confirmClient) {
-                                                  handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
-                                                  setConfirmClient(null)
-                                                }
-                                              }}
-                                            >
-                                              {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
-                                            </Button>
-                                          </div>
-                                        </DialogContent>
-                                      </Dialog>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
+                                        </span>
+                                      </div>
                                     </div>
+                                    <Badge
+                                      className={
+                                        client.status === "Not Started"
+                                          ? "bg-red-500 text-white"
+                                          : client.status === "Started"
+                                          ? "bg-orange-500 text-white"
+                                          : client.status === "Paused"
+                                          ? "bg-white text-black border border-slate-300"
+                                          : client.status === "Completed"
+                                          ? "bg-green-500 text-white"
+                                          : ""
+                                      }
+                                    >
+                                      {client.status}
+                                    </Badge>
+                                    <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
+                                    <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
+                                    <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
+                                      {client.is_active ? "Active" : "Inactive"}
+                                    </Badge>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="bg-blue-300"
+                                      onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
+                                    >
+                                      {client.is_active ? "Set Inactive" : "Set Active"}
+                                    </Button>
+
+                                    <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>Confirm Status Change</DialogTitle>
+                                        </DialogHeader>
+                                        <p>
+                                          Are you sure you want to{" "}
+                                          <span className="font-semibold">
+                                            {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
+                                          </span>
+                                          ?
+                                        </p>
+                                        <div className="flex justify-end gap-2 mt-4">
+                                          <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
+                                          <Button
+                                            className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                            onClick={() => {
+                                              if (confirmClient) {
+                                                handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
+                                                setConfirmClient(null)
+                                              }
+                                            }}
+                                          >
+                                            {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
+                                          </Button>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
                                   </li>
                                 ))}
                               </ul>
@@ -661,18 +761,14 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
                 Loading...
               </div>
             )}
-
             {!loading && (
               <Card>
-                <CardHeader><CardTitle>Career Associates — Range</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Career Associates</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {Object.values(caPerformance1).map((ca: any) => (
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
-                        <div
-                          className="flex items-center justify-between p-4 cursor-pointer"
-                          onClick={() => fetchClientsForCA(ca.id)}
-                        >
+                        <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => fetchClientsForCA(ca.id)}>
                           <div>
                             <h3 className="font-semibold">{ca.name}</h3>
                             <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
@@ -710,7 +806,6 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
             </p>
           </div>
 
-          {/* Keyframes for the indeterminate bar */}
           <style jsx>{`
             @keyframes indeterminate {
               0% { transform: translateX(-100%); width: 40%; }
@@ -723,4 +818,3 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
     </div>
   )
 }
-

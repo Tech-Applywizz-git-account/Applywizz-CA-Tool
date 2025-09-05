@@ -1,4 +1,6 @@
-// app/cro-dashboard/clients/page.tsx
+
+
+// app/cpo-dashboard/clients/page.tsx
 import RoleShell from "@/app/components/RoleShell"
 import ClientsList from "@/app/components/ClientsList"
 
@@ -8,7 +10,7 @@ type SearchParams = {
   status?: "all" | "Not Started" | "Started" | "Paused" | "Completed"
 }
 
-export default function CROClientsPage({
+export default function CPOClientsPage({
   searchParams,
 }: {
   searchParams: SearchParams
@@ -27,9 +29,9 @@ export default function CROClientsPage({
       : "all") as "all" | "Not Started" | "Started" | "Paused" | "Completed"
 
   return (
-    <RoleShell basePath="/cro-dashboard">
+    <RoleShell basePath="/cpo-dashboard">
       <ClientsList
-        title="Clients Information — CRO"
+        title="Clients Information — CPO"
         teamId={teamId}
         initialActive={initialActive}
         initialStatus={initialStatus}

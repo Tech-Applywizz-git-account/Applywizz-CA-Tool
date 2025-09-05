@@ -47,6 +47,9 @@ export default function LoginPage() {
       case "CRO":
         router.push("/cro-dashboard")
         break
+      case "CPO":
+        router.push("/cpo-dashboard")
+        break
       case "Team Lead":
         router.push("/team-lead-dashboard")
         break

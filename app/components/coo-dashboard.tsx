@@ -352,79 +352,79 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
   }
 
 
-  const handleReset = async () => {
-    setIsResetting(true)
-    setResetMsg("Collecting today’s work from clients…")
+  // const handleReset = async () => {
+  //   setIsResetting(true)
+  //   setResetMsg("Collecting today’s work from clients…")
 
-    try {
-      // Process each CA (using casAll like CRO)
-      for (const ca of casAll as any[]) {
-        setResetMsg(`Logging work for ${ca.name}...`)
-        const { data: logData, error: logError } = await supabase
-          .from("clients")
-          .select("id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by")
-          .eq("work_done_by", ca.id)
+  //   try {
+  //     // Process each CA (using casAll like CRO)
+  //     for (const ca of casAll as any[]) {
+  //       setResetMsg(`Logging work for ${ca.name}...`)
+  //       const { data: logData, error: logError } = await supabase
+  //         .from("clients")
+  //         .select("id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by")
+  //         .eq("work_done_by", ca.id)
 
-        if (logError) {
-          alert(`Error logging reset data: ${logError.message}`)
-          return
-        }
+  //       if (logError) {
+  //         alert(`Error logging reset data: ${logError.message}`)
+  //         return
+  //       }
 
-        const today = new Date().toISOString().split("T")[0]
-        const quota = ca.designation === "Junior CA" ? 2 : 4
-        const noofprofiles = Math.max(0, (logData?.length || 0) - quota)
+  //       const today = new Date().toISOString().split("T")[0]
+  //       const quota = ca.designation === "Junior CA" ? 2 : 4
+  //       const noofprofiles = Math.max(0, (logData?.length || 0) - quota)
 
-        const { error: insertErr } = await supabase
-          .from("work_history")
-          .insert({
-            date: today,
-            ca_id: ca.id,
-            ca_name: ca.name,
-            completed_profiles: logData || [],
-            incentives: noofprofiles,
-          })
+  //       const { error: insertErr } = await supabase
+  //         .from("work_history")
+  //         .insert({
+  //           date: today,
+  //           ca_id: ca.id,
+  //           ca_name: ca.name,
+  //           completed_profiles: logData || [],
+  //           incentives: noofprofiles,
+  //         })
 
-        if (insertErr) {
-          alert("Error logging reset data")
-          console.error(insertErr)
-          return
-        }
-      }
+  //       if (insertErr) {
+  //         alert("Error logging reset data")
+  //         console.error(insertErr)
+  //         return
+  //       }
+  //     }
 
-      setResetMsg("Resetting all clients for a fresh day...")
-      // Reset all clients (batch by id — loop kept for parity)
-      for (const client of clientsAll) {
-        const today = new Date().toISOString().split("T")[0]
-        const { error: resetErr } = await supabase
-          .from("clients")
-          .update({
-            status: "Not Started",
-            emails_submitted: 0,
-            jobs_applied: 0,
-            work_done_by: null,
-            start_time: null,
-            end_time: null,
-            remarks: null,
-            date: today,
-          })
-          .eq("id", client.id)
-        if (resetErr) {
-          alert("Error resetting daily data")
-          return
-        }
-      }
+  //     setResetMsg("Resetting all clients for a fresh day...")
+  //     // Reset all clients (batch by id — loop kept for parity)
+  //     for (const client of clientsAll) {
+  //       const today = new Date().toISOString().split("T")[0]
+  //       const { error: resetErr } = await supabase
+  //         .from("clients")
+  //         .update({
+  //           status: "Not Started",
+  //           emails_submitted: 0,
+  //           jobs_applied: 0,
+  //           work_done_by: null,
+  //           start_time: null,
+  //           end_time: null,
+  //           remarks: null,
+  //           date: today,
+  //         })
+  //         .eq("id", client.id)
+  //       if (resetErr) {
+  //         alert("Error resetting daily data")
+  //         return
+  //       }
+  //     }
 
-      alert("Reset today's data successfully!")
-      // Refresh filtered lists
-      setExpandedCA(null)
-      setCaClients({})
-      // Re-run main fetchers cheaply:
-      setDateFrom((d) => d) // trigger effects
-    } finally {
-      setIsResetting(false)
-      setResetMsg("")
-    }
-  }
+  //     alert("Reset today's data successfully!")
+  //     // Refresh filtered lists
+  //     setExpandedCA(null)
+  //     setCaClients({})
+  //     // Re-run main fetchers cheaply:
+  //     setDateFrom((d) => d) // trigger effects
+  //   } finally {
+  //     setIsResetting(false)
+  //     setResetMsg("")
+  //   }
+  // }
 
   useEffect(() => {
     setLoading(loadingCAs || loadingClients)
@@ -466,7 +466,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
             </Dialog>
             <Button variant="outline">Profile</Button>
             <Button onClick={onLogout}>Logout</Button>
-            <Button onClick={handleReset} disabled={isResetting}>
+            {/* <Button onClick={handleReset} disabled={isResetting}>
               {isResetting ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -475,7 +475,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
               ) : (
                 "Reset"
               )}
-            </Button>
+            </Button> */}
           </div>
         </div>
 

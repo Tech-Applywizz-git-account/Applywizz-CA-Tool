@@ -5,7 +5,7 @@
 import Sidebar from "./Sidebar"
 
 type RoleShellProps = {
-  basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard"
+  basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard"
   children: React.ReactNode
 }
 
