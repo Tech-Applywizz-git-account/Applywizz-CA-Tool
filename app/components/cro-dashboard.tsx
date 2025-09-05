@@ -432,29 +432,51 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       // ✅ First loop: Process all CAs one by one
       for (const ca of cas1) {
         setResetMsg(`Logging work for ${ca.name}...`)
+        // --- Fetch all clients worked on by this CA today ---
+        // console.log("log data Bhanutejaaa: ", logData)
         const { data: logData, error: logError } = await supabase //data1 or data??
           .from("clients")
           .select(
-            'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+            'id, name,emails_required, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
           )
-          .eq("work_done_by", ca.id)
+          .eq("work_done_by", user.id)
         if (logError) {
           alert(`Error logging reset data: ${logError.message}`)
           return
         }
-        // console.log("log data Bhanutejaaa: ", logData)
+        let totalProfiles = 0;
+        for (let index = 0; index < logData.length; index++) {
+          const element = logData[index].emails_required;
+          if (element == 25) { totalProfiles += 1 }
+          else if (element == 40) {
+            if (logData[index].emails_submitted >= 40) totalProfiles += 1.5
+            else if (logData[index].emails_submitted >= 36) totalProfiles += 1.3
+            else if (logData[index].emails_submitted >= 30) totalProfiles += 1.2
+            else totalProfiles += 1
+          }
+          else if (element == 50) {
+            if (logData[index].emails_submitted >= 50) totalProfiles += 2
+            else if (logData[index].emails_submitted >= 45) totalProfiles += 1.8
+            else if (logData[index].emails_submitted >= 41) totalProfiles += 1.7
+            else if (logData[index].emails_submitted >= 36) totalProfiles += 1.3
+            else if (logData[index].emails_submitted >= 30) totalProfiles += 1.2
+            else totalProfiles += 1
+          }
+        }
+        let date = new Date();
+        date.setDate(date.getDate() - 1);
+        let yesterday = date.toISOString().split("T")[0];
 
-        let date = new Date().toISOString().split("T")[0];
-        let noofprofiles = ca.role === 'Junior CA' ? logData.length <= 2 ? 0 : logData.length - 2 : logData.length <= 4 ? 0 : logData.length - 4;
+        let incentives = ca.role === 'Junior CA' ? totalProfiles <= 2 ? 0 : totalProfiles - 2 : totalProfiles <= 4 ? 0 : totalProfiles - 4;
 
         const { error: logInsertError } = await supabase
           .from("work_history")
           .insert({
-            date: date,
+            date: yesterday,
             ca_id: ca.id,
             ca_name: ca.name,
             completed_profiles: logData,
-            incentives: noofprofiles,
+            incentives: incentives,
           })
 
         if (logInsertError) {
@@ -760,7 +782,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                             <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
                           </div>
                           <div className="flex gap-4">
-                            <Badge variant="secondary">Incentives : {ca.incentives}</Badge>
+                            {/* <Badge variant="secondary">Incentives : {ca.incentives}</Badge> */}
                             <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                             <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                           </div>

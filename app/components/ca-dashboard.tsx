@@ -343,7 +343,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
 
       const workingDays = [...new Set(data1?.map(item => item.date))].length;
       setTotalWorkingDays(workingDays)
-      console.log('bhan', workingDays)
+      console.log('working days', workingDays)
       console.log("work_history fetch:", monthlyWHIncentive)
 
       // Save to state and also log to console for verification
@@ -367,19 +367,6 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
         .eq("user_id", userId)
         .eq("month", startOfMonthISO)
       if (incentiveData && incentiveData.length > 0) setIncentive(incentiveData[0])
-
-      // const { data: logData, error: logError } = await supabase //data1 or data??
-      //   .from("clients")
-      //   .select(
-      //     'id, name, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
-      //   )
-      //   .eq("work_done_by", user.id)
-      // if (logError) {
-      //   alert(`Error logging reset data: ${logError.message}`)
-      //   return
-      // }
-      // console.log("log data Bhanutejaaa: ", logData)
-
 
       // Team members in same team (excluding self)
       const { data: teamData } = await supabase
