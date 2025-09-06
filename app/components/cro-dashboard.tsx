@@ -444,7 +444,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           alert(`Error logging reset data: ${logError.message}`)
           return
         }
-        console.log("Vivek logdata :",logData);
         let totalProfiles = 0;
         for (let index = 0; index < logData.length; index++) {
           const element = logData[index].emails_required;
@@ -464,7 +463,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             else totalProfiles += 1
           }
         }
-        console.log("vivek total profiles",totalProfiles);
         let date = new Date();
         date.setDate(date.getDate() - 1);
         let yesterday = date.toISOString().split("T")[0];
