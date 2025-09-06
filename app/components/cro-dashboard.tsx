@@ -220,7 +220,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       setCaPerformance(performance)
       const performance1: Record<string, any> = {}
       for (const ca of cas) {
-        console.log('vivek11', ca)
+        // console.log('vivek11', ca)
 
         const cadata = data1?.filter((data) => data.ca_id === ca.id) || []
         if (cadata.length > 0) {
@@ -444,6 +444,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           alert(`Error logging reset data: ${logError.message}`)
           return
         }
+        console.log("Vivek logdata :",logData);
         let totalProfiles = 0;
         for (let index = 0; index < logData.length; index++) {
           const element = logData[index].emails_required;
@@ -463,7 +464,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             else totalProfiles += 1
           }
         }
-        console.log("vivek",totalProfiles);
+        console.log("vivek total profiles",totalProfiles);
         let date = new Date();
         date.setDate(date.getDate() - 1);
         let yesterday = date.toISOString().split("T")[0];
@@ -486,6 +487,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           return
         } else {
           console.log("ca name:", ca.name)
+          console.log("Vivek logdata", logData);
         }
         const { data: caData, error: caResetError } = await supabase
           .from("work_history")
