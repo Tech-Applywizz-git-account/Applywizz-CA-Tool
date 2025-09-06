@@ -463,6 +463,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             else totalProfiles += 1
           }
         }
+        console.log("vivek",totalProfiles);
         let date = new Date();
         date.setDate(date.getDate() - 1);
         let yesterday = date.toISOString().split("T")[0];
