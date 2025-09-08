@@ -588,7 +588,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                   Resetting…
                 </span>
               ) : (
-                "Reset"
+                "Reset.."
               )}
             </Button>
           </div>
