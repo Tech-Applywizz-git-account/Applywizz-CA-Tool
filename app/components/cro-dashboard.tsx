@@ -439,7 +439,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           .select(
             'id, name,emails_required, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
           )
-          .eq("work_done_by", user.id)
+          .eq("work_done_by", ca.id)
         if (logError) {
           alert(`Error logging reset data: ${logError.message}`)
           return
@@ -475,7 +475,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             date: yesterday,
             ca_id: ca.id,
             ca_name: ca.name,
-            completed_profiles: logData,
+            completed_profiles: (logData),
             incentives: incentives,
           })
 

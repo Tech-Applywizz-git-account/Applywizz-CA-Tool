@@ -19,6 +19,7 @@ type Client = {
   status: string | null
   assigned_ca_id: string | null
   assigned_ca_name: string | null
+  work_done_by: string | null
   team_id: string | null
   emails_required: number | null
   emails_submitted: number | null
@@ -40,7 +41,7 @@ type ClientsListProps = {
   initialStatus?: "all" | "Not Started" | "Started" | "Paused" | "Completed"
 }
 
-type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jobs_applied" | "date_assigned" | "last_update" | "created_at"
+type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jobs_applied" | "date_assigned" | "last_update" | "created_at" | "work_done_by"
 
 export default function ClientsList({
   title = "Clients Information",
@@ -94,7 +95,7 @@ export default function ClientsList({
     let query = supabase
       .from("clients")
       .select(
-        "id, name, email, status, assigned_ca_id, assigned_ca_name, team_id, emails_required, emails_submitted, jobs_applied, date_assigned, last_update, created_at, client_designation, is_active",
+        "id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_by, team_id, emails_required, emails_submitted, jobs_applied, date_assigned, last_update, created_at, client_designation, is_active",
         { count: "exact" }
       )
 
@@ -230,8 +231,8 @@ export default function ClientsList({
                 </button>
               </TableHead>
               <TableHead className="w-[15%]">
-                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("last_update")}>
-                  Last Update <ArrowUpDown className="h-3.5 w-3.5" />
+                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("work_done_by")}>
+                  Work Done By <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
             </TableRow>
@@ -308,8 +309,11 @@ export default function ClientsList({
                     <div className="text-slate-900">{c.date_assigned ?? "—"}</div>
                   </TableCell>
 
-                  <TableCell>
+                  {/* <TableCell>
                     <div className="text-slate-900">{c.last_update ?? "—"}</div>
+                  </TableCell> */}
+                  <TableCell>
+                    <div className="text-slate-900">{c.work_done_by || "—"}</div>
                   </TableCell>
                 </TableRow>
               ))}
