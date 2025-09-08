@@ -220,7 +220,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       setCaPerformance(performance)
       const performance1: Record<string, any> = {}
       for (const ca of cas) {
-        console.log('vivek11', ca)
+        // console.log('vivek11', ca)
 
         const cadata = data1?.filter((data) => data.ca_id === ca.id) || []
         if (cadata.length > 0) {
@@ -485,6 +485,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           return
         } else {
           console.log("ca name:", ca.name)
+          console.log("Vivek logdata", logData);
         }
         const { data: caData, error: caResetError } = await supabase
           .from("work_history")
@@ -588,7 +589,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                   Resetting…
                 </span>
               ) : (
-                "Reset.."
+                "Reset"
+
               )}
             </Button>
           </div>
