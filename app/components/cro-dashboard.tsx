@@ -475,7 +475,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             date: yesterday,
             ca_id: ca.id,
             ca_name: ca.name,
-            completed_profiles: logData,
+            completed_profiles: (logData),
             incentives: incentives,
           })
 

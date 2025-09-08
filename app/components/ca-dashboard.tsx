@@ -848,7 +848,69 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="mb-3">
+        {/* <Card className="mb-3">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {getMonthName()} Month: Total Earnings
+            </CardTitle>
+
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-bold text-green-600">
+                ₹
+                {showEarnings ? (
+                  user.designation === 'CA' ? (
+                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                      <span className="text-red-600">No Earnings</span>
+                    ) : (
+                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
+                      ) : (
+                        <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
+                      )
+                    )
+                  ) : (
+                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                      <span className="text-red-600">No Earnings</span>
+                    ) : (
+                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
+                      ) : (
+                        (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
+                        ) : (
+                          (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
+                          ) : (
+                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
+                          )
+                        )
+                      )
+                    )
+                  )
+                ) : (
+                  <span className="select-none">•••••</span>
+                )}
+              </p>
+              {/* Toggle button * /}
+              <button
+                type="button"
+                onClick={() => setShowEarnings((v) => !v)}
+                className="ml-2 text-slate-600 hover:text-slate-800"
+                title={showEarnings ? "Hide earnings" : "Show earnings"}
+              >
+                {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </CardContent>
+        </Card> */}
+
+        {/* Dashboard Split View */}
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
+          
+          {/* top Card: Performance Snapshot */}
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {getMonthName()} Month: Total Earnings
@@ -904,11 +966,59 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
               </button>
             </div>
           </CardContent>
-        </Card>
 
-        {/* Dashboard Split View */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Left Card: Client List */}
+          <hr className="border-slate-900 m-2"/>
+
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Performance Snapshot
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-sm text-slate-600">Base Salary</Label>
+                  <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-slate-600">Designation</Label>
+                  <p className="text-lg font-semibold">{user.designation}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-slate-600">Badge</Label>
+                  <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm text-slate-600">Total Profile Count <br /> <span className="text-xs text-slate-400">(sum of profile count - This month)</span> </Label>
+                  <p className="text-lg font-semibold text-green-600">{flatWHRows.length}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-slate-600"> Average profile count <br /> <span className="text-xs text-slate-400">(sum of profile count / total working days={totalWorkingDays})</span></Label>
+                  <p className="text-lg font-semibold text-green-600">{((flatWHRows.length) / totalWorkingDays).toFixed(2)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2" }))</span></Label>
+                  <p className="text-xl font-bold text-blue-600">
+                    {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {incentive?.badge && (
+                <div className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-yellow-500" />
+                  <Badge variant="secondary" className="text-lg px-3 py-1">
+                    🏅 {incentive.badge}
+                  </Badge>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          {/* bottom Card: Client List */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -984,60 +1094,6 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
               </Table>
             </CardContent>
           </Card>
-
-          {/* Right Card: Performance Snapshot */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Performance Snapshot
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-sm text-slate-600">Base Salary</Label>
-                  <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600">Designation</Label>
-                  <p className="text-lg font-semibold">{user.designation}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600">Badge</Label>
-                  <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm text-slate-600">Total Profile Count <br /> <span className="text-xs text-slate-400">(sum of profile count - This month)</span> </Label>
-                  <p className="text-lg font-semibold text-green-600">{flatWHRows.length}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600"> Average profile count <br /> <span className="text-xs text-slate-400">(sum of profile count / total working days={totalWorkingDays})</span></Label>
-                  <p className="text-lg font-semibold text-green-600">{((flatWHRows.length) / totalWorkingDays).toFixed(2)}</p>
-                </div>
-              </div>
-              <div className="grid gap-4">
-                <div>
-                  <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2" }))</span></Label>
-                  <p className="text-xl font-bold text-blue-600">
-                    {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {incentive?.badge && (
-                <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-yellow-500" />
-                  <Badge variant="secondary" className="text-lg px-3 py-1">
-                    🏅 {incentive.badge}
-                  </Badge>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
         {/* Work History Table */}
         <Card className="mb-6">
@@ -1090,12 +1146,12 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[140px]">Date</TableHead>
-                    <TableHead>Candidate</TableHead>
+                    <TableHead>Client Name</TableHead>
                     <TableHead>Designation</TableHead>
-                    <TableHead className="text-right">Emails</TableHead>
-                    <TableHead className="text-right">Jobs</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
+                    <TableHead className="text-right">Emails Received</TableHead>
+                    <TableHead className="text-right">Jobs Applied</TableHead>
+                    <TableHead>Start Time</TableHead>
+                    <TableHead>End Time</TableHead>
                     <TableHead className="text-right">Duration</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
