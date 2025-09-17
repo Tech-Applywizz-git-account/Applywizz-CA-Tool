@@ -19,7 +19,8 @@ type Client = {
   status: string | null
   assigned_ca_id: string | null
   assigned_ca_name: string | null
-  work_done_by: string | null
+  // work_done_ca_name: string | null
+  work_done_user?: { id: string | null; name: string | null } | null
   team_id: string | null
   emails_required: number | null
   emails_submitted: number | null
@@ -41,7 +42,7 @@ type ClientsListProps = {
   initialStatus?: "all" | "Not Started" | "Started" | "Paused" | "Completed"
 }
 
-type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jobs_applied" | "date_assigned" | "last_update" | "created_at" | "work_done_by"
+type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jobs_applied" | "date_assigned" | "last_update" | "created_at" | "work_done_ca_name"
 
 export default function ClientsList({
   title = "Clients Information",
@@ -94,10 +95,16 @@ export default function ClientsList({
     // Base select with exact count for pagination
     let query = supabase
       .from("clients")
-      .select(
-        "id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_by, team_id, emails_required, emails_submitted, jobs_applied, date_assigned, last_update, created_at, client_designation, is_active",
-        { count: "exact" }
-      )
+      // .select(
+      //   "id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_ca_name, team_id, emails_required, emails_submitted, jobs_applied, date_assigned, last_update, created_at, client_designation, is_active",
+      //   { count: "exact" }
+      // )
+      .select(`
+    id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_by,
+    team_id, emails_required, emails_submitted, jobs_applied,
+    date_assigned, last_update, created_at, client_designation, is_active,
+    work_done_user:users!clients_work_done_by_fkey ( id, name )
+  `, { count: "exact" })
 
     // role-aware filters
     if (teamId) query = query.eq("team_id", teamId)
@@ -231,7 +238,7 @@ export default function ClientsList({
                 </button>
               </TableHead>
               <TableHead className="w-[15%]">
-                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("work_done_by")}>
+                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("work_done_ca_name")}>
                   Work Done By <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
@@ -312,9 +319,13 @@ export default function ClientsList({
                   {/* <TableCell>
                     <div className="text-slate-900">{c.last_update ?? "—"}</div>
                   </TableCell> */}
+                  {/* <TableCell>
+                    <div className="text-slate-900">{c.work_done_ca_name || "—"}</div>
+                  </TableCell> */}
                   <TableCell>
-                    <div className="text-slate-900">{c.work_done_by || "—"}</div>
+                    <div className="text-slate-900">{c.work_done_user?.name || "—"}</div>
                   </TableCell>
+
                 </TableRow>
               ))}
           </TableBody>
