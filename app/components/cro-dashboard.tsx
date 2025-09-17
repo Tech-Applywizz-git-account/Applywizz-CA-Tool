@@ -512,6 +512,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             emails_submitted: 0,
             jobs_applied: 0,
             work_done_by: null,
+            work_done_ca_name: null,
             start_time: null,
             end_time: null,
             remarks: null,
@@ -590,7 +591,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                 </span>
               ) : (
                 "Reset"
-
               )}
             </Button>
           </div>
@@ -788,6 +788,11 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                             <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                             <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                           </div>
+                          <Link href={`/cro-dashboard/ca/${ca.id}`} className="inline-block">
+                            <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
+                              Go to Dashboard
+                            </Button>
+                          </Link>
                         </div>
 
                         {/* Expanded Clients Section */}

@@ -22,9 +22,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 interface CADashboardProps {
   user: any
   onLogout: () => void
+  viewerMode?: boolean
+  forceCAId?: string 
 }
 
-export function CADashboard({ user, onLogout }: CADashboardProps) {
+export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: CADashboardProps) {
   const [currentView, setCurrentView] = useState<"myself" | "onbehalf">("myself")
   const [selectedCA, setSelectedCA] = useState<string>("")
   const [selectedClient, setSelectedClient] = useState<any>(null)
@@ -62,6 +64,13 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
 
   const [datePage, setDatePage] = useState(0);   // which date “page” you’re on
   const [daysPerPage, setDaysPerPage] = useState(1); // how many dates per page (default 1)
+
+   useEffect(() => {
+    if (viewerMode && forceCAId) {
+      setCurrentView("onbehalf")
+      setSelectedCA(forceCAId)
+    }
+  }, [viewerMode, forceCAId])
 
   // --- Work history flat rows (for the table) ---
   type FlatWHRow = {
@@ -523,6 +532,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
       jobs_applied: jobsApplied ?? 0,
       last_update: new Date().toISOString().split("T")[0],
       work_done_by: user.id,
+      work_done_ca_name: user.name,
       remarks: reason || "",
     };
 
@@ -676,178 +686,187 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
             <h1 className="text-3xl font-bold text-slate-900">🧭 ApplyWizz CA Performance Tracker</h1>
             <p className="text-slate-600">Welcome back, {user.name}!</p>
           </div>
+          
+          {!viewerMode && (
+            <div className="flex items-center gap-3">
+              {/* Hidden input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                title="CSV file input"
+                placeholder="Choose a CSV file"
+                onChange={handleCSVChange}
+              />
 
-          <div className="flex items-center gap-3">
-            {/* Hidden input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              title="CSV file input"
-              placeholder="Choose a CSV file"
-              onChange={handleCSVChange}
-            />
+              {/* Import CSV control */}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handlePickCSV} disabled={parsing || importing}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {csvFile ? "Choose another CSV" : "Import CSV"}
+                </Button>
 
-            {/* Import CSV control */}
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handlePickCSV} disabled={parsing || importing}>
-                <Upload className="h-4 w-4 mr-2" />
-                {csvFile ? "Choose another CSV" : "Import CSV"}
-              </Button>
-
-              {csvFile && (
-                <>
-                  <Badge variant="secondary" className="px-2 py-1">
-                    <FileCheck className="h-3.5 w-3.5 mr-1" />
-                    {csvRows.length} record{csvRows.length !== 1 ? "s" : ""}
-                  </Badge>
-                  {/* console.log(csv) */}
-                  <Button size="sm" onClick={handleImportSubmit} disabled={importing || parsing || csvRows.length === 0}>
-                    {importing ? "Submitting…" : "Submit"}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={clearCSV} aria-label="Clear selected CSV">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+                {csvFile && (
+                  <>
+                    <Badge variant="secondary" className="px-2 py-1">
+                      <FileCheck className="h-3.5 w-3.5 mr-1" />
+                      {csvRows.length} record{csvRows.length !== 1 ? "s" : ""}
+                    </Badge>
+                    {/* console.log(csv) */}
+                    <Button size="sm" onClick={handleImportSubmit} disabled={importing || parsing || csvRows.length === 0}>
+                      {importing ? "Submitting…" : "Submit"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={clearCSV} aria-label="Clear selected CSV">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="p-0 rounded-full h-10 w-10 flex items-center justify-center bg-black">
+                      <User className="h-6 w-6 text-white" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col">
+                        <p className="font-medium">{user.name}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col">
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onLogout}>
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="p-0 rounded-full h-10 w-10 flex items-center justify-center bg-black">
-                    <User className="h-6 w-6 text-white" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <p className="font-medium">{user.name}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onLogout}>
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+          )}
+
         </div>
 
         {/* Enhanced Calendar Section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Calendar & Tracking
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex gap-2">
-                {/* <Button
-                  variant={trackingMode === "daily" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setTrackingMode("daily")}
-                >
-                  Daily Tracking
-                </Button> */}
-                {/* <Button
-                  variant={trackingMode === "monthly" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setTrackingMode("monthly")}
-                >
-                  Monthly Tracking
-                </Button> */}
-              </div>
-              {/* <div className="flex items-center gap-2">
-                <Label className="text-sm">From:</Label>
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
-                <Label className="text-sm">To:</Label>
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
-                <Button variant="outline" size="sm">
-                  Apply Filter
-                </Button>
-              </div> */}
-              <h2 className="text-lg font-semibold mb-2">
-                Month: {getMonthName()}
-              </h2>
+        {!viewerMode && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Calendar & Tracking
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex gap-2">
+                  {/* <Button
+                    variant={trackingMode === "daily" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTrackingMode("daily")}
+                  >
+                    Daily Tracking
+                  </Button> */}
+                  {/* <Button
+                    variant={trackingMode === "monthly" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTrackingMode("monthly")}
+                  >
+                    Monthly Tracking
+                  </Button> */}
+                </div>
+                {/* <div className="flex items-center gap-2">
+                  <Label className="text-sm">From:</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
+                  <Label className="text-sm">To:</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
+                  <Button variant="outline" size="sm">
+                    Apply Filter
+                  </Button>
+                </div> */}
+                <h2 className="text-lg font-semibold mb-2">
+                  Month: {getMonthName()}
+                </h2>
 
-              <div>
-                <Button
-                  onClick={() => setMonthOffset((prev) => prev - 1)}
-                  disabled={parsing || importing}
-                >
-                  Previous Month
-                </Button>
+                <div>
+                  <Button
+                    onClick={() => setMonthOffset((prev) => prev - 1)}
+                    disabled={parsing || importing}
+                  >
+                    Previous Month
+                  </Button>
+                </div>
+                <div>
+                  <Button
+                    onClick={() => setMonthOffset(0)}
+                    disabled={parsing || importing}
+                  >
+                    This Month
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Button
-                  onClick={() => setMonthOffset(0)}
-                  disabled={parsing || importing}
-                >
-                  This Month
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Toggle View */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5" />
-              Work Mode
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 items-center">
-              <Button
-                variant={currentView === "myself" ? "default" : "outline"}
-                onClick={() => {
-                  setCurrentView("myself")
-                  setSelectedCA("")   // <-- Reset to empty so self-fetch triggers
-                }}
-              >
-                🌟 Myself
-              </Button>
+        {!viewerMode && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5" />
+                Work Mode
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 items-center">
+                <Button
+                  variant={currentView === "myself" ? "default" : "outline"}
+                  onClick={() => {
+                    setCurrentView("myself")
+                    setSelectedCA("")   // <-- Reset to empty so self-fetch triggers
+                  }}
+                >
+                  🌟 Myself
+                </Button>
 
-              <Button
-                variant={currentView === "onbehalf" ? "default" : "outline"}
-                onClick={() => setCurrentView("onbehalf")}
-              >
-                👥 On Behalf of Someone
-              </Button>
-              {currentView === "onbehalf" && (
-                <div className="flex items-center gap-2">
-                  <Select value={selectedCA} onValueChange={setSelectedCA}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Choose team member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={user.id}>🌟 {user.name} (Myself)</SelectItem>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <Button
+                  variant={currentView === "onbehalf" ? "default" : "outline"}
+                  onClick={() => setCurrentView("onbehalf")}
+                >
+                  👥 On Behalf of Someone
+                </Button>
+                {currentView === "onbehalf" && (
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedCA} onValueChange={setSelectedCA}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Choose team member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={user.id}>🌟 {user.name} (Myself)</SelectItem>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                  <Badge variant="secondary">Performance credit goes to selected CA</Badge>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                    <Badge variant="secondary">Performance credit goes to selected CA</Badge>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+
         {/* <Card className="mb-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1039,7 +1058,8 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                     <TableHead>End (IST)</TableHead>
                     <TableHead className="text-right">Total</TableHead>
 
-                    <TableHead>Action</TableHead>
+                    {/* <TableHead>Action</TableHead> */}
+                    {!viewerMode && <TableHead>Action</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1067,6 +1087,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                       <TableCell className="text-right">
                         {calcDurationLabel(client.start_time, client.end_time)}
                       </TableCell>
+                      {!viewerMode ? (
                       <TableCell>
                         <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
                           <DialogTrigger asChild>
@@ -1088,6 +1109,7 @@ export function CADashboard({ user, onLogout }: CADashboardProps) {
                           </DialogContent>
                         </Dialog>
                       </TableCell>
+                      ): null}
                     </TableRow>
                   ))}
                 </TableBody>
