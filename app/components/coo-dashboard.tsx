@@ -721,6 +721,11 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                             <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
                             <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
                           </div>
+                          <Link href={`/coo-dashboard/ca/${ca.id}`} className="inline-block">
+                            <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
+                              Go to Dashboard
+                            </Button>
+                          </Link>
                         </div>
 
                         {/* Expanded Clients */}

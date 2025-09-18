@@ -33,16 +33,16 @@ export default function Page({ params }: { params: { caId: string } }) {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 pt-4">
         <button
-          onClick={() => router.push("/cro-dashboard")}
+          onClick={() => router.push("/coo-dashboard")}
           className="text-sm px-3 py-1.5 rounded bg-slate-200 hover:bg-slate-300 transition"
         >
-          ← Back to CRO
+          ← Back to COO
         </button>
       </div>
 
       <CADashboard
         user={caUser}
-        onLogout={() => router.push("/cro-dashboard")}
+        onLogout={() => router.push("/coo-dashboard")}
         viewerMode
         forceCAId={caId}
       />
