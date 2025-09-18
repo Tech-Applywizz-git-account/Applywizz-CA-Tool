@@ -23,8 +23,38 @@ interface CADashboardProps {
   user: any
   onLogout: () => void
   viewerMode?: boolean
-  forceCAId?: string 
+  forceCAId?: string
 }
+
+function PermissionOverlay({
+  show,
+  message = "You don't have permission to view",
+  children,
+}: {
+  show: boolean;
+  message?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <div
+        className={show ? "pointer-events-none select-none blur-sm" : ""}
+        aria-hidden={show}
+        {...(show ? { inert: '' as any } : {})}
+      >
+        {children}
+      </div>
+      {show && (
+        <div className="absolute inset-0 z-10 grid place-items-center bg-white/60 backdrop-blur-sm text-slate-800">
+          <div className="rounded-md border border-slate-300 bg-white/90 px-3 py-2 text-sm font-medium shadow-sm">
+            {message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: CADashboardProps) {
   const [currentView, setCurrentView] = useState<"myself" | "onbehalf">("myself")
@@ -64,8 +94,10 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
 
   const [datePage, setDatePage] = useState(0);   // which date “page” you’re on
   const [daysPerPage, setDaysPerPage] = useState(1); // how many dates per page (default 1)
+  const effectiveCaId = currentView === "myself" ? user.id : (selectedCA || user.id);
+  const isOnBehalfMode = !viewerMode && currentView === "onbehalf" && effectiveCaId !== user.id;
 
-   useEffect(() => {
+  useEffect(() => {
     if (viewerMode && forceCAId) {
       setCurrentView("onbehalf")
       setSelectedCA(forceCAId)
@@ -381,7 +413,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
       const { data: teamData } = await supabase
         .from("users")
         .select("id, name, email")
-      .or("role.eq.Junior CA,role.eq.CA")
+        .or("role.eq.Junior CA,role.eq.CA")
         .order("name", { ascending: true })
       // .eq("team_id", user.team_id)
       // .neq("id", user.id)
@@ -675,8 +707,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
   };
 
 
-
-
   return (
     <div className="min-h-screen bg-slate-50 p-4">
       <div className="max-w-7xl mx-auto">
@@ -686,7 +716,13 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
             <h1 className="text-3xl font-bold text-slate-900">🧭 ApplyWizz CA Performance Tracker</h1>
             <p className="text-slate-600">Welcome back, {user.name}!</p>
           </div>
-          
+
+          {isOnBehalfMode && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-1.5 text-sm inline-block">
+              Viewing On Behalf — restricted sections will be hidden.
+            </div>
+          )}
+
           {!viewerMode && (
             <div className="flex items-center gap-3">
               {/* Hidden input */}
@@ -927,116 +963,118 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
 
         {/* Dashboard Split View */}
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
-          
-          {/* top Card: Performance Snapshot */}
-          <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {getMonthName()} Month: Total Earnings
-            </CardTitle>
 
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <p className="text-2xl font-bold text-green-600">
-                ₹
-                {showEarnings ? (
-                  user.designation === 'CA' ? (
-                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                      <span className="text-red-600">No Earnings</span>
-                    ) : (
-                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
-                      ) : (
-                        <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
-                      )
-                    )
-                  ) : (
-                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                      <span className="text-red-600">No Earnings</span>
-                    ) : (
-                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
-                      ) : (
-                        (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
+          {/* top Card: Performance Snapshot */}
+          <PermissionOverlay show={isOnBehalfMode}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {getMonthName()} Month: Total Incentive
+                </CardTitle>
+
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold text-green-600">
+                    ₹
+                    {showEarnings ? (
+                      user.designation === 'CA' ? (
+                        (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                          <span className="text-red-600">No Earnings</span>
                         ) : (
-                          (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
+                          (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                            <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
                           ) : (
-                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
+                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
+                          )
+                        )
+                      ) : (
+                        (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                          <span className="text-red-600">No Earnings</span>
+                        ) : (
+                          (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                            <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
+                          ) : (
+                            (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                              <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
+                            ) : (
+                              (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                                <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
+                              ) : (
+                                <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
+                              )
+                            )
                           )
                         )
                       )
-                    )
-                  )
-                ) : (
-                  <span className="select-none">•••••</span>
-                )}
-              </p>
-              {/* Toggle button */}
-              <button
-                type="button"
-                onClick={() => setShowEarnings((v) => !v)}
-                className="ml-2 text-slate-600 hover:text-slate-800"
-                title={showEarnings ? "Hide earnings" : "Show earnings"}
-              >
-                {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-          </CardContent>
-
-          <hr className="border-slate-900 m-2"/>
-
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Performance Snapshot
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-sm text-slate-600">Base Salary</Label>
-                  <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600">Designation</Label>
-                  <p className="text-lg font-semibold">{user.designation}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600">Badge</Label>
-                  <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm text-slate-600">Total Profile Count <br /> <span className="text-xs text-slate-400">(sum of profile count - This month)</span> </Label>
-                  <p className="text-lg font-semibold text-green-600">{flatWHRows.length}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600"> Average profile count <br /> <span className="text-xs text-slate-400">(sum of profile count / total working days={totalWorkingDays})</span></Label>
-                  <p className="text-lg font-semibold text-green-600">{((flatWHRows.length) / totalWorkingDays).toFixed(2)}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2" }))</span></Label>
-                  <p className="text-xl font-bold text-blue-600">
-                    {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
+                    ) : (
+                      <span className="select-none">•••••</span>
+                    )}
                   </p>
+                  {/* Toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowEarnings((v) => !v)}
+                    className="ml-2 text-slate-600 hover:text-slate-800"
+                    title={showEarnings ? "Hide earnings" : "Show earnings"}
+                  >
+                    {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
-              </div>
+              </CardContent>
 
-              {incentive?.badge && (
-                <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-yellow-500" />
-                  <Badge variant="secondary" className="text-lg px-3 py-1">
-                    🏅 {incentive.badge}
-                  </Badge>
+              <hr className="border-slate-900 m-2" />
+
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Performance Snapshot
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-sm text-slate-600">Base Salary</Label>
+                    <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">Designation</Label>
+                    <p className="text-lg font-semibold">{user.designation}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">Badge</Label>
+                    <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm text-slate-600">Total Profile Count <br /> <span className="text-xs text-slate-400">(sum of profile count - This month)</span> </Label>
+                    <p className="text-lg font-semibold text-green-600">{flatWHRows.length}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600"> Average profile count <br /> <span className="text-xs text-slate-400">(sum of profile count / total working days={totalWorkingDays})</span></Label>
+                    <p className="text-lg font-semibold text-green-600">{((flatWHRows.length) / totalWorkingDays).toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2"}))</span></Label>
+                    <p className="text-xl font-bold text-blue-600">
+                      {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {incentive?.badge && (
+                  <div className="flex items-center gap-2">
+                    <Award className="h-5 w-5 text-yellow-500" />
+                    <Badge variant="secondary" className="text-lg px-3 py-1">
+                      🏅 {incentive.badge}
+                    </Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </PermissionOverlay>
           {/* bottom Card: Client List */}
           <Card>
             <CardHeader>
@@ -1088,28 +1126,28 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                         {calcDurationLabel(client.start_time, client.end_time)}
                       </TableCell>
                       {!viewerMode ? (
-                      <TableCell>
-                        <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-                          <DialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setSelectedClient(client)}
-                              disabled={client.is_active === false}
-                              title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : ""}
-                            >
-                              {client.is_active === false ? "Inactive" : "Update Status"}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="bg-white">
-                            <DialogHeader>
-                              <DialogTitle>Update Client Status</DialogTitle>
-                            </DialogHeader>
-                            <StatusUpdateForm client={selectedClient} onUpdate={handleStatusUpdate} />
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                      ): null}
+                        <TableCell>
+                          <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedClient(client)}
+                                disabled={client.is_active === false}
+                                title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : ""}
+                              >
+                                {client.is_active === false ? "Inactive" : "Update Status"}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-white">
+                              <DialogHeader>
+                                <DialogTitle>Update Client Status</DialogTitle>
+                              </DialogHeader>
+                              <StatusUpdateForm client={selectedClient} onUpdate={handleStatusUpdate} />
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1118,113 +1156,115 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
           </Card>
         </div>
         {/* Work History Table */}
-        <Card className="mb-6">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2">
-              Daily Work History
-              <Badge variant="secondary">{flatWHRows.length} record{flatWHRows.length !== 1 ? "s" : ""}</Badge>
-            </CardTitle>
+        <PermissionOverlay show={isOnBehalfMode}>
+          <Card className="mb-6">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2">
+                Daily Work History
+                <Badge variant="secondary">{flatWHRows.length} record{flatWHRows.length !== 1 ? "s" : ""}</Badge>
+              </CardTitle>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDatePage(p => Math.max(0, p - 1))}
-                disabled={datePage === 0}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" /> Prev
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDatePage(p => Math.max(0, p - 1))}
+                  disabled={datePage === 0}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                </Button>
 
-              <div className="px-2 text-sm text-slate-600">
-                Page <span className="font-medium">{Math.min(datePage + 1, totalDatePages)}</span> of{" "}
-                <span className="font-medium">{totalDatePages}</span> • <span className="font-medium">{pageLabel}</span>
+                <div className="px-2 text-sm text-slate-600">
+                  Page <span className="font-medium">{Math.min(datePage + 1, totalDatePages)}</span> of{" "}
+                  <span className="font-medium">{totalDatePages}</span> • <span className="font-medium">{pageLabel}</span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDatePage(p => Math.min(totalDatePages - 1, p + 1))}
+                  disabled={datePage >= totalDatePages - 1}
+                >
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+
+                <Select value={String(daysPerPage)} onValueChange={(v) => setDaysPerPage(parseInt(v))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Days/page" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 day / page</SelectItem>
+                    <SelectItem value="3">3 days / page</SelectItem>
+                    <SelectItem value="7">7 days / page</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            </CardHeader>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDatePage(p => Math.min(totalDatePages - 1, p + 1))}
-                disabled={datePage >= totalDatePages - 1}
-              >
-                Next <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-
-              <Select value={String(daysPerPage)} onValueChange={(v) => setDaysPerPage(parseInt(v))}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Days/page" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 day / page</SelectItem>
-                  <SelectItem value="3">3 days / page</SelectItem>
-                  <SelectItem value="7">7 days / page</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[140px]">Date</TableHead>
-                    <TableHead>Client Name</TableHead>
-                    <TableHead>Designation</TableHead>
-                    <TableHead className="text-right">Emails Received</TableHead>
-                    <TableHead className="text-right">Jobs Applied</TableHead>
-                    <TableHead>Start Time</TableHead>
-                    <TableHead>End Time</TableHead>
-                    <TableHead className="text-right">Duration</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleRows.length === 0 ? (
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-slate-500">
-                        No work history found for this selection.
-                      </TableCell>
+                      <TableHead className="w-[140px]">Date</TableHead>
+                      <TableHead>Client Name</TableHead>
+                      <TableHead>Designation</TableHead>
+                      <TableHead className="text-right">Emails Received</TableHead>
+                      <TableHead className="text-right">Jobs Applied</TableHead>
+                      <TableHead>Start Time</TableHead>
+                      <TableHead>End Time</TableHead>
+                      <TableHead className="text-right">Duration</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ) : (
-                    visibleRows.map((r, idx) => (
-                      <TableRow key={`${r.date}-${idx}`}>
-                        <TableCell>
-                          <div className="font-medium">{fmtDateLabel(r.date)}</div>
-                          <div className="text-xs text-muted-foreground">{r.date}</div>
-                        </TableCell>
-                        <TableCell className="font-medium">{r.name}</TableCell>
-                        <TableCell>{r.designation}</TableCell>
-                        <TableCell className="text-right">{r.emails}</TableCell>
-                        <TableCell className="text-right">{r.jobs}</TableCell>
-                        <TableCell>{fmtTime(r.start)}</TableCell>
-                        <TableCell>{fmtTime(r.end)}</TableCell>
-                        <TableCell className="text-right">
-                          {r.durationMin !== null ? `${r.durationMin} min` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              r.status === "Completed"
-                                ? "default"
-                                : r.status === "Started"
-                                  ? "secondary"
-                                  : r.status === "Paused"
-                                    ? "destructive"
-                                    : "outline"
-                            }
-                          >
-                            {r.status}
-                          </Badge>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-slate-500">
+                          No work history found for this selection.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
+                    ) : (
+                      visibleRows.map((r, idx) => (
+                        <TableRow key={`${r.date}-${idx}`}>
+                          <TableCell>
+                            <div className="font-medium">{fmtDateLabel(r.date)}</div>
+                            <div className="text-xs text-muted-foreground">{r.date}</div>
+                          </TableCell>
+                          <TableCell className="font-medium">{r.name}</TableCell>
+                          <TableCell>{r.designation}</TableCell>
+                          <TableCell className="text-right">{r.emails}</TableCell>
+                          <TableCell className="text-right">{r.jobs}</TableCell>
+                          <TableCell>{fmtTime(r.start)}</TableCell>
+                          <TableCell>{fmtTime(r.end)}</TableCell>
+                          <TableCell className="text-right">
+                            {r.durationMin !== null ? `${r.durationMin} min` : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                r.status === "Completed"
+                                  ? "default"
+                                  : r.status === "Started"
+                                    ? "secondary"
+                                    : r.status === "Paused"
+                                      ? "destructive"
+                                      : "outline"
+                              }
+                            >
+                              {r.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
 
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </PermissionOverlay>
       </div>
     </div>
   )
