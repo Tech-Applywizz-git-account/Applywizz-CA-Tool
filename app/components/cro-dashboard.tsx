@@ -424,113 +424,125 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   //   alert("Reset today's data successfully!")
   // }
 
+  // const handleReset = async () => {
+  //   setIsResetting(true)
+  //   setResetMsg("Collecting today’s work from clients…")
+
+  //   try {
+  //     // ✅ First loop: Process all CAs one by one
+  //     for (const ca of cas1) {
+  //       setResetMsg(`Logging work for ${ca.name}...`)
+  //       // --- Fetch all clients worked on by this CA today ---
+  //       // console.log("log data Bhanutejaaa: ", logData)
+  //       const { data: logData, error: logError } = await supabase //data1 or data??
+  //         .from("clients")
+  //         .select(
+  //           'id, name,emails_required, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
+  //         )
+  //         .eq("work_done_by", ca.id)
+  //       if (logError) {
+  //         alert(`Error logging reset data: ${logError.message}`)
+  //         return
+  //       }
+  //       let totalProfiles = 0;
+  //       for (let index = 0; index < logData.length; index++) {
+  //         const element = logData[index].emails_required;
+  //         if (element == 25) { totalProfiles += 1 }
+  //         else if (element == 40) {
+  //           if (logData[index].emails_submitted >= 40) totalProfiles += 1.5
+  //           else if (logData[index].emails_submitted >= 36) totalProfiles += 1.3
+  //           else if (logData[index].emails_submitted >= 30) totalProfiles += 1.2
+  //           else totalProfiles += 1
+  //         }
+  //         else if (element == 50) {
+  //           if (logData[index].emails_submitted >= 50) totalProfiles += 2
+  //           else if (logData[index].emails_submitted >= 45) totalProfiles += 1.8
+  //           else if (logData[index].emails_submitted >= 41) totalProfiles += 1.7
+  //           else if (logData[index].emails_submitted >= 36) totalProfiles += 1.3
+  //           else if (logData[index].emails_submitted >= 30) totalProfiles += 1.2
+  //           else totalProfiles += 1
+  //         }
+  //       }
+  //       let date = new Date();
+  //       date.setDate(date.getDate() - 1);
+  //       let yesterday = date.toISOString().split("T")[0];
+
+  //       let incentives = ca.role === 'Junior CA' ? totalProfiles <= 2 ? 0 : totalProfiles - 2 : totalProfiles <= 4 ? 0 : totalProfiles - 4;
+
+  //       const { error: logInsertError } = await supabase
+  //         .from("work_history")
+  //         .insert({
+  //           date: yesterday,
+  //           ca_id: ca.id,
+  //           ca_name: ca.name,
+  //           completed_profiles: (logData),
+  //           incentives: incentives,
+  //         })
+
+  //       if (logInsertError) {
+  //         alert("Error logging reset data")
+  //         console.error("Error logging reset data:", logInsertError)
+  //         return
+  //       } else {
+  //         console.log("ca name:", ca.name)
+  //         console.log("Vivek logdata", logData);
+  //       }
+  //       const { data: caData, error: caResetError } = await supabase
+  //         .from("work_history")
+  //         .select('id, date, ca_id, ca_name, completed_profiles')
+  //         .eq("ca_id", ca.id)
+  //       if (caResetError) {
+  //         alert("Error fetching CA reset data")
+  //         return
+  //       } else {
+  //         console.log("CA reset data fetched successfully:", caData)
+  //       }
+  //       // alert("CA reset data fetched successfully")
+  //     }
+
+  //     // ✅ Second loop: Reset all client data AFTER CAs loop completes
+  //     setResetMsg("Resetting all clients' for a fresh day...")
+  //     for (const client of clients1) {
+  //       const currentDate = new Date().toISOString().split("T")[0];
+  //       console.log("Resetting with date:", currentDate);
+  //       const { error: resetError } = await supabase
+  //         .from("clients")
+  //         .update({
+  //           status: "Not Started",
+  //           emails_submitted: 0,
+  //           jobs_applied: 0,
+  //           work_done_by: null,
+  //           work_done_ca_name: null,
+  //           start_time: null,
+  //           end_time: null,
+  //           remarks: null,
+  //           date: currentDate,
+  //         })
+  //         .eq("id", client.id)
+
+  //       if (resetError) {
+  //         alert("Error resetting daily data")
+  //         return
+  //       }
+  //     }
+  //     alert("Reset today's data successfully!")
+  //   } finally {
+  //     setIsResetting(false)
+  //     setResetMsg("")
+  //   }
+  // }
   const handleReset = async () => {
-    setIsResetting(true)
-    setResetMsg("Collecting today’s work from clients…")
-
-    try {
-      // ✅ First loop: Process all CAs one by one
-      for (const ca of cas1) {
-        setResetMsg(`Logging work for ${ca.name}...`)
-        // --- Fetch all clients worked on by this CA today ---
-        // console.log("log data Bhanutejaaa: ", logData)
-        const { data: logData, error: logError } = await supabase //data1 or data??
-          .from("clients")
-          .select(
-            'id, name,emails_required, emails_submitted, jobs_applied, status, date_assigned, start_time, end_time, client_designation, work_done_by'
-          )
-          .eq("work_done_by", ca.id)
-        if (logError) {
-          alert(`Error logging reset data: ${logError.message}`)
-          return
-        }
-        let totalProfiles = 0;
-        for (let index = 0; index < logData.length; index++) {
-          const element = logData[index].emails_required;
-          if (element == 25) { totalProfiles += 1 }
-          else if (element == 40) {
-            if (logData[index].emails_submitted >= 40) totalProfiles += 1.5
-            else if (logData[index].emails_submitted >= 36) totalProfiles += 1.3
-            else if (logData[index].emails_submitted >= 30) totalProfiles += 1.2
-            else totalProfiles += 1
-          }
-          else if (element == 50) {
-            if (logData[index].emails_submitted >= 50) totalProfiles += 2
-            else if (logData[index].emails_submitted >= 45) totalProfiles += 1.8
-            else if (logData[index].emails_submitted >= 41) totalProfiles += 1.7
-            else if (logData[index].emails_submitted >= 36) totalProfiles += 1.3
-            else if (logData[index].emails_submitted >= 30) totalProfiles += 1.2
-            else totalProfiles += 1
-          }
-        }
-        let date = new Date();
-        date.setDate(date.getDate() - 1);
-        let yesterday = date.toISOString().split("T")[0];
-
-        let incentives = ca.role === 'Junior CA' ? totalProfiles <= 2 ? 0 : totalProfiles - 2 : totalProfiles <= 4 ? 0 : totalProfiles - 4;
-
-        const { error: logInsertError } = await supabase
-          .from("work_history")
-          .insert({
-            date: yesterday,
-            ca_id: ca.id,
-            ca_name: ca.name,
-            completed_profiles: (logData),
-            incentives: incentives,
-          })
-
-        if (logInsertError) {
-          alert("Error logging reset data")
-          console.error("Error logging reset data:", logInsertError)
-          return
-        } else {
-          console.log("ca name:", ca.name)
-          console.log("Vivek logdata", logData);
-        }
-        const { data: caData, error: caResetError } = await supabase
-          .from("work_history")
-          .select('id, date, ca_id, ca_name, completed_profiles')
-          .eq("ca_id", ca.id)
-        if (caResetError) {
-          alert("Error fetching CA reset data")
-          return
-        } else {
-          console.log("CA reset data fetched successfully:", caData)
-        }
-        // alert("CA reset data fetched successfully")
-      }
-
-      // ✅ Second loop: Reset all client data AFTER CAs loop completes
-      setResetMsg("Resetting all clients' for a fresh day...")
-      for (const client of clients1) {
-        const currentDate = new Date().toISOString().split("T")[0];
-        console.log("Resetting with date:", currentDate);
-        const { error: resetError } = await supabase
-          .from("clients")
-          .update({
-            status: "Not Started",
-            emails_submitted: 0,
-            jobs_applied: 0,
-            work_done_by: null,
-            work_done_ca_name: null,
-            start_time: null,
-            end_time: null,
-            remarks: null,
-            date: currentDate,
-          })
-          .eq("id", client.id)
-
-        if (resetError) {
-          alert("Error resetting daily data")
-          return
-        }
-      }
-      alert("Reset today's data successfully!")
-    } finally {
-      setIsResetting(false)
-      setResetMsg("")
+    let { data, error } = await supabase
+      .rpc('run_reset_button')
+    if (error) {
+      console.error(error)
+      alert("Error resetting daily data: " + error.message)
+    } else {
+      console.log(data)
+      alert("Reset today's data successfully!" + JSON.stringify(data))
     }
   }
+
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
