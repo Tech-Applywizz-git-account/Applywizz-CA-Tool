@@ -69,7 +69,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
   const [clients, setClients] = useState<any[]>([]) // fetch from Supabase
   const [incentive, setIncentive] = useState<any>(null) // fetch from Supabase
   const [teamMembers, setTeamMembers] = useState<any[]>([])
-  // const [selectedCA, setSelectedCA] = useState<string>(user.id)
   const [baseSalary, setBaseSalary] = useState<number>(0);
   const [Loading, setLoading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -80,16 +79,13 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
   const [importNote, setImportNote] = useState<string>("")
   const [totalWorkingDays, setTotalWorkingDays] = useState<number>(0);
   const [showEarnings, setShowEarnings] = useState(false)
-  // Month navigation: 0 = this month, -1 = previous, -2 = two months back...
   const [monthOffset, setMonthOffset] = useState<number>(0)
-  // Format YYYY-MM-DD safely
   const fmtDate = (d: Date) => {
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, "0")
     const day = String(d.getDate()).padStart(2, "0")
     return `${y}-${m}-${day}`
   }
-  // Work history (fetched from public.work_history)
   const [workHistory, setWorkHistory] = useState<any[]>([])
 
   const [datePage, setDatePage] = useState(0);   // which date “page” you’re on
@@ -224,8 +220,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     return out
   }
 
-
-
   type CSVRow = {
     email: string
     name?: string | null
@@ -339,7 +333,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     if (!refreshErr) setClients(refreshed || [])
   }
 
-
   // Fetch clients for the effective CA and the current month offset
   const fetchClientsForView = async () => {
     const caId = currentView === "myself" ? user.id : (selectedCA || user.id)
@@ -396,6 +389,31 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     }
   }
 
+  // --- Total emails_submitted for the month (from work_history.completed_profiles) ---
+  const monthlyEmailsSubmitted = useMemo(() => {
+    let total = 0;
+
+    for (const wh of workHistory || []) {
+      let arr = wh?.completed_profiles;
+
+      // Normalize text-JSON to array
+      if (typeof arr === "string") {
+        try { arr = JSON.parse(arr); } catch { arr = []; }
+      }
+      if (!Array.isArray(arr)) continue;
+
+      for (const p of arr) {
+        const n = Number(p?.emails_submitted);
+        if (!Number.isNaN(n) && Number.isFinite(n) && n > 0) {
+          total += n;
+        }
+      }
+    }
+
+    return total;
+  }, [workHistory]);
+
+
   useEffect(() => {
     const bootstrap = async () => {
       const userId = user.id
@@ -418,10 +436,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
       // .eq("team_id", user.team_id)
       // .neq("id", user.id)
       setTeamMembers(teamData || [])
-
-      // Initial month-scoped clients (defaults to 'Myself')
-      // await fetchClientsForView()
-      // Initial month-scoped clients (defaults to 'Myself')
       await fetchClientsForView?.()  // <-- if you have it; otherwise ignore this line
 
       // Initial month-scoped work history
@@ -432,30 +446,11 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id, user.team_id])
 
-
-  // useEffect(() => {
-  //   const fetchClientsForSelectedCA = async () => {
-  //     // const caId = selectedCA || user.id // fallback to self
-  //     const caId =
-  //       currentView === "myself" ? user.id : selectedCA || user.id
-
-
-  //     const { data: clientData, error } = await supabase
-  //       .from("clients")
-  //       .select("*")
-  //       .eq("assigned_ca_id", caId)
-
-  //     if (!error) setClients(clientData || [])
-  //   }
-
-  //   fetchClientsForSelectedCA()
-  // }, [selectedCA, currentView, monthOffset])
   useEffect(() => {
     // Month-aware refetch for clients and work history
     fetchClientsForView()
     fetchWorkHistory()
   }, [selectedCA, currentView, monthOffset])
-
 
   useEffect(() => {
     const fetchBaseSalary = async () => {
@@ -471,84 +466,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     };
     fetchBaseSalary();
   }, [user.id]);
-
-  // const handleStatusUpdate = async (
-  //   clientId: string,
-  //   newStatus: string,
-  //   reason?: string,
-  //   emailsSent?: number,
-  //   jobsApplied?: number,
-  // ) => {
-  //   // 1) Update client in Supabase
-  //   const { error: updateError } = await supabase
-  //     .from("clients")
-  //     .update({
-  //       status: newStatus,
-  //       emails_submitted: emailsSent ?? 0,
-  //       jobs_applied: jobsApplied ?? 0,
-  //       last_update: new Date().toISOString().split("T")[0],
-  //       work_done_by: user.id,
-  //       remarks: reason || "",
-  //     })
-  //     .eq("id", clientId)
-
-  //   if (updateError) {
-  //     alert(`Error updating client: ${updateError.message}`)
-  //     return
-  //   }
-  //   if (newStatus === 'Started') {
-  //     // 2) Update clients table in Supabase
-  //     const { error: logError } = await supabase.from("clients").update({
-  //       start_time: new Date().toISOString(),
-  //     }).eq("id", clientId)
-  //     if (logError) {
-  //       alert(`Error logging work: ${logError.message}`)
-  //       return
-  //     }
-  //   }
-  //   if (newStatus === 'Completed') {
-  //     const { error: logError } = await supabase.from("clients").update({
-  //       end_time: new Date().toISOString(),
-  //     }).eq("id", clientId)
-  //     if (logError) {
-  //       alert(`Error logging work: ${logError.message}`)
-  //       return
-  //     }
-  //   }
-
-  //   // 2) Update clients table in Supabase
-  //   // const { error: logError } = await supabase.from("clients").update([
-  //   //   {
-  //   //     work_done_by: user.id, // CA logged in
-  //   //     emails_submitted: emailsSent ?? 0,
-  //   //     jobs_applied: jobsApplied ?? 0,
-  //   //     status: newStatus,
-  //   //   },
-  //   // ]).eq("id", clientId)
-  //   // if (logError) {
-  //   //   alert(`Error logging work: ${logError.message}`)
-  //   //   return
-  //   // }
-
-
-
-  //   // 3) Update local state
-  //   setClients((prev) =>
-  //     prev.map((client) =>
-  //       client.id === clientId
-  //         ? {
-  //           ...client,
-  //           status: newStatus,
-  //           emails_submitted: emailsSent ?? client.emails_submitted,
-  //           jobs_applied: jobsApplied ?? client.jobs_applied,
-  //           last_update: new Date().toISOString().split("T")[0],
-  //         }
-  //         : client,
-  //     ),
-  //   )
-  //   setStatusUpdateOpen(false)
-  //   alert("Status updated and work logged successfully!")
-  // }
 
   const handleStatusUpdate = async (
     clientId: string,
@@ -641,7 +558,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     alert("Status updated successfully!");
   };
 
-
   // Sum of incentives from work_history for the active CA and month
   const monthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
     const v = Number(r?.incentives ?? 0)
@@ -664,7 +580,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
       return (((Math.round((perDay - 1) * 100)) * 3000) / 100) + 8000
     }
   }, [monthlyWHIncentive, totalWorkingDays, user.designation])
-
 
   // Get the month name based on monthOffset
   const getMonthName = () => {
@@ -705,7 +620,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     const m = mins % 60;
     return m ? `${h}h ${m}m` : `${h}h`;
   };
-
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -801,35 +715,10 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
             </CardHeader>
             <CardContent className="p-4">
               <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex gap-2">
-                  {/* <Button
-                    variant={trackingMode === "daily" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTrackingMode("daily")}
-                  >
-                    Daily Tracking
-                  </Button> */}
-                  {/* <Button
-                    variant={trackingMode === "monthly" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTrackingMode("monthly")}
-                  >
-                    Monthly Tracking
-                  </Button> */}
-                </div>
-                {/* <div className="flex items-center gap-2">
-                  <Label className="text-sm">From:</Label>
-                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-36" />
-                  <Label className="text-sm">To:</Label>
-                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36" />
-                  <Button variant="outline" size="sm">
-                    Apply Filter
-                  </Button>
-                </div> */}
+                <div className="flex gap-2"></div>
                 <h2 className="text-lg font-semibold mb-2">
                   Month: {getMonthName()}
                 </h2>
-
                 <div>
                   <Button
                     onClick={() => setMonthOffset((prev) => prev - 1)}
@@ -901,65 +790,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
             </CardContent>
           </Card>
         )}
-
-
-        {/* <Card className="mb-3">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {getMonthName()} Month: Total Earnings
-            </CardTitle>
-
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <p className="text-2xl font-bold text-green-600">
-                ₹
-                {showEarnings ? (
-                  user.designation === 'CA' ? (
-                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                      <span className="text-red-600">No Earnings</span>
-                    ) : (
-                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
-                      ) : (
-                        <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
-                      )
-                    )
-                  ) : (
-                    (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                      <span className="text-red-600">No Earnings</span>
-                    ) : (
-                      (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                        <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
-                      ) : (
-                        (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                          <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
-                        ) : (
-                          (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
-                          ) : (
-                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
-                          )
-                        )
-                      )
-                    )
-                  )
-                ) : (
-                  <span className="select-none">•••••</span>
-                )}
-              </p>
-              {/* Toggle button * /}
-              <button
-                type="button"
-                onClick={() => setShowEarnings((v) => !v)}
-                className="ml-2 text-slate-600 hover:text-slate-800"
-                title={showEarnings ? "Hide earnings" : "Show earnings"}
-              >
-                {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-          </CardContent>
-        </Card> */}
 
         {/* Dashboard Split View */}
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
@@ -1060,6 +890,30 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                     <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2"}))</span></Label>
                     <p className="text-xl font-bold text-blue-600">
                       {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">
+                      Emails Submitted (This Month)
+                      <br />
+                      <span className="text-xs text-slate-400">
+                        (sum of emails_submitted from completed profiles in Work History)
+                      </span>
+                    </Label>
+                    <p className="text-xl font-bold text-indigo-600">
+                      {monthlyEmailsSubmitted.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">
+                      Average Emails Submitted (This Month)
+                      <br />
+                      <span className="text-xs text-slate-400">
+                        (sum of emails_submitted from completed profiles in Work History/ total working days={totalWorkingDays})
+                      </span>
+                    </Label>
+                    <p className="text-xl font-bold text-indigo-600">
+                      {(monthlyEmailsSubmitted/totalWorkingDays).toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -1303,20 +1157,6 @@ function StatusUpdateForm({
         <Label htmlFor="status" className="text-sm font-medium">
           New Status
         </Label>
-        {/* <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-full mt-1">
-            <SelectValue placeholder="Select status" />
-          </SelectTrigger>
-          <SelectContent>
-            
-                <SelectItem value="Not Started">Not Started</SelectItem>
-                <SelectItem value="Started">Started</SelectItem>
-              
-                <SelectItem value="Paused">Paused</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-             
-          </SelectContent>
-        </Select> */}
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-full mt-1">
             <SelectValue placeholder="Select status" />
