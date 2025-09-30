@@ -703,9 +703,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
           )}
 
         </div>
-
-        {/* Enhanced Calendar Section */}
-        {!viewerMode && (
+        
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -738,7 +736,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
               </div>
             </CardContent>
           </Card>
-        )}
 
         {/* Toggle View */}
         {!viewerMode && (
