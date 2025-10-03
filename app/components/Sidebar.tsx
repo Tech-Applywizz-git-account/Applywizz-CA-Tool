@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils" // if you don’t have this, replace cn(...) wi
 import { LayoutDashboard, Users } from "lucide-react"
 
 type SidebarProps = {
-  basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard"
+  basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"
 }
 
 export default function Sidebar({ basePath }: SidebarProps) {

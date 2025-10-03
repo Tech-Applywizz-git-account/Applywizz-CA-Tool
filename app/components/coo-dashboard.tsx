@@ -51,6 +51,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
   const [loading, setLoading] = useState(false)
   const [loadingCAs, setLoadingCAs] = useState(false)
   const [loadingClients, setLoadingClients] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // --------- Data caches ----------
   const [cas, setCAs] = useState<CAUser[]>([])          // filtered by team (or all)
@@ -430,9 +431,27 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
     setLoading(loadingCAs || loadingClients)
   }, [loadingCAs, loadingClients])
 
+  // Filter helpers for CA search
+  // === CA search filters (name/email, case-insensitive) ===
+  const filteredCaPerformanceToday = Object.values(caPerformanceToday).filter((ca: any) => {
+    if (!searchTerm.trim()) return true
+    const term = searchTerm.toLowerCase()
+    return ca.name?.toLowerCase().includes(term) || ca.email?.toLowerCase().includes(term)
+  })
+
+  const filteredCaPerformanceRange = Object.values(caPerformanceRange).filter((ca: any) => {
+    if (!searchTerm.trim()) return true
+    const term = searchTerm.toLowerCase()
+    return ca.name?.toLowerCase().includes(term) || ca.email?.toLowerCase().includes(term)
+  })
+
+
   const isToday =
     dateFrom === new Date().toISOString().split("T")[0] &&
     dateTo === new Date().toISOString().split("T")[0]
+
+
+
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -536,6 +555,12 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
             >
               Today
             </Button>
+            <Input
+              className="w-64"
+              placeholder="Search CA name or email"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
@@ -705,7 +730,8 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                 <CardHeader><CardTitle>Career Associates (Today)</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {Object.values(caPerformanceToday).map((ca: any) => (
+                    {/* {Object.values(caPerformanceToday).map((ca: any) => ( */}
+                    {filteredCaPerformanceToday.map((ca: any) => (
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
                         {/* CA Summary Row */}
                         <div
@@ -825,7 +851,8 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                 <CardHeader><CardTitle>Career Associates (Range)</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {Object.values(caPerformanceRange).map((ca: any) => (
+                    {/* {Object.values(caPerformanceRange).map((ca: any) => ( */}
+                    {filteredCaPerformanceRange.map((ca: any) => (
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
                         <div
                           className="flex items-center justify-between p-4"
