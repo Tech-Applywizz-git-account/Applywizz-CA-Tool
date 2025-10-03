@@ -36,6 +36,7 @@ type ClientsListProps = {
   title?: string
   /** Optional role-aware filters */
   teamId?: string | null              // filter to one team
+  teamIds?: string[] | null          // filter to multiple teams
   assignedCAId?: string | null        // filter to one CA
   pageSize?: number                   // default 20
   initialActive?: "all" | "active" | "inactive"
@@ -47,6 +48,7 @@ type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jo
 export default function ClientsList({
   title = "Clients Information",
   teamId = null,
+  teamIds = null,
   assignedCAId = null,
   pageSize = 20,
   initialActive = "all",
@@ -107,8 +109,15 @@ export default function ClientsList({
   `, { count: "exact" })
 
     // role-aware filters
-    if (teamId) query = query.eq("team_id", teamId)
-    if (assignedCAId) query = query.eq("assigned_ca_id", assignedCAId)
+    // if (teamId) query = query.eq("team_id", teamId)
+    // if (assignedCAId) query = query.eq("assigned_ca_id", assignedCAId)
+    // role-aware filters
+   if (teamIds && teamIds.length > 0) {
+     query = query.in("team_id", teamIds)
+   } else if (teamId) {
+     query = query.eq("team_id", teamId)
+   }
+   if (assignedCAId) query = query.eq("assigned_ca_id", assignedCAId)
 
     // status / active filters
     if (status !== "all") query = query.eq("status", status)

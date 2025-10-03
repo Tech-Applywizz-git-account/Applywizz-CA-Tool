@@ -665,7 +665,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             </Button>
             <Input
               className="w-64"
-              placeholder="Search client name or email"
+              placeholder="Search CA name or email"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
