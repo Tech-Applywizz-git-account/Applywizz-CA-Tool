@@ -40,6 +40,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [caPerformance, setCaPerformance] = useState<Record<string, any>>({})
   const [caPerformance1, setCaPerformance1] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
 
   const [expandedCA, setExpandedCA] = useState<string | null>(null)
   const [caClients, setCaClients] = useState<Record<string, any[]>>({})
@@ -543,6 +544,26 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     }
   }
 
+  // Filter helpers for CA search
+  const filteredCAPerformance = Object.values(caPerformance).filter((ca: any) => {
+    if (!searchTerm.trim()) return true
+    const term = searchTerm.toLowerCase()
+    return (
+      ca.name?.toLowerCase().includes(term) ||
+      ca.email?.toLowerCase().includes(term)
+    )
+  })
+
+  const filteredCAPerformance1 = Object.values(caPerformance1).filter((ca: any) => {
+    if (!searchTerm.trim()) return true
+    const term = searchTerm.toLowerCase()
+    return (
+      ca.name?.toLowerCase().includes(term) ||
+      ca.email?.toLowerCase().includes(term)
+    )
+  })
+
+
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -642,6 +663,12 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
             >
               Today
             </Button>
+            <Input
+              className="w-64"
+              placeholder="Search client name or email"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
@@ -657,17 +684,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           </div>
         )}
 
-        {/* KPI Cards */}
-        {/* <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
-          <Link href="/cro-dashboard/clients" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card></Link>
-          <Link href="/cro-dashboard/clients/active" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card></Link>
-          <Link href="/cro-dashboard/clients/paused" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card></Link>
-          <Link href="/cro-dashboard/clients/completed" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{submittedClients}</div><div className="text-sm text-slate-600">Submitted</div></CardContent></Card></Link>
-          <Link href="/cro-dashboard/clients/inprogress" className="block"><Card className="cursor-pointer hover:shadow-md transition"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{missedToday}</div><div className="text-sm text-slate-600">Inprogress Today</div></CardContent></Card></Link>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-purple-600">{submissionRate}%</div><div className="text-sm text-slate-600">Submission Rate</div></CardContent></Card>
-        </div> */}
-        {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
           <Card>
             <CardContent className="p-4 text-center">
@@ -784,7 +800,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                   {/* CA List content here */}
 
                   <div className="space-y-3">
-                    {Object.values(caPerformance).map((ca: any) => (
+                    {/* {Object.values(caPerformance).map((ca: any) => ( */}
+                    {filteredCAPerformance.map((ca: any) => (
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
                         {/* CA Card Summary */}
                         <div
@@ -820,12 +837,6 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                                         {client.name}
                                       </span>
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                                        {/* <span className="inline-flex items-center gap-1">
-                                          <span className="font-semibold">Start:</span> {fmtIST(client.start_time)}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1">
-                                          <span className="font-semibold">End:</span> {fmtIST(client.end_time)}
-                                        </span> */}
                                         <span className="inline-flex items-center gap-1">
                                           <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
                                         </span>
@@ -928,7 +939,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                 <CardContent>
                   {/* CA List content here */}
                   <div className="space-y-3">
-                    {Object.values(caPerformance1).map((ca: any) => (
+                    {filteredCAPerformance1.map((ca: any) => (
 
                       <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
                         {/* CA Card Summary */}

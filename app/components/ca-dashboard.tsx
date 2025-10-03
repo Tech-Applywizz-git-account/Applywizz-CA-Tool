@@ -160,31 +160,56 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     return rows
   }, [workHistory])
 
+  // Incentives summed per date for the effective CA
+  const incentivesByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const wh of workHistory || []) {
+      // ensure we only count the effective CA
+      if (wh?.ca_id !== effectiveCaId) continue;
+
+      const d = wh?.date as string | undefined;
+      const v = Number(wh?.incentives ?? 0);
+      if (!d || Number.isNaN(v) || !Number.isFinite(v)) continue;
+
+      map.set(d, (map.get(d) ?? 0) + v);
+    }
+    return map;
+  }, [workHistory, effectiveCaId]);
+
+  // Total incentives for the dates currently visible on the page
+  
   // Unique dates in desc order (newest first)
   const uniqueDatesDesc = useMemo(() => {
     const s = new Set((flatWHRows || []).map(r => r.date));
     return Array.from(s).sort((a, b) => (a < b ? 1 : -1));
   }, [flatWHRows]);
-
+  
   // Total pages (each page shows N dates)
   const totalDatePages = useMemo(() => {
     if (!uniqueDatesDesc.length) return 1;
     return Math.ceil(uniqueDatesDesc.length / Math.max(1, daysPerPage));
   }, [uniqueDatesDesc, daysPerPage]);
-
+  
   // Clamp page when deps change
   useEffect(() => {
     setDatePage(p => Math.min(Math.max(0, p), Math.max(0, totalDatePages - 1)));
   }, [totalDatePages]);
-
-
+  
+  
   // Dates visible on the current page
   const datesOnPage = useMemo(() => {
     const start = datePage * Math.max(1, daysPerPage);
     const end = Math.min(start + Math.max(1, daysPerPage), uniqueDatesDesc.length);
     return uniqueDatesDesc.slice(start, end);
   }, [uniqueDatesDesc, datePage, daysPerPage]);
-
+  
+  const pageIncentiveTotal = useMemo(() => {
+    let sum = 0;
+    for (const d of datesOnPage) {
+      sum += incentivesByDate.get(d) ?? 0;
+    }
+    return sum;
+  }, [datesOnPage, incentivesByDate]);
   // Rows visible for those dates (keeps original sort)
   const visibleRows = useMemo(() => {
     const set = new Set(datesOnPage);
@@ -703,39 +728,39 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
           )}
 
         </div>
-        
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Calendar & Tracking
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex gap-2"></div>
-                <h2 className="text-lg font-semibold mb-2">
-                  Month: {getMonthName()}
-                </h2>
-                <div>
-                  <Button
-                    onClick={() => setMonthOffset((prev) => prev - 1)}
-                    disabled={parsing || importing}
-                  >
-                    Previous Month
-                  </Button>
-                </div>
-                <div>
-                  <Button
-                    onClick={() => setMonthOffset(0)}
-                    disabled={parsing || importing}
-                  >
-                    This Month
-                  </Button>
-                </div>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Calendar & Tracking
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex gap-2"></div>
+              <h2 className="text-lg font-semibold mb-2">
+                Month: {getMonthName()}
+              </h2>
+              <div>
+                <Button
+                  onClick={() => setMonthOffset((prev) => prev - 1)}
+                  disabled={parsing || importing}
+                >
+                  Previous Month
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <Button
+                  onClick={() => setMonthOffset(0)}
+                  disabled={parsing || importing}
+                >
+                  This Month
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Toggle View */}
         {!viewerMode && (
@@ -910,7 +935,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                       </span>
                     </Label>
                     <p className="text-xl font-bold text-indigo-600">
-                      {(monthlyEmailsSubmitted/totalWorkingDays).toLocaleString()}
+                      {(monthlyEmailsSubmitted / totalWorkingDays).toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -1053,6 +1078,12 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
             </CardHeader>
 
             <CardContent>
+              <p className="text-sm text-slate-700">
+                Incentive {pageLabel}:{" "}
+                <span className="font-semibold text-green-700">
+                  {pageIncentiveTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                </span>
+              </p>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
