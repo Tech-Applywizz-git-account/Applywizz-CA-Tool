@@ -19,7 +19,6 @@ type Client = {
   status: string | null
   assigned_ca_id: string | null
   assigned_ca_name: string | null
-  // work_done_ca_name: string | null
   work_done_user?: { id: string | null; name: string | null } | null
   team_id: string | null
   emails_required: number | null
@@ -28,6 +27,7 @@ type Client = {
   date_assigned: string | null
   last_update: string | null
   created_at: string | null
+  team_lead_name: string | null
   client_designation: string | null
   is_active: boolean | null
 }
@@ -43,7 +43,7 @@ type ClientsListProps = {
   initialStatus?: "all" | "Not Started" | "Started" | "Paused" | "Completed"
 }
 
-type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jobs_applied" | "date_assigned" | "last_update" | "created_at" | "work_done_ca_name"
+type SortKey = "name" | "status" | "assigned_ca_name" | "emails_submitted" | "jobs_applied" | "date_assigned" | "last_update" | "created_at" | "work_done_ca_name" | "team_lead_name"
 
 export default function ClientsList({
   title = "Clients Information",
@@ -97,14 +97,10 @@ export default function ClientsList({
     // Base select with exact count for pagination
     let query = supabase
       .from("clients")
-      // .select(
-      //   "id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_ca_name, team_id, emails_required, emails_submitted, jobs_applied, date_assigned, last_update, created_at, client_designation, is_active",
-      //   { count: "exact" }
-      // )
       .select(`
     id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_by,
     team_id, emails_required, emails_submitted, jobs_applied,
-    date_assigned, last_update, created_at, client_designation, is_active,
+    date_assigned, last_update, team_lead_name, created_at, client_designation, is_active,
     work_done_user:users!clients_work_done_by_fkey ( id, name )
   `, { count: "exact" })
 
@@ -169,9 +165,9 @@ export default function ClientsList({
   return (
     <div className="space-y-4">
       {/* header */}
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap min-w-[1400px]">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+          {/* <h1 className="text-2xl font-bold text-slate-900">{title}</h1> */}
           <p className="text-slate-600">
             Showing {clients.length} of {total} clients (page {page}/{totalPages})
           </p>
@@ -212,13 +208,13 @@ export default function ClientsList({
       </div>
 
       {/* table */}
-      <div className="rounded-lg border bg-white overflow-hidden">
+      <div className="rounded-lg border bg-white overflow-x-auto min-w-[1400px]">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[22%]">
                 <button className="inline-flex items-center gap-1" onClick={() => toggleSort("name")}>
-                  Client <ArrowUpDown className="h-3.5 w-3.5" />
+                  Client Name<ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
               <TableHead className="w-[14%]">
@@ -226,19 +222,24 @@ export default function ClientsList({
                   Status <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
-              <TableHead className="w-[14%]">
+              <TableHead className="w-[18%]">
                 <button className="inline-flex items-center gap-1" onClick={() => toggleSort("assigned_ca_name")}>
                   Assigned CA <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
-              <TableHead className="w-[10%]">
-                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("emails_submitted")}>
-                  Emails <ArrowUpDown className="h-3.5 w-3.5" />
+              <TableHead className="w-[16%]">
+                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("team_lead_name")}>
+                  Team Lead <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
               <TableHead className="w-[10%]">
+                <button className="inline-flex items-center gap-1" onClick={() => toggleSort("emails_submitted")}>
+                  Emails Submitted/Emails Required <ArrowUpDown className="h-3.5 w-3.5" />
+                </button>
+              </TableHead>
+              <TableHead className="w-[16%]">
                 <button className="inline-flex items-center gap-1" onClick={() => toggleSort("jobs_applied")}>
-                  Jobs <ArrowUpDown className="h-3.5 w-3.5" />
+                  Jobs Applied <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
               <TableHead className="w-[15%]">
@@ -246,7 +247,7 @@ export default function ClientsList({
                   Assigned On <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
               </TableHead>
-              <TableHead className="w-[15%]">
+              <TableHead className="w-[22%]">
                 <button className="inline-flex items-center gap-1" onClick={() => toggleSort("work_done_ca_name")}>
                   Work Done By <ArrowUpDown className="h-3.5 w-3.5" />
                 </button>
@@ -314,6 +315,12 @@ export default function ClientsList({
                   </TableCell>
 
                   <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-slate-900">{c.team_lead_name || "—"}</span>
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
                     <div className="text-slate-900">{c.emails_submitted ?? 0} / {c.emails_required ?? 25}</div>
                   </TableCell>
 
@@ -342,7 +349,7 @@ export default function ClientsList({
       </div>
 
       {/* pagination */}
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-3 min-w-[1400px]">
         <span className="text-sm text-slate-600">
           {from + 1}-{Math.min(to + 1, total)} of {total}
         </span>

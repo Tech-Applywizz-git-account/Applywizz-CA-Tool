@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { NewClientForm } from "./new-client-form"
 import { User } from "lucide-react"
 import { Pencil } from "lucide-react"
+import Link from "next/link"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 
@@ -109,6 +110,10 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   }, [user.id])
 
   const caOptions = [{ value: "all", label: "All CA Clients" }, ...teamMembers.map((m) => ({ value: m.id, label: m.name }))]
+
+  const selectedCAObj =
+    selectedCA !== "all" ? teamMembers.find((m) => m.id === selectedCA) : null;
+
 
   // const filteredClients = selectedCA === "all" ? clients : clients.filter((c) => c.assigned_ca_id === selectedCA)
   const baseClients =
@@ -212,6 +217,22 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
               className="w-64"
             />
           </div>
+          {/* <Link href={`/team-lead-dashboard/ca/${ca.id}`} className="inline-block">
+            <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
+              Go to Dashboard
+            </Button>
+          </Link> */}
+          {selectedCAObj && (
+            <Link
+              href={`/team-lead-dashboard/ca/${selectedCAObj.id}`}
+              className="inline-block"
+            >
+              <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
+                Go to {selectedCAObj.name ? `${selectedCAObj.name.split(" ")[0]}'s ` : ""}Dashboard
+              </Button>
+            </Link>
+          )}
+
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
