@@ -874,7 +874,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                   </button>
                 </div>
               </CardContent>
-
               <hr className="border-slate-900 m-2" />
 
               <CardHeader>
