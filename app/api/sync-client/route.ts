@@ -4,7 +4,6 @@ import { z } from "zod";
 
 export const runtime = "nodejs"; // Run on Node runtime (not edge)
 
-// --- Initialize Supabase client (admin privileges) ---
 const supabaseAdmin: SupabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
