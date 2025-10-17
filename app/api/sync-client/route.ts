@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     const { data: result, error } = await supabaseAdmin
       .from("clients")
       .upsert(upsertData, { onConflict: "applywizz_id" })
-      .select("id, applywizz_id, email, status, assigned_ca_name, last_update")
+      .select("id, applywizz_id, status, assigned_ca_name, last_update")
       .limit(1);
 
     if (error) {
