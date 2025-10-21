@@ -44,67 +44,6 @@ const ClientSchema = z.object({
     experience: z.number().optional(),
 });
 
-// --- POST handler ---
-// export async function POST(req: Request) {
-//   try {
-//     if (!isAuthorized(req)) {
-//       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-//     }
-
-//     const body = await req.json();
-//     const parsed = ClientSchema.safeParse(body);
-
-//     if (!parsed.success) {
-//       return NextResponse.json(
-//         { error: "Invalid body", details: parsed.error.flatten() },
-//         { status: 400 }
-//       );
-//     }
-
-//     const data = parsed.data;
-//     const applywizz_id = data.applywizz_id || data.awl_id;
-//     if (!applywizz_id) {
-//       return NextResponse.json(
-//         { error: "applywizz_id (or awl_id) is required" },
-//         { status: 400 }
-//       );
-//     }
-
-//     // Prepare the data for upsert
-//     const upsertData = {
-//       ...data,
-//       applywizz_id,
-//       last_update: new Date().toISOString(),
-//     };
-
-//     // Perform UPSERT (insert if not exists, else update)
-//     const { data: result, error } = await supabaseAdmin
-//       .from("clients")
-//       .upsert(upsertData, { onConflict: "applywizz_id" })
-//       .select("id, applywizz_id, status, assigned_ca_name, last_update")
-//       .limit(1);
-
-//     if (error) {
-//       console.error("Supabase error:", error);
-//       return NextResponse.json(
-//         { error: "Supabase upsert failed", details: error },
-//         { status: 500 }
-//       );
-//     }
-
-//     return NextResponse.json({
-//       message: "Client synced successfully",
-//       applywizz_id,
-//       client: result?.[0] ?? null,
-//     });
-//   } catch (err) {
-//     console.error("Unexpected error:", err);
-//     return NextResponse.json(
-//       { error: "Internal server error" },
-//       { status: 500 }
-//     );
-//   }
-// }
 export async function POST(req: Request) {
     try {
         if (!isAuthorized(req)) {
