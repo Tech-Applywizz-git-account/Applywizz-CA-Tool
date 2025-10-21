@@ -114,8 +114,6 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const selectedCAObj =
     selectedCA !== "all" ? teamMembers.find((m) => m.id === selectedCA) : null;
 
-
-  // const filteredClients = selectedCA === "all" ? clients : clients.filter((c) => c.assigned_ca_id === selectedCA)
   const baseClients =
     selectedCA === "all"
       ? clients
