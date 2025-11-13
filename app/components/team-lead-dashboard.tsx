@@ -121,13 +121,26 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
   const q = searchTerm.trim().toLowerCase();
 
-  const filteredClients = !q
-    ? baseClients
-    : baseClients.filter((c) => {
+  // const filteredClients = !q
+  //   ? baseClients
+  //   : baseClients.filter((c) => {
+  //     const name = (c.name ?? "").toLowerCase();
+  //     const email = (c.email ?? "").toLowerCase();
+  //     return name.includes(q) || email.includes(q);
+  //   });
+
+  const filteredClients = (!q
+  ? baseClients
+  : baseClients.filter((c) => {
       const name = (c.name ?? "").toLowerCase();
       const email = (c.email ?? "").toLowerCase();
       return name.includes(q) || email.includes(q);
-    });
+    }))
+  // ⭐ Sort Active first, then Inactive
+  .sort((a, b) => {
+    if (a.is_active === b.is_active) return 0;
+    return a.is_active ? -1 : 1;  // active → inactive
+  });
 
 
   const stats = {

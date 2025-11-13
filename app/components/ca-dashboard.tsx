@@ -363,10 +363,17 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     const caId = currentView === "myself" ? user.id : (selectedCA || user.id)
     const { start, end } = getMonthRange(monthOffset)
     // console.log("bhanu",start,end)
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("assigned_ca_id", caId)
+    // const { data, error } = await supabase
+    //   .from("clients")
+    //   .select("*")
+    //   .eq("assigned_ca_id", caId)
+const { data, error } = await supabase
+  .from("clients")
+  .select("*")
+  .eq("assigned_ca_id", caId)
+  .order("is_active", { ascending: false });  // ACTIVE FIRST
+
+
 
     if (!error) setClients(data || [])
   }
@@ -965,7 +972,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                     <TableHead>Client Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
-
+                    <TableHead>Is Active</TableHead>
                     {/* NEW */}
                     <TableHead>Start (IST)</TableHead>
                     <TableHead>End (IST)</TableHead>
@@ -994,7 +1001,20 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                         >
                           {client.status}
                         </Badge>
+
                       </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            client.is_active
+                              ? "bg-green-600 text-white"
+                              : "bg-red-600 text-white"
+                          }
+                        >
+                          {client.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+
                       <TableCell>{fmtIST(client.start_time)}</TableCell>
                       <TableCell>{fmtIST(client.end_time)}</TableCell>
                       <TableCell className="text-right">
