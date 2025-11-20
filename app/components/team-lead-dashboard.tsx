@@ -34,6 +34,9 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [editClientOpen, setEditClientOpen] = useState(false)
   const [clientToEdit, setClientToEdit] = useState<any | null>(null)
   const [searchTerm, setSearchTerm] = useState("");
+  const [assignClientOpen, setAssignClientOpen] = useState(false)
+  const [clientToAssign, setClientToAssign] = useState<any | null>(null)
+  const [availableCAs, setAvailableCAs] = useState<any[]>([])
 
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
@@ -90,7 +93,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         .select("*")
         .in("team_id", teamIds)
         .neq("role", "Team Lead")
-
+        // .eq("isactive", true)
       setTeamMembers(members || [])
       const memberIds = members?.map((m) => m.id) || []
       if (memberIds.length > 0) {
@@ -109,7 +112,14 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     fetchTeamData()
   }, [user.id])
 
-  const caOptions = [{ value: "all", label: "All CA Clients" }, ...teamMembers.map((m) => ({ value: m.id, label: m.name }))]
+const caOptions = [
+  { value: "all", label: "All CA Clients" }, 
+  ...teamMembers.map((m) => ({ 
+    value: m.id, 
+    label: m.name,
+    isactive: m.isactive 
+  }))
+] as const;
 
   const selectedCAObj =
     selectedCA !== "all" ? teamMembers.find((m) => m.id === selectedCA) : null;
@@ -144,7 +154,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
 
   const stats = {
-    totalCAs: teamMembers.length,
+    totalCAs: teamMembers.filter(m => m.isactive).length,
     totalClients: filteredClients.length,
     startedClients: filteredClients.filter((c) => c.status === "Started").length,
     completedClients: filteredClients.filter((c) => c.status === "Completed").length,
@@ -154,6 +164,56 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   }
 
   const selectedCAIncentive = selectedCA !== "all" ? incentives.find((i) => i.user_id === selectedCA) : null
+// Handle assigning client to a different CA
+const handleAssignClient = async (clientId: string, newCaId: string) => {
+  if (!clientToAssign) return
+
+  // Get the current CA and new CA names for the alert
+  const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+  const newCA = teamMembers.find(m => m.id === newCaId)
+
+  const { error } = await supabase
+    .from("clients")
+    .update({ assigned_ca_id: newCaId })
+    .eq("id", clientId)
+
+  if (error) {
+    alert("Failed to assign client: " + error.message)
+    return
+  }
+
+  // Update local state
+  setClients(prev => prev.map(c => 
+    c.id === clientId ? { ...c, assigned_ca_id: newCaId } : c
+  ))
+
+  setAssignClientOpen(false)
+  setClientToAssign(null)
+  
+  // Show detailed alert with CA names
+  alert(`Client assigned successfully!\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${newCA?.name || "Unknown CA"}`)
+}
+
+// Open assign dialog - show only active CAs from the same team
+const openAssignDialog = async (client: any) => {
+  setClientToAssign(client)
+  
+  // Fetch active CAs from the same team (current user's team)
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, name, email, team_id, designation, isactive")
+    .in("role", ["CA", "Junior CA"])
+    .eq("isactive", true)
+    .eq("team_id", teamMembers[0]?.team_id) // All team members should have same team_id
+
+  if (error) {
+    console.error("Error fetching available CAs:", error)
+    return
+  }
+
+  setAvailableCAs(data || [])
+  setAssignClientOpen(true)
+}
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -198,13 +258,24 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                {caOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+         <SelectContent>
+  {caOptions.map((option) => (
+    <SelectItem key={option.value} value={option.value}>
+      <div className="flex items-center justify-between w-full">
+        <span>{option.label}</span>
+        {/* Only show badge for CA options, not for "all" option */}
+        {'isactive' in option && (
+          <Badge 
+            variant={option.isactive ? "default" : "secondary"}
+            className={option.isactive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
+          >
+            {option.isactive ? "Active" : "Inactive"}
+          </Badge>
+        )}
+      </div>
+    </SelectItem>
+  ))}
+</SelectContent>
             </Select>
           </div>
           <div>
@@ -247,7 +318,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div><div className="text-sm text-slate-600">Total CAs</div></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div><div className="text-sm text-slate-600">Active CAs</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.startedClients}</div><div className="text-sm text-slate-600">Started</div></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
@@ -315,6 +386,94 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                   <NewClientForm fetchClients={fetchClients} />
                 </DialogContent>
               </Dialog>
+              {/* Assign Client Dialog */}
+<Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Assign Client to CA</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      {clientToAssign && (() => {
+        const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+        return (
+          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900">Client: {clientToAssign.name}</h4>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="text-sm">
+                <span className="font-medium text-blue-700">Current CA:</span>
+                <div className="text-blue-600 mt-1">
+                  {currentCA ? (
+                    <>
+                      <div>{currentCA.name}</div>
+                      <div className="text-xs text-blue-500">{currentCA.email}</div>
+                    </>
+                  ) : (
+                    <div className="text-red-600">Not assigned</div>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm">
+                <span className="font-medium text-green-700">New CA:</span>
+                <div className="text-green-600 mt-1">
+                  <div>Select below →</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+      
+      <div>
+        <Label htmlFor="ca-select" className="text-slate-700">
+          Select New CA from Your Team
+        </Label>
+        <Select onValueChange={(value) => {
+          const selectedCA = availableCAs.find(ca => ca.id === value)
+          if (selectedCA && clientToAssign) {
+            // Show confirmation with both CA names
+            const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+            const confirmMessage = `Are you sure you want to assign this client?\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${selectedCA.name}`
+            
+            if (window.confirm(confirmMessage)) {
+              handleAssignClient(clientToAssign.id, value)
+            }
+          }
+        }}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose a CA from your team..." />
+          </SelectTrigger>
+          <SelectContent>
+            {availableCAs.length > 0 ? (
+              availableCAs.map((ca) => (
+                <SelectItem key={ca.id} value={ca.id}>
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{ca.name}</span>
+                      <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
+                        {ca.designation || "CA"}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-slate-500">{ca.email}</span>
+                  </div>
+                </SelectItem>
+              ))
+            ) : (
+              <div className="p-2 text-sm text-slate-500 text-center">
+                No active CAs available in your team
+              </div>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
             </div>
           </CardHeader>
           <CardContent>
@@ -358,7 +517,14 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                     <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
                       {client.is_active ? "Active" : "Inactive"}
                     </Badge>
-
+                       <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-purple-300"
+                        onClick={() => openAssignDialog(client)}
+                      >
+                        Assign
+                      </Button>
                     {/* New: Toggle button */}
                     <Button
                       variant="outline"
