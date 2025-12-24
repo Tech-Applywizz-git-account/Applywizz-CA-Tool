@@ -54,15 +54,32 @@ export async function GET(req: Request) {
             }
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             date: dateParam,
             by_lead: by_lead,
         });
 
+        // Add CORS headers for "all origins"
+        response.headers.set("Access-Control-Allow-Origin", "*");
+        response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+        response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+        return response;
+
     } catch (err: any) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { error: "Internal server error", details: err?.message ?? String(err) },
             { status: 500 }
         );
+        errorResponse.headers.set("Access-Control-Allow-Origin", "*");
+        return errorResponse;
     }
+}
+
+export async function OPTIONS() {
+    const response = new NextResponse(null, { status: 204 });
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return response;
 }
