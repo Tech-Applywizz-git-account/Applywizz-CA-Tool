@@ -33,6 +33,7 @@ export async function GET(req: Request) {
                 .from("clients")
                 .select(`
                     applywizz_id, 
+                    name,
                     work_done_ca_name, 
                     team_lead_name, 
                     emails_submitted,
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
                 for (const client of (clients as any[])) {
                     if (client.applywizz_id) {
                         by_lead[client.applywizz_id] = {
+                            client_name: client.name,
                             work_done_ca_name: client.work_done_ca_name,
                             ca_mail: client.ca?.email || null,
                             team_lead_name: client.team_lead_name,
@@ -105,14 +107,16 @@ export async function GET(req: Request) {
                 const userMap: Record<string, any> = {};
                 userData?.forEach(u => { userMap[u.id] = u; });
 
-                // 3. Fetch missing applywizz_ids from clients table
+                // 3. Fetch missing applywizz_ids and names from clients table
                 const { data: clientInfo } = await supabaseAdmin
                     .from("clients")
-                    .select("id, applywizz_id")
+                    .select("id, applywizz_id, name")
                     .in("id", profileIds);
 
-                const applywizzMap: Record<string, string> = {};
-                clientInfo?.forEach(c => { if (c.applywizz_id) applywizzMap[c.id] = c.applywizz_id; });
+                const applywizzMap: Record<string, { awl_id: string, name: string }> = {};
+                clientInfo?.forEach(c => {
+                    if (c.applywizz_id) applywizzMap[c.id] = { awl_id: c.applywizz_id, name: c.name || "" };
+                });
 
                 // 4. Assemble by_lead response
                 history.forEach(h => {
@@ -123,9 +127,12 @@ export async function GET(req: Request) {
                     const caInfo = userMap[h.ca_id];
 
                     profiles.forEach((p: any) => {
-                        const awlId = p.applywizz_id || applywizzMap[p.id];
+                        const clientData = applywizzMap[p.id];
+                        const awlId = p.applywizz_id || clientData?.awl_id;
+
                         if (awlId) {
                             by_lead[awlId] = {
+                                client_name: p.name || clientData?.name || null,
                                 work_done_ca_name: h.ca_name,
                                 ca_mail: caInfo?.email || null,
                                 team_lead_name: caInfo?.team?.lead?.name || null,
