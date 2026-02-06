@@ -6,10 +6,12 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 import { CADashboard } from "@/app/components/ca-dashboard"
+import { useAuthCheck } from "@/hooks/useAuthCheck"
 
 export default function Page({ params }: { params: { caId: string } }) {
   const { caId } = params
   const router = useRouter()
+  const { user, loading: authLoading } = useAuthCheck()
   const [caUser, setCaUser] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -26,7 +28,8 @@ export default function Page({ params }: { params: { caId: string } }) {
     load()
   }, [caId])
 
-  if (loading) return <div className="p-6">Loading…</div>
+  if (authLoading || loading) return <div className="p-6">Loading…</div>
+  if (!user) return null
   if (!caUser) return <div className="p-6">CA not found.</div>
 
   return (

@@ -33,26 +33,18 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import { TeamLeadDashboard } from "../components/team-lead-dashboard"
+import { useAuthCheck } from "@/hooks/useAuthCheck"
 
 export default function TeamLeadDashboardPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("loggedInUser")
-    if (!storedUser) {
-      router.push("/login")
-      return
-    }
-    setUser(JSON.parse(storedUser))
-  }, [router])
+  const { user, loading } = useAuthCheck(["Team Lead", "Admin", "SYSTEM"])
 
   const handleLogout = () => {
     localStorage.removeItem("loggedInUser")
     router.push("/login")
   }
 
-  if (!user) return null
+  if (loading || !user) return null
 
   return (
     <div className="min-h-screen flex">

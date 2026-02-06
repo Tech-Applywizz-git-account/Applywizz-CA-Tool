@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
 
   // 👇 ADD these two lines after: const [showPassword, setShowPassword] = useState(false)
   const [showReset, setShowReset] = useState(false)
@@ -20,11 +21,40 @@ export default function LoginPage() {
 
   // Auto-redirect if already logged in
   useEffect(() => {
-    const savedUser = localStorage.getItem("loggedInUser")
-    if (savedUser) {
-      const user = JSON.parse(savedUser)
-      redirectByRole(user)
+    const checkUserStatus = async () => {
+      const savedUser = localStorage.getItem("loggedInUser")
+      if (savedUser) {
+        const user = JSON.parse(savedUser)
+
+        // Fetch the latest status from Supabase to ensure the user is still active
+        const { data: dbUser, error } = await supabase
+          .from("users")
+          .select("id, email, role, designation, isactive, team_id")
+          .eq("id", user.id)
+          .single()
+
+        if (error) {
+          console.error("Session check error:", error)
+          // On network error, still try to redirect using cached data
+          redirectByRole(user)
+          setCheckingSession(false)
+          return
+        }
+
+        if (!dbUser || dbUser.isactive === false) {
+          localStorage.removeItem("loggedInUser")
+          setCheckingSession(false)
+          return
+        }
+
+        // Update local session with latest data and redirect
+        localStorage.setItem("loggedInUser", JSON.stringify(dbUser))
+        redirectByRole(dbUser)
+      } else {
+        setCheckingSession(false)
+      }
     }
+    checkUserStatus()
   }, [])
 
   // 👇 ADD: keep the resetEmail synced with login email
@@ -35,37 +65,33 @@ export default function LoginPage() {
 
   // Role-based redirect function
   const redirectByRole = (user: any) => {
-    const role = user.designation || user.role
+    // Get the raw role and normalization for comparison
+    const rawRole = user.designation || user.role || ""
+    const role = rawRole.trim()
 
-    switch (role) {
-      case "CEO":
-        router.push("/ceo-dashboard")
-        break
-      case "COO":
-        router.push("/coo-dashboard")
-        break
-      case "CRO":
-        router.push("/cro-dashboard")
-        break
-      case "CPO":
-        router.push("/cpo-dashboard")
-        break
-      case "Team Lead":
-        router.push("/team-lead-dashboard")
-        break
-      case "Admin":
-      case "SYSTEM":
-        router.push("/system-admin-dashboard")
-        break
-      case "CA":
-      case "Junior CA":
-        router.push("/ca-dashboard")
-        break
-      default:
-        alert("Unknown role. Cannot redirect.")
-        localStorage.removeItem("loggedInUser")
-        router.push("/login")
-        break
+    // Map roles to their paths (case-insensitive keys for safety)
+    const roleMap: Record<string, string> = {
+      "CEO": "/ceo-dashboard",
+      "COO": "/coo-dashboard",
+      "CRO": "/cro-dashboard",
+      "CPO": "/cpo-dashboard",
+      "TEAM LEAD": "/team-lead-dashboard",
+      "ADMIN": "/system-admin-dashboard",
+      "SYSTEM": "/system-admin-dashboard",
+      "CA": "/ca-dashboard",
+      "JUNIOR CA": "/ca-dashboard",
+      "SALES": "/sales-dashboard"
+    }
+
+    const path = roleMap[role.toUpperCase()]
+
+    if (path) {
+      router.push(path)
+    } else {
+      console.error("Unknown role detected:", role) // Helpful for debugging
+      alert(`Unknown role (${role}). Cannot redirect.`)
+      localStorage.removeItem("loggedInUser")
+      router.push("/login")
     }
   }
 
@@ -98,6 +124,12 @@ export default function LoginPage() {
       return
     }
 
+    if (user.isactive === false) {
+      alert("Your account is inactive. Please contact admin.")
+      setLoading(false)
+      return
+    }
+
     // 3) Store and redirect by role
     localStorage.setItem("loggedInUser", JSON.stringify(user))
     redirectByRole(user)
@@ -119,7 +151,7 @@ export default function LoginPage() {
       // 1) Check existence in public.users (case-insensitive exact match)
       const { data: existingUser, error: findErr } = await supabase
         .from("users")
-        .select("id")
+        .select("id, isactive")
         .ilike("email", candidate)  // case-insensitive exact match
         .maybeSingle()
 
@@ -129,6 +161,11 @@ export default function LoginPage() {
       }
       if (!existingUser) {
         alert("No account found with this email.")
+        return
+      }
+
+      if (existingUser.isactive === false) {
+        alert("This account is inactive. Please contact admin.")
         return
       }
 
@@ -150,6 +187,17 @@ export default function LoginPage() {
   }
 
 
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium text-lg">Verifying session...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     // <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
