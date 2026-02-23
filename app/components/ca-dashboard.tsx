@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -439,6 +439,29 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
 
       for (const p of arr) {
         const n = Number(p?.emails_submitted);
+        if (!Number.isNaN(n) && Number.isFinite(n) && n > 0) {
+          total += n;
+        }
+      }
+    }
+
+    return total;
+  }, [workHistory]);
+
+  const monthlyJobsApplied = useMemo(() => {
+    let total = 0;
+
+    for (const wh of workHistory || []) {
+      let arr = wh?.completed_profiles;
+
+      // Normalize text-JSON to array
+      if (typeof arr === "string") {
+        try { arr = JSON.parse(arr); } catch { arr = []; }
+      }
+      if (!Array.isArray(arr)) continue;
+
+      for (const p of arr) {
+        const n = Number(p?.jobs_applied);
         if (!Number.isNaN(n) && Number.isFinite(n) && n > 0) {
           total += n;
         }
@@ -957,6 +980,30 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                       {(monthlyEmailsSubmitted / totalWorkingDays).toLocaleString()}
                     </p>
                   </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">
+                      Jobs Applied (This Month)
+                      <br />
+                      <span className="text-xs text-slate-400">
+                        (sum of jobs_applied from completed profiles in Work History)
+                      </span>
+                    </Label>
+                    <p className="text-xl font-bold text-orange-600">
+                      {monthlyJobsApplied.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-slate-600">
+                      Average Jobs Applied (This Month)
+                      <br />
+                      <span className="text-xs text-slate-400">
+                        (sum of jobs_applied from completed profiles in Work History/ total working days={totalWorkingDays})
+                      </span>
+                    </Label>
+                    <p className="text-xl font-bold text-orange-600">
+                      {(monthlyJobsApplied / totalWorkingDays).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
 
                 {incentive?.badge && (
@@ -986,6 +1033,8 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Is Active</TableHead>
+                    <TableHead className="text-right">Jobs Applied</TableHead>
+                    <TableHead className="text-right">Emails Received</TableHead>
                     {/* NEW */}
                     <TableHead>Start (IST)</TableHead>
                     <TableHead>End (IST)</TableHead>
@@ -1027,6 +1076,12 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                           {client.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-right font-semibold text-orange-600">
+                        {client.jobs_applied || 0}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-indigo-600">
+                        {client.emails_submitted || 0}
+                      </TableCell>
 
                       <TableCell>{fmtIST(client.start_time)}</TableCell>
                       <TableCell>{fmtIST(client.end_time)}</TableCell>
@@ -1035,25 +1090,18 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
                       </TableCell>
                       {!viewerMode ? (
                         <TableCell>
-                          <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setSelectedClient(client)}
-                                disabled={client.is_active === false}
-                                title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : ""}
-                              >
-                                {client.is_active === false ? "Inactive" : "Update Status"}
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="bg-white">
-                              <DialogHeader>
-                                <DialogTitle>Update Client Status</DialogTitle>
-                              </DialogHeader>
-                              <StatusUpdateForm client={selectedClient} onUpdate={handleStatusUpdate} />
-                            </DialogContent>
-                          </Dialog>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedClient(client);
+                              setStatusUpdateOpen(true);
+                            }}
+                            disabled={client.is_active === false}
+                            title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : ""}
+                          >
+                            {client.is_active === false ? "Inactive" : "Update Status"}
+                          </Button>
                         </TableCell>
                       ) : null}
                     </TableRow>
@@ -1063,6 +1111,26 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
             </CardContent>
           </Card>
         </div>
+
+        {/* Status Update Dialog (Moved outside loop to fix focus/aria errors) */}
+        {!viewerMode && (
+          <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
+            <DialogContent className="bg-white max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Update Client Status</DialogTitle>
+                <DialogDescription>
+                  Update the work progress, emails sent, and job applications for the selected client.
+                </DialogDescription>
+              </DialogHeader>
+              {selectedClient && (
+                <StatusUpdateForm
+                  client={selectedClient}
+                  onUpdate={handleStatusUpdate}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
         {/* Work History Table */}
         <PermissionOverlay show={isOnBehalfMode}>
           <Card className="mb-6">
@@ -1191,24 +1259,36 @@ function StatusUpdateForm({
 }: { client: any; onUpdate: (id: string, status: string, reason?: string, emails?: number, jobs?: number, jobApps?: any[]) => void }) {
   const [status, setStatus] = useState(client?.status || "")
   const [reason, setReason] = useState("")
-  const [emailsSent, setEmailsSent] = useState(client?.emails_submitted?.toString() || "")
+  const [emailsSent, setEmailsSent] = useState(client?.emails_submitted && client.emails_submitted > 0 ? client.emails_submitted.toString() : "")
   const [jobsApplied, setJobsApplied] = useState(client?.jobs_applied?.toString() || "")
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
   const [jobEntries, setJobEntries] = useState<{ jobUrl: string; companyName: string; screenshot: string; screenshotFile?: File }[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [openItems, setOpenItems] = useState<string[]>([])
 
   if (!client) return null
 
   useEffect(() => {
-    if ((status === "Completed" || status === "Paused") && client.applywizz_id) {
+    if ((status === "Completed" || status === "Paused") && client?.applywizz_id) {
       const fetchJobs = async () => {
         setIsLoadingTasks(true)
         try {
-          const today = new Date().toISOString().split("T")[0]
-          const response = await fetch(`https://dashboard.apply-wizz.com/api/tasks/summary/?date=${today}`)
-          const data = await response.json()
+          // Get today's date in YYYY-MM-DD format in IST
+          const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+          const response = await fetch(`https://dashboard.apply-wizz.com/api/tasks/summary/?date=${today}`);
+          const data = await response.json();
+
           if (data.by_lead && data.by_lead[client.applywizz_id] !== undefined) {
-            setJobsApplied(data.by_lead[client.applywizz_id].toString())
+            setJobsApplied(data.by_lead[client.applywizz_id].toString());
+          } else {
+            // If not found in today's data, maybe try yesterday? 
+            // Only if it's early in the day in IST
+            const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            const resp2 = await fetch(`https://dashboard.apply-wizz.com/api/tasks/summary/?date=${yesterday}`);
+            const data2 = await resp2.json();
+            if (data2.by_lead && data2.by_lead[client.applywizz_id] !== undefined) {
+              setJobsApplied(data2.by_lead[client.applywizz_id].toString());
+            }
           }
         } catch (error) {
           console.error("Error fetching jobs applied count:", error)
@@ -1221,7 +1301,7 @@ function StatusUpdateForm({
   }, [status, client.applywizz_id])
 
   useEffect(() => {
-    if (status === "Completed") {
+    if (status === "Completed" && emailsSent && emailsSent.trim() !== "") {
       const apiCount = parseInt(jobsApplied) || 0
       const manualCount = parseInt(emailsSent) || 0
       const targetCount = Math.max(0, apiCount - manualCount)
@@ -1240,8 +1320,16 @@ function StatusUpdateForm({
       })
     } else {
       setJobEntries([])
+      setOpenItems([])
     }
   }, [status, jobsApplied, emailsSent])
+
+  // Automatically open accordion items when emailsSent is entered/changed
+  useEffect(() => {
+    if (emailsSent && jobEntries.length > 0) {
+      setOpenItems(jobEntries.map((_, i) => `item-${i}`));
+    }
+  }, [emailsSent, jobEntries.length]);
 
   const updateJobEntry = (index: number, field: string, value: any) => {
     setJobEntries((prev) =>
@@ -1356,7 +1444,7 @@ function StatusUpdateForm({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="emails" className="text-sm font-medium">
-                Number of Emails Recieved
+                Number of Emails Received
               </Label>
               <Input
                 id="emails"
@@ -1411,7 +1499,12 @@ function StatusUpdateForm({
                 {(isLoadingTasks || isUploading) && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
               </div>
 
-              <Accordion type="single" collapsible className="w-full border rounded-md">
+              <Accordion
+                type="multiple"
+                value={openItems}
+                onValueChange={setOpenItems}
+                className="w-full border rounded-md"
+              >
                 {jobEntries.map((entry, index) => (
                   <AccordionItem key={index} value={`item-${index}`} className="px-3 border-b last:border-0">
                     <AccordionTrigger className="text-sm py-2 hover:no-underline font-medium">

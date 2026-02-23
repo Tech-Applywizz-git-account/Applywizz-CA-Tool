@@ -122,7 +122,8 @@ export async function GET(req: Request) {
                 id: clientProfile.id,
                 job_url: clientProfile.job_urls || clientProfile.job_url || null,
                 company_names: clientProfile.company_names || null,
-                screenshots: clientProfile.screenshots || null
+                screenshots: clientProfile.screenshots || null,
+                jobs_applied: clientProfile.jobs_applied || 0
             };
 
             const prettyJson = JSON.stringify(filteredResult, null, 2);
