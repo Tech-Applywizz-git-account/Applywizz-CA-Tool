@@ -18,9 +18,6 @@ import { supabase } from "@/lib/supabaseClient"
 import { useEffect, useState, useMemo, useRef } from "react"
 import Papa from "papaparse"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Loader2 } from "lucide-react"
-
 
 interface CADashboardProps {
   user: any
@@ -180,32 +177,32 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
   }, [workHistory, effectiveCaId]);
 
   // Total incentives for the dates currently visible on the page
-
+  
   // Unique dates in desc order (newest first)
   const uniqueDatesDesc = useMemo(() => {
     const s = new Set((flatWHRows || []).map(r => r.date));
     return Array.from(s).sort((a, b) => (a < b ? 1 : -1));
   }, [flatWHRows]);
-
+  
   // Total pages (each page shows N dates)
   const totalDatePages = useMemo(() => {
     if (!uniqueDatesDesc.length) return 1;
     return Math.ceil(uniqueDatesDesc.length / Math.max(1, daysPerPage));
   }, [uniqueDatesDesc, daysPerPage]);
-
+  
   // Clamp page when deps change
   useEffect(() => {
     setDatePage(p => Math.min(Math.max(0, p), Math.max(0, totalDatePages - 1)));
   }, [totalDatePages]);
-
-
+  
+  
   // Dates visible on the current page
   const datesOnPage = useMemo(() => {
     const start = datePage * Math.max(1, daysPerPage);
     const end = Math.min(start + Math.max(1, daysPerPage), uniqueDatesDesc.length);
     return uniqueDatesDesc.slice(start, end);
   }, [uniqueDatesDesc, datePage, daysPerPage]);
-
+  
   const pageIncentiveTotal = useMemo(() => {
     let sum = 0;
     for (const d of datesOnPage) {
@@ -370,11 +367,11 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     //   .from("clients")
     //   .select("*")
     //   .eq("assigned_ca_id", caId)
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("assigned_ca_id", caId)
-      .order("is_active", { ascending: false });  // ACTIVE FIRST
+const { data, error } = await supabase
+  .from("clients")
+  .select("*")
+  .eq("assigned_ca_id", caId)
+  .order("is_active", { ascending: false });  // ACTIVE FIRST
 
 
 
@@ -508,7 +505,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     reason?: string,
     emailsSent?: number,
     jobsApplied?: number,
-    jobApps?: any[],
   ) => {
     // Shared fields for any status change
     const baseUpdate: any = {
@@ -519,15 +515,6 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
       work_done_by: user.id,
       work_done_ca_name: user.name,
       remarks: reason || "",
-      job_urls: jobApps
-        ? Object.fromEntries(jobApps.map((j, i) => [`app${i + 1}`, j.jobUrl]))
-        : null,
-      company_names: jobApps
-        ? Object.fromEntries(jobApps.map((j, i) => [`app${i + 1}`, j.companyName]))
-        : null,
-      screenshots: jobApps
-        ? Object.fromEntries(jobApps.map((j, i) => [`app${i + 1}`, j.screenshot]))
-        : null,
     };
 
     // 1) Persist shared fields
@@ -1188,137 +1175,23 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
 function StatusUpdateForm({
   client,
   onUpdate,
-}: { client: any; onUpdate: (id: string, status: string, reason?: string, emails?: number, jobs?: number, jobApps?: any[]) => void }) {
+}: { client: any; onUpdate: (id: string, status: string, reason?: string, emails?: number, jobs?: number) => void }) {
   const [status, setStatus] = useState(client?.status || "")
   const [reason, setReason] = useState("")
   const [emailsSent, setEmailsSent] = useState(client?.emails_submitted?.toString() || "")
   const [jobsApplied, setJobsApplied] = useState(client?.jobs_applied?.toString() || "")
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false)
-  const [jobEntries, setJobEntries] = useState<{ jobUrl: string; companyName: string; screenshot: string; screenshotFile?: File }[]>([])
-  const [isUploading, setIsUploading] = useState(false)
 
   if (!client) return null
 
-  useEffect(() => {
-    if ((status === "Completed" || status === "Paused") && client.applywizz_id) {
-      const fetchJobs = async () => {
-        setIsLoadingTasks(true)
-        try {
-          const today = new Date().toISOString().split("T")[0]
-          const response = await fetch(`https://dashboard.apply-wizz.com/api/tasks/summary/?date=${today}`)
-          const data = await response.json()
-          if (data.by_lead && data.by_lead[client.applywizz_id] !== undefined) {
-            setJobsApplied(data.by_lead[client.applywizz_id].toString())
-          }
-        } catch (error) {
-          console.error("Error fetching jobs applied count:", error)
-        } finally {
-          setIsLoadingTasks(false)
-        }
-      }
-      fetchJobs()
-    }
-  }, [status, client.applywizz_id])
-
-  useEffect(() => {
-    if (status === "Completed") {
-      const apiCount = parseInt(jobsApplied) || 0
-      const manualCount = parseInt(emailsSent) || 0
-      const targetCount = Math.max(0, apiCount - manualCount)
-
-      setJobEntries((prev) => {
-        if (prev.length === targetCount) return prev
-        if (prev.length < targetCount) {
-          const extra = Array.from({ length: targetCount - prev.length }, () => ({
-            jobUrl: "",
-            companyName: "",
-            screenshot: "",
-          }))
-          return [...prev, ...extra]
-        }
-        return prev.slice(0, targetCount)
-      })
-    } else {
-      setJobEntries([])
-    }
-  }, [status, jobsApplied, emailsSent])
-
-  const updateJobEntry = (index: number, field: string, value: any) => {
-    setJobEntries((prev) =>
-      prev.map((entry, i) => {
-        if (i === index) {
-          if (field === "screenshotFile") {
-            return { ...entry, screenshotFile: value, screenshot: value ? value.name : "" }
-          }
-          return { ...entry, [field]: value }
-        }
-        return entry
-      })
-    )
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsUploading(true)
-
-    try {
-      const uploadedEntries = await Promise.all(
-        jobEntries.map(async (entry, index) => {
-          if (entry.screenshotFile) {
-            const fileExt = entry.screenshotFile.name.split(".").pop()
-            const fileName = `${client.id}-${Date.now()}-${index}.${fileExt}`
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from("screenshots")
-              .upload(fileName, entry.screenshotFile, {
-                upsert: true
-              })
-
-            if (uploadError) {
-              console.error("Upload error details:", uploadError)
-              alert(`Upload failed for ${entry.companyName}: ${uploadError.message}`)
-              return { ...entry, screenshot: "upload_failed" }
-            }
-
-            const { data: urlData } = supabase.storage
-              .from("screenshots")
-              .getPublicUrl(fileName)
-
-            return {
-              jobUrl: entry.jobUrl,
-              companyName: entry.companyName,
-              screenshot: urlData.publicUrl,
-            }
-          }
-          return {
-            jobUrl: entry.jobUrl,
-            companyName: entry.companyName,
-            screenshot: entry.screenshot,
-          }
-        })
-      )
-
-      let finalRemarks = reason;
-      if (status === "Completed" && uploadedEntries.length > 0) {
-        const jobsTable = uploadedEntries
-          .map((j, i) => `${i + 1}. ${j.companyName || "N/A"} | ${j.jobUrl || "N/A"} | ${j.screenshot || "N/A"}`)
-          .join("\n");
-        finalRemarks = reason ? `${reason}\n\nJob Applications:\n${jobsTable}` : `Job Applications:\n${jobsTable}`;
-      }
-
-      onUpdate(
-        client.id,
-        status,
-        finalRemarks,
-        emailsSent ? Number.parseInt(emailsSent) : undefined,
-        jobsApplied ? Number.parseInt(jobsApplied) : undefined,
-        status === "Completed" ? uploadedEntries : undefined
-      )
-    } catch (error) {
-      console.error("Error in handleSubmit:", error)
-      alert("An error occurred while saving. Please try again.")
-    } finally {
-      setIsUploading(false)
-    }
+    onUpdate(
+      client.id,
+      status,
+      reason,
+      emailsSent ? Number.parseInt(emailsSent) : undefined,
+      jobsApplied ? Number.parseInt(jobsApplied) : undefined,
+    )
   }
 
   return (
@@ -1369,20 +1242,18 @@ function StatusUpdateForm({
               />
             </div>
             <div>
-              <Label htmlFor="jobs" className="text-sm font-medium flex items-center gap-1">
+              <Label htmlFor="jobs" className="text-sm font-medium">
                 Number of Jobs Applied
-                {isLoadingTasks && <Loader2 className="h-3 w-3 animate-spin text-blue-600" />}
               </Label>
               <Input
                 id="jobs"
                 type="number"
                 value={jobsApplied}
-                readOnly
-                placeholder={isLoadingTasks ? "Fetching..." : "Auto-filled from API"}
-                className="mt-1 bg-slate-50 cursor-not-allowed border-dashed focus-visible:ring-0"
+                onChange={(e) => setJobsApplied(e.target.value)}
+                placeholder="Enter job applications"
+                className="mt-1"
                 required
               />
-              <p className="text-[10px] text-slate-400 mt-1 italic">Automatically syncs from ApplyWizz</p>
             </div>
           </div>
 
@@ -1401,79 +1272,11 @@ function StatusUpdateForm({
               />
             </div>
           )}
-
-          {status === "Completed" && jobEntries.length > 0 && (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-bold text-blue-800">
-                  {jobEntries.length} Job Application Details
-                </Label>
-                {(isLoadingTasks || isUploading) && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
-              </div>
-
-              <Accordion type="single" collapsible className="w-full border rounded-md">
-                {jobEntries.map((entry, index) => (
-                  <AccordionItem key={index} value={`item-${index}`} className="px-3 border-b last:border-0">
-                    <AccordionTrigger className="text-sm py-2 hover:no-underline font-medium">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] text-blue-700 font-bold">
-                          {index + 1}
-                        </span>
-                        {entry.companyName || `Application ${index + 1}`}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-1 pb-3 space-y-3">
-                      <div className="grid gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-500 uppercase font-bold">Job URL</Label>
-                          <Input
-                            placeholder="https://linkedin.com/jobs/..."
-                            value={entry.jobUrl}
-                            onChange={(e) => updateJobEntry(index, "jobUrl", e.target.value)}
-                            className="h-8 text-sm focus-visible:ring-blue-500"
-                            required={status === "Completed"}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-500 uppercase font-bold">Company Name</Label>
-                          <Input
-                            placeholder="Enter company name"
-                            value={entry.companyName}
-                            onChange={(e) => updateJobEntry(index, "companyName", e.target.value)}
-                            className="h-8 text-sm focus-visible:ring-blue-500"
-                            required={status === "Completed"}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-500 uppercase font-bold">Screenshot</Label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => updateJobEntry(index, "screenshotFile", e.target.files?.[0])}
-                            className="h-9 text-xs focus-visible:ring-blue-500 file:bg-blue-50 file:text-blue-700 file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 file:hover:bg-blue-100 cursor-pointer"
-                            required={status === "Completed"}
-                          />
-                          {entry.screenshot && <p className="text-[10px] text-slate-400 mt-1 truncate">Selected: {entry.screenshot}</p>}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </div>
-          )}
         </>
       )}
 
-      <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isUploading}>
-        {isUploading ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Uploading & Saving...
-          </>
-        ) : (
-          "Update Status"
-        )}
+      <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+        Update Status
       </Button>
     </form>
   )
