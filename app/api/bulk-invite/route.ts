@@ -17,7 +17,7 @@ type CsvRow = {
   name?: string;
   email: string;
   password?: string; // <-- NEW (optional)
-  role: "CA" | "Junior CA" | "Team Lead" | "CRO" | "COO" | "CEO" | "Admin";
+  role: "CA" | "Junior CA" | "Career Associative Trainee" | "Team Lead" | "CRO" | "COO" | "CEO" | "Admin";
   department?: string;
   isactive?: string | boolean;
   team_lead_email?: string;
@@ -121,7 +121,7 @@ const normalized: CsvRow[] = rows.map((r) => {
   let department = r.department?.trim();
   if (!department) {
     department =
-      role === "CA" || role === "Junior CA" || role === "Team Lead"
+      role === "CA" || role === "Junior CA" || role === "Career Associative Trainee" || role === "Team Lead"
         ? "Client Operations"
         : "Executive";
   }
@@ -360,8 +360,8 @@ if (signUpErr) {
         }
       }
 
-      // If CA/JCA + team_lead_email provided → assign team_id
-      if ((inserted.role === "CA" || inserted.role === "Junior CA") && row.team_lead_email) {
+      // If CA/JCA/Trainee + team_lead_email provided → assign team_id
+      if ((inserted.role === "CA" || inserted.role === "Junior CA" || inserted.role === "Career Associative Trainee") && row.team_lead_email) {
         // Do we already have a team for that team_lead_email?
         let targetTeamId = leadEmailToTeamId.get(row.team_lead_email) || null;
 

@@ -99,7 +99,7 @@ useEffect(() => {
       let query = supabase
     .from("users")
     .select("id, name, email, designation, team_id, isactive") // Ensure isactive is included
-    .in("role", ["CA", "Junior CA"])
+    .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
     // .eq("isactive", true); 
 
       if (selectedTeamLead !== "all") {
@@ -172,7 +172,7 @@ useEffect(() => {
       const { data, error } = await supabase
         .from("users")
         .select("*")
-        .in("role", ["CA", "Junior CA"])
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
       if (!error && data) setCas1(data)
     }
     fetchCAs()
@@ -261,7 +261,8 @@ useEffect(() => {
         const cadata = data1?.filter((data) => data.ca_id === ca.id) || []
         if (cadata.length > 0) {
           const totalProfile = cadata.reduce((sum, l) => sum + (l.completed_profiles.length || 0), 0)
-          const incentive = ca.designation === 'Junior CA' ? (totalProfile - (2 * workingDays) < 0 ? 0 : totalProfile - (2 * workingDays)) : (totalProfile - (4 * workingDays) < 0 ? 0 : totalProfile - (4 * workingDays))
+          const quota = ca.designation === "Junior CA" ? 2 : 4
+          const incentive = ca.role === "Career Associative Trainee" ? 0 : Math.max(0, totalProfile - (quota * workingDays))
           const totalWorkingdays = workingDays
 
           performance1[ca.id] = { ...ca, incentives: incentive, totalProfiles: totalProfile, totalWorkingDays: totalWorkingdays }
@@ -669,7 +670,7 @@ const openAssignDialog = async (client: any) => {
   const { data, error } = await supabase
     .from("users")
     .select("id, name, email, team_id, designation, isactive")
-    .in("role", ["CA", "Junior CA"])
+    .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
     .eq("isactive", true)
     .eq("team_id", currentCA.team_id)
 

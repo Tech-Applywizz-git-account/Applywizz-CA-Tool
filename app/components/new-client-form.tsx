@@ -46,7 +46,7 @@ export function NewClientForm({
   const [sponsorship, setSponsorship] = useState<"yes" | "no">("no")
 
   // UI-only fields (not written to clients table)
-  const [role, setRole] = useState<"Junior CA" | "CA">("Junior CA")
+  const [role, setRole] = useState<"Junior CA" | "CA" | "Career Associative Trainee">("Junior CA")
   const [salary, setSalary] = useState<number>(6000)
 
   const [submitting, setSubmitting] = useState<boolean>(false)
@@ -57,7 +57,7 @@ export function NewClientForm({
       const { data, error } = await supabase
         .from("users")
         .select("id, name, role, team_id")
-        .in("role", ["CA", "Junior CA"])
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
         .order("name", { ascending: true })
 
       if (!error && data) {
@@ -68,7 +68,9 @@ export function NewClientForm({
 
   // Auto salary by role (UI only)
   useEffect(() => {
-    setSalary(role === "CA" ? 10000 : 6000)
+    if (role === "CA") setSalary(10000)
+    else if (role === "Junior CA") setSalary(6000)
+    else setSalary(5000)
   }, [role])
 
   // Pre-fill in edit mode
@@ -222,6 +224,7 @@ export function NewClientForm({
             <SelectContent>
               <SelectItem value="Junior CA">Junior CA</SelectItem>
               <SelectItem value="CA">CA</SelectItem>
+              <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
             </SelectContent>
           </Select>
         </div>
