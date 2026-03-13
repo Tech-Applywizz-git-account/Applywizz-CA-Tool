@@ -463,7 +463,7 @@ const { data, error } = await supabase
       const { data: teamData } = await supabase
         .from("users")
         .select("id, name, email")
-        .or("role.eq.Junior CA,role.eq.CA")
+        .or("role.eq.Junior CA,role.eq.CA,role.eq.Career Associative Trainee")
         .order("name", { ascending: true })
       // .eq("team_id", user.team_id)
       // .neq("id", user.id)
@@ -826,62 +826,66 @@ const { data, error } = await supabase
           {/* top Card: Performance Snapshot */}
           <PermissionOverlay show={isOnBehalfMode}>
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {getMonthName()} Month: Total Incentive
-                </CardTitle>
+              {user.role !== 'Career Associative Trainee' && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      {getMonthName()} Month: Total Incentive
+                    </CardTitle>
 
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold text-green-600">
-                    ₹
-                    {showEarnings ? (
-                      user.designation === 'CA' ? (
-                        (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                          <span className="text-red-600">No Earnings</span>
-                        ) : (
-                          (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                            <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
-                          ) : (
-                            <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
-                          )
-                        )
-                      ) : (
-                        (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                          <span className="text-red-600">No Earnings</span>
-                        ) : (
-                          (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                            <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
-                          ) : (
-                            (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                              <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold text-green-600">
+                        ₹
+                        {showEarnings ? (
+                          user.designation === 'CA' ? (
+                            (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                              <span className="text-red-600">No Earnings</span>
                             ) : (
-                              (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
-                                <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
+                              (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                                <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 4500) / 100}</span>
                               ) : (
-                                <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
+                                <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 4000) / 100) + 4500}</span>
+                              )
+                            )
+                          ) : (
+                            (0 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                              <span className="text-red-600">No Earnings</span>
+                            ) : (
+                              (1 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                                <span>{(Math.round((monthlyWHIncentive / totalWorkingDays) * 100) * 2000) / 100}</span>
+                              ) : (
+                                (2 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                                  <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 1) * 100)) * 2500) / 100) + 2000}</span>
+                                ) : (
+                                  (3 >= (monthlyWHIncentive / totalWorkingDays)) ? (
+                                    <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 2) * 100)) * 3500) / 100) + 4500}</span>
+                                  ) : (
+                                    <span>{(((Math.round(((monthlyWHIncentive / totalWorkingDays) - 3) * 100)) * 3000) / 100) + 8000}</span>
+                                  )
+                                )
                               )
                             )
                           )
-                        )
-                      )
-                    ) : (
-                      <span className="select-none">•••••</span>
-                    )}
-                  </p>
-                  {/* Toggle button */}
-                  <button
-                    type="button"
-                    onClick={() => setShowEarnings((v) => !v)}
-                    className="ml-2 text-slate-600 hover:text-slate-800"
-                    title={showEarnings ? "Hide earnings" : "Show earnings"}
-                  >
-                    {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </CardContent>
-              <hr className="border-slate-900 m-2" />
+                        ) : (
+                          <span className="select-none">•••••</span>
+                        )}
+                      </p>
+                      {/* Toggle button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowEarnings((v) => !v)}
+                        className="ml-2 text-slate-600 hover:text-slate-800"
+                        title={showEarnings ? "Hide earnings" : "Show earnings"}
+                      >
+                        {showEarnings ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </CardContent>
+                  <hr className="border-slate-900 m-2" />
+                </>
+              )}
 
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -893,16 +897,18 @@ const { data, error } = await supabase
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label className="text-sm text-slate-600">Base Salary</Label>
-                    <p className="text-2xl font-bold text-green-600">₹{baseSalary.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-green-600">₹{user.role === 'Career Associative Trainee' ? '5,000' : baseSalary.toLocaleString()}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-slate-600">Designation</Label>
                     <p className="text-lg font-semibold">{user.designation}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm text-slate-600">Badge</Label>
-                    <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
-                  </div>
+                   {user.role !== 'Career Associative Trainee' && (
+                    <div>
+                      <Label className="text-sm text-slate-600">Badge</Label>
+                      <p className="text-lg">{incentive ? incentive.badge : "No Badge"}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
@@ -914,12 +920,14 @@ const { data, error } = await supabase
                     <Label className="text-sm text-slate-600"> Average profile count <br /> <span className="text-xs text-slate-400">(sum of profile count / total working days={totalWorkingDays})</span></Label>
                     <p className="text-lg font-semibold text-green-600">{((flatWHRows.length) / totalWorkingDays).toFixed(2)}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2"}))</span></Label>
-                    <p className="text-xl font-bold text-blue-600">
-                      {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
-                    </p>
-                  </div>
+                  {user.role !== 'Career Associative Trainee' && (
+                    <div>
+                      <Label className="text-sm text-slate-600">Incentive profile count <br /> <span className="text-xs text-slate-400">(sum of incentive profile count - Mandatory profiles ({user.designation === "CA" ? "4" : "2"}))</span></Label>
+                      <p className="text-xl font-bold text-blue-600">
+                        {(monthlyWHIncentive / totalWorkingDays).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <Label className="text-sm text-slate-600">
                       Emails Submitted (This Month)
@@ -946,7 +954,7 @@ const { data, error } = await supabase
                   </div>
                 </div>
 
-                {incentive?.badge && (
+                {user.role !== 'Career Associative Trainee' && incentive?.badge && (
                   <div className="flex items-center gap-2">
                     <Award className="h-5 w-5 text-yellow-500" />
                     <Badge variant="secondary" className="text-lg px-3 py-1">
@@ -1100,7 +1108,7 @@ const { data, error } = await supabase
               <p className="text-sm text-slate-700">
                 Incentive {pageLabel}:{" "}
                 <span className="font-semibold text-green-700">
-                  {pageIncentiveTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  {user.role === 'Career Associative Trainee' ? '0' : pageIncentiveTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                 </span>
               </p>
               <div className="rounded-md border">

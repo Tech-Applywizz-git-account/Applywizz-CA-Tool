@@ -63,8 +63,8 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
       setLoading(true)
       let query = supabase
         .from("users")
-        .select("id, name, email, designation, team_id")
-        .in("role", ["CA", "Junior CA"])
+        .select("id, name, email, designation, team_id, role")
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
 
       if (selectedTeamLead !== "all") {
         const { data: team, error: teamError } = await supabase
@@ -129,7 +129,7 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
       const { data, error } = await supabase
         .from("users")
         .select("*")
-        .in("role", ["CA", "Junior CA"])
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
       if (!error && data) setCas1(data)
     }
     fetchCAs()
@@ -199,10 +199,8 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
         const cadata = data1?.filter((d) => d.ca_id === ca.id) || []
         if (cadata.length > 0) {
           const totalProfile = cadata.reduce((sum, l) => sum + (l.completed_profiles.length || 0), 0)
-          const incentive =
-            ca.designation === "Junior CA"
-              ? (totalProfile - (2 * workingDays) < 0 ? 0 : totalProfile - (2 * workingDays))
-              : (totalProfile - (4 * workingDays) < 0 ? 0 : totalProfile - (4 * workingDays))
+          const quota = ca.designation === "Junior CA" ? 2 : 4
+          const incentive = ca.role === "Career Associative Trainee" ? 0 : Math.max(0, totalProfile - (quota * workingDays))
           performance1[ca.id] = { ...ca, incentives: incentive, totalProfiles: totalProfile, totalWorkingDays: workingDays }
         } else {
           performance1[ca.id] = { ...ca, incentives: 0 }
