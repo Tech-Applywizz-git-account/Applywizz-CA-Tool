@@ -21,7 +21,7 @@ interface COODashboardProps {
 }
 
 type Team = { id: string; name: string | null }
-type CAUser = { id: string; name: string; email: string; designation: string | null; team_id: string | null }
+type CAUser = { id: string; name: string; email: string; designation: string | null; team_id: string | null; role: string }
 type Client = {
   id: string
   name: string | null
@@ -91,7 +91,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
       let query = supabase
         .from("users")
         .select("id, name, email, designation, team_id")
-        .in("role", ["CA", "Junior CA"])
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
 
       if (selectedTeam !== "all") {
         query = query.eq("team_id", selectedTeam)
@@ -109,7 +109,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
       const { data, error } = await supabase
         .from("users")
         .select("id, name, email, designation, team_id, role")
-        .in("role", ["CA", "Junior CA"])
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
       if (!error && data) setCAsAll(data as any)
     }
     fetchCAsAll()
@@ -215,8 +215,8 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
             return sum + len
           }, 0)
 
-          const baseline = (ca.designation === "Junior CA" ? 2 : 4) * (workingDays || 0)
-          const incentive = Math.max(0, totalProfiles - baseline)
+          const quota = ca.designation === "Junior CA" ? 2 : 4
+          const incentive = ca.role === "Career Associative Trainee" ? 0 : Math.max(0, totalProfiles - (quota * workingDays))
 
           perfRange[ca.id] = { ...ca, totalProfiles, incentives: incentive, totalWorkingDays: workingDays }
         } else {

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 import Image from "next/image"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -14,6 +16,7 @@ export default function LoginPage() {
   // 👇 ADD these two lines after: const [showPassword, setShowPassword] = useState(false)
   const [showReset, setShowReset] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
 
   const router = useRouter()
@@ -59,6 +62,7 @@ export default function LoginPage() {
         break
       case "CA":
       case "Junior CA":
+      case "Career Associative Trainee":
         router.push("/ca-dashboard")
         break
       default:
@@ -72,36 +76,43 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMsg(null)
 
-    // 1) Authenticate against Supabase Auth using the email + typed password
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      // 1) Authenticate against Supabase Auth using the email + typed password
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (authError) {
-      alert(authError.message || "Invalid email or password.")
+      if (authError) {
+        setErrorMsg(authError.message || "Invalid email or password.")
+        setLoading(false)
+        return
+      }
+
+      // 2) Fetch your profile from public.users (to get role/designation/team_id)
+      const { data: user, error: profileError } = await supabase
+        .from("users")
+        .select("*")
+        .ilike("email", email)
+        .single()
+
+      if (profileError || !user) {
+        setErrorMsg("User profile not found. Please contact admin.")
+        setLoading(false)
+        return
+      }
+
+      // 3) Store and redirect by role
+      localStorage.setItem("loggedInUser", JSON.stringify(user))
+      redirectByRole(user)
+    } catch (err: any) {
+      console.error("Login error:", err)
+      setErrorMsg(err?.message || "An unexpected error occurred.")
+    } finally {
       setLoading(false)
-      return
     }
-
-    // 2) Fetch your profile from public.users (to get role/designation/team_id)
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("*")
-      .ilike("email", email)
-      .single()
-
-    if (error || !user) {
-      alert("User profile not found. Please contact admin.")
-      setLoading(false)
-      return
-    }
-
-    // 3) Store and redirect by role
-    localStorage.setItem("loggedInUser", JSON.stringify(user))
-    redirectByRole(user)
-    setLoading(false)
   }
 
   // 👇 ADD: send password reset email via Supabase
@@ -167,6 +178,13 @@ export default function LoginPage() {
             <p className="text-sm text-slate-500">Career Associate Management Platform</p>
           </div>
         </header>
+
+        {errorMsg && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{errorMsg}</AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

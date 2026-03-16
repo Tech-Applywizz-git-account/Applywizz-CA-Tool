@@ -202,7 +202,7 @@ const openAssignDialog = async (client: any) => {
   const { data, error } = await supabase
     .from("users")
     .select("id, name, email, team_id, designation, isactive")
-    .in("role", ["CA", "Junior CA"])
+    .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
     .eq("isactive", true)
     .eq("team_id", teamMembers[0]?.team_id) // All team members should have same team_id
 
