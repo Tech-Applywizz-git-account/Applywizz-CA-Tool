@@ -65,6 +65,13 @@ export default function LoginPage() {
       case "Career Associative Trainee":
         router.push("/ca-dashboard")
         break
+      case "BDT-p":
+      case "BDT-P":
+      case "BDT":
+      case "BDA":
+      case "SBDA":
+        router.push("/bda-dashboard")
+        break
       default:
         alert("Unknown role. Cannot redirect.")
         localStorage.removeItem("loggedInUser")
@@ -168,14 +175,14 @@ export default function LoginPage() {
       {/* <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md"> */}
       <div className="bg-white/95 backdrop-blur rounded-2xl border border-slate-200 shadow-xl p-8 w-full max-w-md">
         {/* <h1 className="text-3xl font-bold text-center text-blue-600 mb-2">ApplyWizz</h1>
-        <p className="text-center text-gray-600 mb-6">Career Associate Management Platform</p> */}
+        <p className="text-center text-gray-600 mb-6">Incentive Management Platform</p> */}
         <header className="mb-6 flex items-center gap-3">
           <div className="h-10 w-10 shrink-0 rounded-xl border border-slate-200 bg-white grid place-items-center">
             <Image src="/apply_wizz_logo.jpg" alt="ApplyWizz" width={28} height={28} />
           </div>
           <div>
             <h1 className="text-xl font-semibold text-slate-900">ApplyWizz</h1>
-            <p className="text-sm text-slate-500">Career Associate Management Platform</p>
+            <p className="text-sm text-slate-500">Incentive Management Platform</p>
           </div>
         </header>
 

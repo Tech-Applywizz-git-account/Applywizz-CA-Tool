@@ -5,7 +5,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils" // if you don’t have this, replace cn(...) with a template string
-import { LayoutDashboard, Users } from "lucide-react"
+import { LayoutDashboard, Users, TrendingUp } from "lucide-react"
 
 type SidebarProps = {
   basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"
@@ -14,7 +14,8 @@ type SidebarProps = {
 export default function Sidebar({ basePath }: SidebarProps) {
   const pathname = usePathname()
   const links = [
-    { href: `${basePath}`, label: "My Dashboard", icon: LayoutDashboard },
+    { href: `${basePath}`, label: "CA Dashboard", icon: LayoutDashboard },
+    { href: `${basePath}/sales`, label: "Sales Dashboard", icon: TrendingUp },
     { href: `${basePath}/clients`, label: "Clients Information", icon: Users },
   ]
 

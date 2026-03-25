@@ -6,8 +6,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "ApplyWizz CA Performance Tracker",
-  description: "Track performance and incentives for Career Associates",
+  title: "ApplyWizz Incentive Management Platform",
+  description: "Track performance and Incentives",
   icons: {
     icon: "/apply_wizz_logo.jpg", // Path from public folder
   },
