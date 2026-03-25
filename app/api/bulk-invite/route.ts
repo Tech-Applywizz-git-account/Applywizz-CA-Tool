@@ -1,4 +1,5 @@
 // app/api/bulk-invite/route.ts
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
@@ -40,14 +41,14 @@ export async function POST(req: Request) {
     //   skip_empty_lines: true,
     //   trim: true,
     // }) as CsvRow[];
-const csvBuffer = Buffer.from(await file.arrayBuffer());
+    const csvBuffer = Buffer.from(await file.arrayBuffer());
 
-  const rows = parse(csvBuffer, {
-  columns: true,
-  skip_empty_lines: true,
-  trim: true,
-  bom: true, // handles BOM in CSV headers
-}) as CsvRow[];
+    const rows = parse(csvBuffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      bom: true, // handles BOM in CSV headers
+    }) as CsvRow[];
 
 
     // Normalize + basic validation
@@ -81,69 +82,69 @@ const csvBuffer = Buffer.from(await file.arrayBuffer());
     // });
 
     const toTitle = (s: string) =>
-  s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+      s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
-const nameFromEmail = (email: string) => {
-  const user = email.split("@")[0].replace(/[._-]+/g, " ").trim();
-  return toTitle(user);
-};
+    const nameFromEmail = (email: string) => {
+      const user = email.split("@")[0].replace(/[._-]+/g, " ").trim();
+      return toTitle(user);
+    };
 
-//     const normalized: CsvRow[] = rows.map((r) => {
-//   const email = (r.email || "").toLowerCase().trim();
-//   const role  = (r.role  || "").trim() as CsvRow["role"];
+    //     const normalized: CsvRow[] = rows.map((r) => {
+    //   const email = (r.email || "").toLowerCase().trim();
+    //   const role  = (r.role  || "").trim() as CsvRow["role"];
 
-//   let department = r.department?.trim();
-//   if (!department) {
-//     department = role === "CA" || role === "Junior CA" || role === "Team Lead"
-//       ? "Client Operations"
-//       : "Executive";
-//   }
+    //   let department = r.department?.trim();
+    //   if (!department) {
+    //     department = role === "CA" || role === "Junior CA" || role === "Team Lead"
+    //       ? "Client Operations"
+    //       : "Executive";
+    //   }
 
-//   const isActive =
-//     typeof r.isactive === "boolean"
-//       ? r.isactive
-//       : String(r.isactive ?? "true").toLowerCase() !== "false";
+    //   const isActive =
+    //     typeof r.isactive === "boolean"
+    //       ? r.isactive
+    //       : String(r.isactive ?? "true").toLowerCase() !== "false";
 
-//   return {
-//     name: r.name?.trim(), // keep undefined if absent
-//     email,
-//     role,
-//     department,
-//     isactive: isActive,
-//     team_lead_email: r.team_lead_email ? r.team_lead_email.toLowerCase().trim() : undefined,
-//   };
-// });
+    //   return {
+    //     name: r.name?.trim(), // keep undefined if absent
+    //     email,
+    //     role,
+    //     department,
+    //     isactive: isActive,
+    //     team_lead_email: r.team_lead_email ? r.team_lead_email.toLowerCase().trim() : undefined,
+    //   };
+    // });
 
-const normalized: CsvRow[] = rows.map((r) => {
-  const email = (r.email || "").toLowerCase().trim();
-  const role  = (r.role  || "").trim() as CsvRow["role"];
+    const normalized: CsvRow[] = rows.map((r) => {
+      const email = (r.email || "").toLowerCase().trim();
+      const role = (r.role || "").trim() as CsvRow["role"];
 
-  let department = r.department?.trim();
-  if (!department) {
-    department =
-      role === "CA" || role === "Junior CA" || role === "Career Associative Trainee" || role === "Team Lead"
-        ? "Client Operations"
-        : "Executive";
-  }
+      let department = r.department?.trim();
+      if (!department) {
+        department =
+          role === "CA" || role === "Junior CA" || role === "Career Associative Trainee" || role === "Team Lead"
+            ? "Client Operations"
+            : "Executive";
+      }
 
-  const isActive =
-    typeof r.isactive === "boolean"
-      ? r.isactive
-      : String(r.isactive ?? "true").toLowerCase() !== "false";
+      const isActive =
+        typeof r.isactive === "boolean"
+          ? r.isactive
+          : String(r.isactive ?? "true").toLowerCase() !== "false";
 
-  // password: take CSV or fallback
-  const password = (r.password?.trim() || "Temp@123"); // <-- you can change the default
+      // password: take CSV or fallback
+      const password = (r.password?.trim() || "Temp@123"); // <-- you can change the default
 
-  return {
-    name: r.name?.trim(),
-    email,
-    password, // <-- include
-    role,
-    department,
-    isactive: isActive,
-    team_lead_email: r.team_lead_email ? r.team_lead_email.toLowerCase().trim() : undefined,
-  };
-});
+      return {
+        name: r.name?.trim(),
+        email,
+        password, // <-- include
+        role,
+        department,
+        isactive: isActive,
+        team_lead_email: r.team_lead_email ? r.team_lead_email.toLowerCase().trim() : undefined,
+      };
+    });
 
 
 
@@ -256,36 +257,36 @@ const normalized: CsvRow[] = rows.map((r) => {
       }
 
       // 1) Send invite (verification email)
-    //   const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-    //     email,
-    //     {
-    //       // Use env var to make this work on prod and preview
-    //       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
-    //     }
-    //   );
+      //   const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      //     email,
+      //     {
+      //       // Use env var to make this work on prod and preview
+      //       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+      //     }
+      //   );
 
-    //   if (inviteErr) {
-    //     // Common case: already registered — we’ll still try to insert profile if needed
-    //     results.push({ email, status: "error", message: inviteErr.message });
-    //     continue;
-    //   }
+      //   if (inviteErr) {
+      //     // Common case: already registered — we’ll still try to insert profile if needed
+      //     results.push({ email, status: "error", message: inviteErr.message });
+      //     continue;
+      //   }
 
-    // 1) Send invite (verification email)
-// 1) Create auth user with password and mark email as verified
-// 1) Create account and send verification email
-const tempPassword = "Created@123"; // Generate random temp password
-const { data: signUpData, error: signUpErr } = await PUBLIC_SUPABASE.auth.signUp({
-  email,
-  password: tempPassword, // Required for signUp
-  options: {
-    emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
-  },
-});
+      // 1) Send invite (verification email)
+      // 1) Create auth user with password and mark email as verified
+      // 1) Create account and send verification email
+      const tempPassword = "Created@123"; // Generate random temp password
+      const { data: signUpData, error: signUpErr } = await PUBLIC_SUPABASE.auth.signUp({
+        email,
+        password: tempPassword, // Required for signUp
+        options: {
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+        },
+      });
 
-if (signUpErr) {
-  results.push({ email, status: "error", message: signUpErr.message });
-  continue;
-}
+      if (signUpErr) {
+        results.push({ email, status: "error", message: signUpErr.message });
+        continue;
+      }
 
 
 
@@ -293,7 +294,7 @@ if (signUpErr) {
       // 2) Insert into public.users
       // Resolve department already computed; set designation = role
       const finalName =
-  (row.name && row.name.trim().length > 0 ? row.name.trim() : nameFromEmail(email));
+        (row.name && row.name.trim().length > 0 ? row.name.trim() : nameFromEmail(email));
       let team_id: string | null = null;
 
       // If Team Lead → ensure a team
@@ -303,37 +304,37 @@ if (signUpErr) {
         // But since you want the team right away, we'll do: insert public.users first → get id → create team.
       }
 
-    //   const { data: inserted, error: insertErr } = await PUBLIC_SUPABASE
-    //     .from("users")
-    //     .insert({
-    //       name: row.name || null,
-    //       email: email,
-    //       role: row.role,
-    //       designation: row.role,
-    //       department: row.department,
-    //       isactive: row.isactive === true,
-    //       created_at: new Date().toISOString(),
-    //       base_salary: null,
-    //       team_id: null, // set after if CA/JCA
-    //     })
-    //     .select("id, name, role, email")
-    //     .single();
+      //   const { data: inserted, error: insertErr } = await PUBLIC_SUPABASE
+      //     .from("users")
+      //     .insert({
+      //       name: row.name || null,
+      //       email: email,
+      //       role: row.role,
+      //       designation: row.role,
+      //       department: row.department,
+      //       isactive: row.isactive === true,
+      //       created_at: new Date().toISOString(),
+      //       base_salary: null,
+      //       team_id: null, // set after if CA/JCA
+      //     })
+      //     .select("id, name, role, email")
+      //     .single();
 
-    const { data: inserted, error: insertErr } = await PUBLIC_SUPABASE
-  .from("users")
-  .insert({
-    name: finalName,                 // <— use computed name
-    email: email,
-    role: row.role,
-    designation: row.role,
-    department: row.department,
-    isactive: row.isactive === true,
-    created_at: new Date().toISOString(),
-    base_salary: null,
-    team_id: null,
-  })
-  .select("id, name, role, email")
-  .single();
+      const { data: inserted, error: insertErr } = await PUBLIC_SUPABASE
+        .from("users")
+        .insert({
+          name: finalName,                 // <— use computed name
+          email: email,
+          role: row.role,
+          designation: row.role,
+          department: row.department,
+          isactive: row.isactive === true,
+          created_at: new Date().toISOString(),
+          base_salary: null,
+          team_id: null,
+        })
+        .select("id, name, role, email")
+        .single();
 
 
       if (insertErr || !inserted) {

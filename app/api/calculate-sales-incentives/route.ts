@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parseISO, isAfter, isBefore, addDays, subDays, startOfMonth, format, getDate, endOfMonth, setHours, setMinutes, setSeconds } from "date-fns";
@@ -40,7 +42,7 @@ const getBDASlabIncentive = (revenue: number) => {
 // A shift starting at X date 20:00 belongs to Shift X. X date 15:00 belongs to Shift (X-1).
 const getShiftDate = (closedAtStr: string, shiftTimeStr: string) => {
     const closedAt = new Date(closedAtStr);
-    
+
     // Safely parse into Asia/Kolkata (IST)
     const istString = closedAt.toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: false });
     // Format: "M/D/YYYY, HH:MM:SS" or "MM/DD/YYYY, 24:MM:SS"
@@ -48,16 +50,16 @@ const getShiftDate = (closedAtStr: string, shiftTimeStr: string) => {
     const [month, day, year] = datePart.split("/").map(Number);
     let [hours, minutes] = timePart.split(":").map(Number);
     if (hours === 24) hours = 0; // JS toLocaleString sometimes yields 24 for midnight
-    
+
     const [shiftHours, shiftMinutes] = shiftTimeStr.split(":").map(Number);
-    
+
     let shiftDate = new Date(year, month - 1, day);
-    
+
     // If the sale happened before the shift start time, it belongs to the previous day's shift window
     if (hours < shiftHours || (hours === shiftHours && minutes < shiftMinutes)) {
         shiftDate.setDate(shiftDate.getDate() - 1);
     }
-    
+
     const y = shiftDate.getFullYear();
     const m = String(shiftDate.getMonth() + 1).padStart(2, '0');
     const d = String(shiftDate.getDate()).padStart(2, '0');
@@ -68,7 +70,7 @@ const getShiftDate = (closedAtStr: string, shiftTimeStr: string) => {
 const getPeriodName = (dateStr: string, role: string) => {
     const d = new Date(dateStr);
     const day = getDate(d);
-    
+
     if (role === "BDT-P") {
         // Monthly
         return `${format(startOfMonth(d), 'yyyy-MM-dd')} to ${format(endOfMonth(d), 'yyyy-MM-dd')}`;
@@ -87,11 +89,11 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const email = searchParams.get("email");
         let role = searchParams.get("role")?.toUpperCase();
-        
+
         if (!email || !role) {
             return NextResponse.json({ error: "Email and role are required" }, { status: 400 });
         }
-        
+
         // Handle variations
         if (role === "BDT-P") role = "BDT-P";
         else if (role.startsWith("BDT")) role = "BDT";
@@ -99,7 +101,7 @@ export async function GET(req: Request) {
         // Fetch user data early to establish historical promotion rules
         const { data: userData } = await supabaseAdmin.from("users").select("id, role, role_history, incentive_amount").eq("email", email).single();
         const role_history = userData?.role_history || {};
-        
+
         const getRoleForMonth = (monthStr: string) => {
             if (Object.keys(role_history).length === 0) return role;
             const sortedKeys = Object.keys(role_history).sort();
@@ -116,23 +118,23 @@ export async function GET(req: Request) {
             .select("value")
             .eq("key", "shift_start_time")
             .single();
-        
+
         const shiftStartTime = shiftSetting?.value || "20:00"; // Default 8:00 PM
-        
+
         // Fetch CRM Data
         const rawCrmBase = process.env.NEXT_PUBLIC_CRM_API_URL || "https://applywizz-crm-tool.vercel.app";
         const crmBase = rawCrmBase.replace(/^"|"$/g, ''); // Safely strip UI quotes from ENV
         const crmRes = await fetch(`${crmBase}/api/sales-report?email=${encodeURIComponent(email)}`);
-        
+
         if (!crmRes.ok) throw new Error("Failed to fetch from CRM");
         const crmData = await crmRes.json();
-        
+
         if (!crmData.success || !crmData.data?.sales) {
             throw new Error("Invalid CRM data");
         }
-        
+
         const sales = crmData.data.sales;
-        
+
         // Calculate Periods
         const periodsData: Record<string, {
             total_revenue: number,
@@ -142,7 +144,7 @@ export async function GET(req: Request) {
             slab_incentive: number,
             total_incentive: number
         }> = {};
-        
+
         // Calculate Base Limits
         const getDailyBonusThreshold = (r: string) => {
             if (r === "BDA") return 400;
@@ -152,10 +154,10 @@ export async function GET(req: Request) {
         const getTargetAmount = (r: string) => {
             if (r === "BDT-P" || r === "BDT") return 500;
             if (r === "BDA") return 1000; // Returns specifically back to 1000
-            if (r === "SBDA") return 2000; 
-            return 0; 
+            if (r === "SBDA") return 2000;
+            return 0;
         };
-        
+
         // Aggregate Sales
         sales.forEach((sale: any) => {
             if (!sale.closed_at) return;
@@ -164,7 +166,7 @@ export async function GET(req: Request) {
             const periodMonthStr = shiftDate.substring(0, 7);
             const activeRoleForSale = getRoleForMonth(periodMonthStr);
             const period = getPeriodName(shiftDate, activeRoleForSale);
-            
+
             if (!periodsData[period]) {
                 periodsData[period] = {
                     total_revenue: 0,
@@ -175,38 +177,38 @@ export async function GET(req: Request) {
                     total_incentive: 0
                 };
             }
-            
+
             periodsData[period].total_revenue += saleValue;
             periodsData[period].daily_sales[shiftDate] = (periodsData[period].daily_sales[shiftDate] || 0) + saleValue;
         });
-        
+
         // Calculate Incentives per Period
         for (const [period, pData] of Object.entries(periodsData)) {
             // Re-identify historical role for correct threshold equations
-            const startMonthStr = period.substring(0, 7); 
+            const startMonthStr = period.substring(0, 7);
             const periodRole = getRoleForMonth(startMonthStr);
 
             // Calculate Daily Bonus
             let totalDailyBonus = 0;
             const dailyThreshold = getDailyBonusThreshold(periodRole);
-            
+
             for (const [date, dailyTotal] of Object.entries(pData.daily_sales)) {
                 if (dailyTotal >= dailyThreshold) {
                     totalDailyBonus += dailyTotal; // 1:1 match numerically in Rs
                 }
             }
-            
+
             pData.daily_bonus = totalDailyBonus;
-            
+
             // Calculate Slab Incentive
             if (periodRole === "BDA") {
                 pData.slab_incentive = getBDASlabIncentive(pData.total_revenue);
             } else if (periodRole === "SBDA") {
                 pData.slab_incentive = getSBDASlabIncentive(pData.total_revenue);
             }
-            
+
             pData.total_incentive = pData.daily_bonus + pData.slab_incentive;
-            
+
             // Upsert into Supabase
             await supabaseAdmin
                 .from("sales_incentives")
@@ -222,7 +224,7 @@ export async function GET(req: Request) {
                     last_updated: new Date().toISOString()
                 }, { onConflict: "email, period" });
         }
-        
+
         // Group the calculated period incentives by month to store on the user profile
         const monthTotals: Record<string, number> = {};
         for (const [period, pData] of Object.entries(periodsData)) {
@@ -237,7 +239,7 @@ export async function GET(req: Request) {
         if (userData?.id) {
             await supabaseAdmin.from("users").update({ incentive_amount: updatedIncentives }).eq("id", userData.id);
         }
-        
+
         return NextResponse.json({
             success: true,
             shiftStartTime,
@@ -245,7 +247,7 @@ export async function GET(req: Request) {
             crmSummary: crmData.summary,
             crmSales: sales
         });
-        
+
     } catch (error: any) {
         console.error("Sales Calculation Error:", error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
