@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NewClientForm } from "./new-client-form"
-import { AlertTriangle, AlertCircle, Loader2, Plus, FileSpreadsheet } from "lucide-react"
+import { AlertTriangle, AlertCircle, Loader2, Plus, FileSpreadsheet, User } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 
 interface COODashboardProps {
@@ -483,8 +484,30 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                 <NewClientForm fetchClients={() => { }} />
               </DialogContent>
             </Dialog>
-            <Button variant="outline">Profile</Button>
-            <Button onClick={onLogout}>Logout</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="p-0 rounded-full h-10 w-10 flex items-center justify-center bg-black">
+                  <User className="h-6 w-6 text-white" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <p className="font-medium">{user.name}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onLogout}>
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {/* <Button onClick={handleReset} disabled={isResetting}>
               {isResetting ? (
                 <span className="inline-flex items-center gap-2">
@@ -642,13 +665,19 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
               pathname: "/coo-dashboard/clients/active",
               query:
                 selectedTeam !== "all"
-                  ? { teamId: selectedTeam, active: "active" }
-                  : { active: "active" },
+                   ? { teamId: selectedTeam, active: "active" }
+                   : { active: "active" },
             }}
             className="block"
           >
-            <Card className="cursor-pointer hover:shadow-md transition">
+            <Card className="cursor-pointer hover:shadow-md transition relative overflow-hidden">
               <CardContent className="p-4 text-center">
+                <div className="absolute top-3 right-3">
+                   <span className="relative flex h-3 w-3">
+                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                     <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                   </span>
+                </div>
                 <div className="text-2xl font-bold text-green-600">{activeClients}</div>
                 <div className="text-sm text-slate-600">Active Clients</div>
               </CardContent>
@@ -666,10 +695,10 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
             }}
             className="block"
           >
-            <Card className="cursor-pointer hover:shadow-md transition">
+            <Card className="cursor-pointer hover:shadow-md transition bg-red-50 border-red-200">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-amber-600">{pausedClients}</div>
-                <div className="text-sm text-slate-600">Paused Clients</div>
+                <div className="text-2xl font-bold text-red-600">{pausedClients}</div>
+                <div className="text-sm font-medium text-red-600">Non Renewed Clients</div>
               </CardContent>
             </Card>
           </Link>
@@ -704,10 +733,10 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
             }}
             className="block"
           >
-            <Card className="cursor-pointer hover:shadow-md transition">
+            <Card className="cursor-pointer hover:shadow-md transition bg-orange-50 border-orange-200">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-red-600">{missedToday}</div>
-                <div className="text-sm text-slate-600">Inprogress Today</div>
+                <div className="text-2xl font-bold text-orange-600">{missedToday}</div>
+                <div className="text-sm font-medium text-orange-600">Inprogress Today</div>
               </CardContent>
             </Card>
           </Link>
