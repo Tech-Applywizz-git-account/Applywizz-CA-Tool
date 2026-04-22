@@ -318,12 +318,44 @@ const openAssignDialog = async (client: any) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div><div className="text-sm text-slate-600">Active CAs</div></CardContent></Card>
+          <Card className="relative overflow-hidden">
+            <CardContent className="p-4 text-center">
+              <div className="absolute top-3 right-3">
+                 <span className="relative flex h-3 w-3">
+                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                   <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                 </span>
+              </div>
+              <div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div>
+              <div className="text-sm text-slate-600">Active CAs</div>
+            </CardContent>
+          </Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.startedClients}</div><div className="text-sm text-slate-600">Started</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
+          <Card className="bg-orange-50 border-orange-200">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.startedClients}</div>
+              <div className="text-sm font-medium text-orange-600">Started</div>
+            </CardContent>
+          </Card>
+          <Card className="relative overflow-hidden">
+            <CardContent className="p-4 text-center">
+              <div className="absolute top-3 right-3">
+                 <span className="relative flex h-3 w-3">
+                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                   <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                 </span>
+              </div>
+              <div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div>
+              <div className="text-sm text-slate-600">Active Clients</div>
+            </CardContent>
+          </Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{stats.completedClients}</div><div className="text-sm text-slate-600">Completed</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-900">{stats.pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-red-600">{stats.pausedClients}</div>
+              <div className="text-sm font-medium text-red-600">Non Renewed Clients</div>
+            </CardContent>
+          </Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{stats.missingUpdates}</div><div className="text-sm text-slate-600">Missing Updates</div></CardContent></Card>
         </div>
 
