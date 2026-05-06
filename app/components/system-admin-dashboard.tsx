@@ -135,7 +135,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
         created_at: new Date().toISOString(),
         base_salary: null,
         team_id:
-          formData.role === "CA" || formData.role === "Junior CA"
+          formData.role === "CA" || formData.role === "Junior CA" || formData.role === "Career Associative Trainee"
             ? selectedTeamId
             : null,
       })
@@ -434,6 +434,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="all">All Roles</SelectItem>
                       <SelectItem value="CA">Career Associate</SelectItem>
                       <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
+                      <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
                       <SelectItem value="Team Lead">Team Lead</SelectItem>
                       <SelectItem value="CRO">CRO</SelectItem>
                       <SelectItem value="COO">COO</SelectItem>
@@ -504,6 +505,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                           <SelectContent>
                             <SelectItem value="CA">Career Associate</SelectItem>
                             <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
+                            <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
                             <SelectItem value="Team Lead">Team Lead</SelectItem>
                             <SelectItem value="CRO">CRO</SelectItem>
                             <SelectItem value="COO">COO</SelectItem>
@@ -532,7 +534,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       </div>
                     </div>
                     <div>
-                      {(formData.role === "CA" || formData.role === "Junior CA") && (
+                      {(formData.role === "CA" || formData.role === "Junior CA" || formData.role === "Career Associative Trainee") && (
                         <div>
                           <Label htmlFor="team-lead">Assign to Team Lead</Label>
                           <Select
@@ -723,6 +725,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                     <SelectContent>
                       <SelectItem value="CA">Career Associate</SelectItem>
                       <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
+                      <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
                       <SelectItem value="Team Lead">Team Lead</SelectItem>
                       <SelectItem value="CRO">CRO</SelectItem>
                       <SelectItem value="COO">COO</SelectItem>
