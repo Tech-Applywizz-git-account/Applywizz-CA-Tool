@@ -38,6 +38,7 @@ export async function GET(req: Request) {
                     work_done_ca_name, 
                     team_lead_name, 
                     emails_submitted,
+                    end_time,
                     ca:work_done_by (email),
                     team:team_id (
                         lead:lead_id (email)
@@ -63,6 +64,7 @@ export async function GET(req: Request) {
                             team_lead_name: client.team_lead_name,
                             tl_email: client.team?.lead?.email || null,
                             emails_submitted: client.emails_submitted,
+                            end_time: client.end_time,
                         };
                     }
                 }
@@ -138,7 +140,8 @@ export async function GET(req: Request) {
                                 ca_mail: caInfo?.email || null,
                                 team_lead_name: caInfo?.team?.lead?.name || null,
                                 tl_email: caInfo?.team?.lead?.email || null,
-                                emails_submitted: p.emails_submitted || 0
+                                emails_submitted: p.emails_submitted || 0,
+                                end_time: p.end_time || null
                             };
                         }
                     });
