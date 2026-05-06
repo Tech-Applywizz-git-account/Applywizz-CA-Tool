@@ -4,18 +4,24 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils" // if you don’t have this, replace cn(...) with a template string
-import { LayoutDashboard, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { LayoutDashboard, Users, BarChart2 } from "lucide-react"
 
 type SidebarProps = {
   basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"
 }
 
+const EXEC_PATHS = ["/cro-dashboard", "/ceo-dashboard", "/coo-dashboard"]
+
 export default function Sidebar({ basePath }: SidebarProps) {
   const pathname = usePathname()
+
   const links = [
     { href: `${basePath}`, label: "My Dashboard", icon: LayoutDashboard },
     { href: `${basePath}/clients`, label: "Clients Information", icon: Users },
+    ...(EXEC_PATHS.includes(basePath)
+      ? [{ href: `${basePath}/reports`, label: "Performance Report", icon: BarChart2 }]
+      : []),
   ]
 
   return (
@@ -25,7 +31,7 @@ export default function Sidebar({ basePath }: SidebarProps) {
       </div>
       <nav className="px-2 space-y-1">
         {links.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = pathname === href || pathname.startsWith(href + "/") && href !== basePath
           return (
             <Link
               key={href}
