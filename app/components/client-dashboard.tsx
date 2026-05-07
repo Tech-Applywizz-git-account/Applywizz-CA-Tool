@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
 import {
   Mail, Briefcase, Clock, TrendingUp, User, CalendarDays, ChevronLeft, ChevronRight,
   Activity, BarChart3, FileText, Target, Zap, Flame, CheckCircle2, TrendingDown,
@@ -41,6 +42,10 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
   const [assignedCA, setAssignedCA] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [monthOffset, setMonthOffset] = useState(0)
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined
+  })
   
   // Filters
   const [filterCA, setFilterCA] = useState<string>("all")
@@ -73,11 +78,29 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
     return { start: fmtDate(start), end: fmtDate(next) }
   }
 
-  const getMonthLabel = () => {
+  const getMonthLabel = (offset: number) => {
     const now = new Date()
-    const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+    const target = new Date(now.getFullYear(), now.getMonth() + offset, 1)
     return target.toLocaleString("default", { month: "long", year: "numeric" })
   }
+
+  const activeRange = useMemo(() => {
+    if (dateRange.from && dateRange.to) {
+      // For custom range, we want to include the 'to' date
+      // getMonthRange returns {start: inclusive, end: exclusive}
+      // so we add 1 day to 'to' for consistency with the filter logic
+      const nextDay = new Date(dateRange.to)
+      nextDay.setDate(nextDay.getDate() + 1)
+      
+      return {
+        start: fmtDate(dateRange.from),
+        end: fmtDate(nextDay),
+        label: `${dateRange.from.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} - ${dateRange.to.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+      }
+    }
+    const range = getMonthRange(monthOffset)
+    return { ...range, label: getMonthLabel(monthOffset) }
+  }, [dateRange, monthOffset])
 
   // Fetch client details
   useEffect(() => {
@@ -109,7 +132,7 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
   // Fetch work history profiles for this client
   useEffect(() => {
     const fetchHistory = async () => {
-      const { start, end } = getMonthRange(monthOffset)
+      const { start, end } = activeRange
 
       const { data, error } = await supabase
         .from("work_history_profiles")
@@ -158,7 +181,7 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
       setHistory(rows)
     }
     fetchHistory()
-  }, [clientId, monthOffset])
+  }, [clientId, activeRange])
 
   // Filtered history
   const filteredHistory = useMemo(() => {
@@ -172,7 +195,7 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
   // Reset pagination on filter change
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterCA, filterStatus, monthOffset])
+  }, [filterCA, filterStatus, activeRange])
 
   const totalPages = Math.ceil(filteredHistory.length / itemsPerPage)
   const paginatedHistory = filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
@@ -410,18 +433,80 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <CalendarDays className="h-5 w-5 text-slate-600" />
-              <h2 className="text-lg font-semibold">{getMonthLabel()}</h2>
+              <h2 className="text-lg font-semibold">{activeRange.label}</h2>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setMonthOffset(p => p - 1)}>
-                <ChevronLeft className="h-4 w-4" /> Previous
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setMonthOffset(0)}>
-                This Month
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setMonthOffset(p => p + 1)} disabled={monthOffset >= 0}>
-                Next <ChevronRight className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center bg-slate-100 p-1 rounded-lg mr-2 shrink-0">
+                <Button 
+                  variant={!dateRange.from ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className="h-8 text-xs px-3"
+                  onClick={() => setDateRange({ from: undefined, to: undefined })}
+                >
+                  Monthly
+                </Button>
+                <Button 
+                  variant={dateRange.from ? "secondary" : "ghost"} 
+                  size="sm" 
+                  className="h-8 text-xs px-3"
+                  onClick={() => {
+                    if (!dateRange.from) {
+                      const now = new Date()
+                      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+                      setDateRange({ from: startOfMonth, to: now })
+                    }
+                  }}
+                >
+                  Custom
+                </Button>
+              </div>
+
+              {dateRange.from ? (
+                <div className="flex items-center gap-4 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider -mb-0.5 ml-0.5">From</span>
+                      <Input 
+                        type="date" 
+                        className="h-8 text-xs w-[135px] px-2 bg-white border-slate-200"
+                        value={fmtDate(dateRange.from)}
+                        onChange={(e) => {
+                          const d = e.target.value ? new Date(e.target.value) : undefined
+                          if (d) setDateRange(prev => ({ ...prev, from: d }))
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider -mb-0.5 ml-0.5">To</span>
+                      <Input 
+                        type="date" 
+                        className="h-8 text-xs w-[135px] px-2 bg-white border-slate-200"
+                        value={dateRange.to ? fmtDate(dateRange.to) : ""}
+                        onChange={(e) => {
+                          const d = e.target.value ? new Date(e.target.value) : undefined
+                          if (d) setDateRange(prev => ({ ...prev, to: d }))
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setMonthOffset(p => p - 1)} className="h-8">
+                    <ChevronLeft className="h-4 w-4" /> Prev
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setMonthOffset(0)} className="h-8 px-3">
+                    This Month
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setMonthOffset(p => p + 1)} disabled={monthOffset >= 0} className="h-8">
+                    Next <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -467,13 +552,13 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="h-5 w-5 text-indigo-600" />
-              CA Performance Breakdown — {getMonthLabel()}
+              CA Performance Breakdown — {activeRange.label}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
               {analytics.caBreakdown.map((ca) => (
-                <div key={ca.name} className="flex flex-col p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <div key={ca.name} className="flex flex-col min-w-[320px] max-w-[320px] p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow shrink-0">
                   <div className="flex items-center justify-between mb-3 border-b pb-3">
                     <div>
                       <p className="font-semibold text-slate-900">{ca.name}</p>
@@ -540,7 +625,7 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-5 w-5 text-slate-600" />
-              Daily Work History — {getMonthLabel()}
+              Daily Work History — {activeRange.label}
             </CardTitle>
             <div className="flex items-center gap-3">
               <Select value={filterCA} onValueChange={setFilterCA}>
