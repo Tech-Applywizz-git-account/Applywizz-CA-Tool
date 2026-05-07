@@ -396,7 +396,7 @@ type Client = {
   status: string | null
   assigned_ca_id: string | null
   assigned_ca_name: string | null
-  work_done_user?: { id: string | null; name: string | null } | null
+  work_done_user?: { id: string | null; name: string | null } | { id: string | null; name: string | null }[] | null
   team_id: string | null
   emails_required: number | null
   emails_submitted: number | null
@@ -783,7 +783,11 @@ export default function ClientsList({
  
                   {/* Work Done By */}
                   <TableCell className="text-center">
-                    <div className="text-slate-900">{c.work_done_user?.name || "—"}</div>
+                    <div className="text-slate-900">
+                      {Array.isArray(c.work_done_user) 
+                        ? (c.work_done_user[0]?.name || "—") 
+                        : (c.work_done_user?.name || "—")}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

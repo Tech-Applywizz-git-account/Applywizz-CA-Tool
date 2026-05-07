@@ -9,7 +9,7 @@ export default function CEOCompletedClientsPage() {
     <div className="min-h-screen flex">
       <Sidebar basePath="/ceo-dashboard" />
       <main className="flex-1 bg-slate-50 p-4">
-        <ClientsList title="Clients Information — CEO" initialStatus="Completed" />
+        <ClientsList clientLinkPrefix="/ceo-dashboard/client/"  title="Clients Information — CEO" initialStatus="Completed" />
       </main>
     </div>
   )

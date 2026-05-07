@@ -112,7 +112,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         .select("*")
         .in("team_id", teamIds)
         .neq("role", "Team Lead")
-        // .eq("isactive", true)
+      // .eq("isactive", true)
       setTeamMembers(members || [])
       const memberIds = members?.map((m) => m.id) || []
       if (memberIds.length > 0) {
@@ -131,14 +131,14 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     fetchTeamData()
   }, [user.id])
 
-const caOptions = [
-  { value: "all", label: "All CA Clients" }, 
-  ...teamMembers.map((m) => ({ 
-    value: m.id, 
-    label: m.name,
-    isactive: m.isactive 
-  }))
-] as const;
+  const caOptions = [
+    { value: "all", label: "All CA Clients" },
+    ...teamMembers.map((m) => ({
+      value: m.id,
+      label: m.name,
+      isactive: m.isactive
+    }))
+  ] as const;
 
   const selectedCAObj =
     selectedCA !== "all" ? teamMembers.find((m) => m.id === selectedCA) : null;
@@ -164,38 +164,38 @@ const caOptions = [
   //   });
 
   const filteredClients = (!q
-  ? baseClients
-  : baseClients.filter((c) => {
+    ? baseClients
+    : baseClients.filter((c) => {
       const name = (c.name ?? "").toLowerCase();
       const email = (c.email ?? "").toLowerCase();
       return name.includes(q) || email.includes(q);
     }))
-  // ⭐ Sort dynamically based on clientSortOrder
-  .sort((a, b) => {
-    if (clientSortOrder === "active-first") {
-      if (a.is_active === b.is_active) return 0;
-      return a.is_active ? -1 : 1;
-    } else if (clientSortOrder === "paused-first") {
-      if (a.is_active === b.is_active) return 0;
-      return a.is_active ? 1 : -1;
-    } else if (clientSortOrder === "started-first") {
-      const aStarted = a.status === "Started";
-      const bStarted = b.status === "Started";
-      if (aStarted === bStarted) return 0;
-      return aStarted ? -1 : 1;
-    } else if (clientSortOrder === "completed-first") {
-      const aCompleted = a.status === "Completed";
-      const bCompleted = b.status === "Completed";
-      if (aCompleted === bCompleted) return 0;
-      return aCompleted ? -1 : 1;
-    } else if (clientSortOrder === "status-paused-first") {
-      const aPaused = a.status === "Paused";
-      const bPaused = b.status === "Paused";
-      if (aPaused === bPaused) return 0;
-      return aPaused ? -1 : 1;
-    }
-    return 0;
-  });
+    // ⭐ Sort dynamically based on clientSortOrder
+    .sort((a, b) => {
+      if (clientSortOrder === "active-first") {
+        if (a.is_active === b.is_active) return 0;
+        return a.is_active ? -1 : 1;
+      } else if (clientSortOrder === "paused-first") {
+        if (a.is_active === b.is_active) return 0;
+        return a.is_active ? 1 : -1;
+      } else if (clientSortOrder === "started-first") {
+        const aStarted = a.status === "Started";
+        const bStarted = b.status === "Started";
+        if (aStarted === bStarted) return 0;
+        return aStarted ? -1 : 1;
+      } else if (clientSortOrder === "completed-first") {
+        const aCompleted = a.status === "Completed";
+        const bCompleted = b.status === "Completed";
+        if (aCompleted === bCompleted) return 0;
+        return aCompleted ? -1 : 1;
+      } else if (clientSortOrder === "status-paused-first") {
+        const aPaused = a.status === "Paused";
+        const bPaused = b.status === "Paused";
+        if (aPaused === bPaused) return 0;
+        return aPaused ? -1 : 1;
+      }
+      return 0;
+    });
 
 
   const stats = {
@@ -209,56 +209,56 @@ const caOptions = [
   }
 
   const selectedCAIncentive = selectedCA !== "all" ? incentives.find((i) => i.user_id === selectedCA) : null
-// Handle assigning client to a different CA
-const handleAssignClient = async (clientId: string, newCaId: string) => {
-  if (!clientToAssign) return
+  // Handle assigning client to a different CA
+  const handleAssignClient = async (clientId: string, newCaId: string) => {
+    if (!clientToAssign) return
 
-  // Get the current CA and new CA names for the alert
-  const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
-  const newCA = teamMembers.find(m => m.id === newCaId)
+    // Get the current CA and new CA names for the alert
+    const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+    const newCA = teamMembers.find(m => m.id === newCaId)
 
-  const { error } = await supabase
-    .from("clients")
-    .update({ assigned_ca_id: newCaId })
-    .eq("id", clientId)
+    const { error } = await supabase
+      .from("clients")
+      .update({ assigned_ca_id: newCaId })
+      .eq("id", clientId)
 
-  if (error) {
-    alert("Failed to assign client: " + error.message)
-    return
+    if (error) {
+      alert("Failed to assign client: " + error.message)
+      return
+    }
+
+    // Update local state
+    setClients(prev => prev.map(c =>
+      c.id === clientId ? { ...c, assigned_ca_id: newCaId } : c
+    ))
+
+    setAssignClientOpen(false)
+    setClientToAssign(null)
+
+    // Show detailed alert with CA names
+    alert(`Client assigned successfully!\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${newCA?.name || "Unknown CA"}`)
   }
 
-  // Update local state
-  setClients(prev => prev.map(c => 
-    c.id === clientId ? { ...c, assigned_ca_id: newCaId } : c
-  ))
+  // Open assign dialog - show only active CAs from the same team
+  const openAssignDialog = async (client: any) => {
+    setClientToAssign(client)
 
-  setAssignClientOpen(false)
-  setClientToAssign(null)
-  
-  // Show detailed alert with CA names
-  alert(`Client assigned successfully!\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${newCA?.name || "Unknown CA"}`)
-}
+    // Fetch active CAs from the same team (current user's team)
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, name, email, team_id, designation, isactive")
+      .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
+      .eq("isactive", true)
+      .eq("team_id", teamMembers[0]?.team_id) // All team members should have same team_id
 
-// Open assign dialog - show only active CAs from the same team
-const openAssignDialog = async (client: any) => {
-  setClientToAssign(client)
-  
-  // Fetch active CAs from the same team (current user's team)
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, name, email, team_id, designation, isactive")
-    .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
-    .eq("isactive", true)
-    .eq("team_id", teamMembers[0]?.team_id) // All team members should have same team_id
+    if (error) {
+      console.error("Error fetching available CAs:", error)
+      return
+    }
 
-  if (error) {
-    console.error("Error fetching available CAs:", error)
-    return
+    setAvailableCAs(data || [])
+    setAssignClientOpen(true)
   }
-
-  setAvailableCAs(data || [])
-  setAssignClientOpen(true)
-}
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -303,24 +303,24 @@ const openAssignDialog = async (client: any) => {
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
-         <SelectContent>
-  {caOptions.map((option) => (
-    <SelectItem key={option.value} value={option.value}>
-      <div className="flex items-center justify-between w-full">
-        <span>{option.label}</span>
-        {/* Only show badge for CA options, not for "all" option */}
-        {'isactive' in option && (
-          <Badge 
-            variant={option.isactive ? "default" : "secondary"}
-            className={option.isactive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
-          >
-            {option.isactive ? "Active" : "Inactive"}
-          </Badge>
-        )}
-      </div>
-    </SelectItem>
-  ))}
-</SelectContent>
+              <SelectContent>
+                {caOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{option.label}</span>
+                      {/* Only show badge for CA options, not for "all" option */}
+                      {'isactive' in option && (
+                        <Badge
+                          variant={option.isactive ? "default" : "secondary"}
+                          className={option.isactive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
+                        >
+                          {option.isactive ? "Active" : "Inactive"}
+                        </Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
@@ -363,7 +363,7 @@ const openAssignDialog = async (client: any) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-blue-50 transition-colors border-transparent hover:border-blue-200"
             onClick={() => scrollToElement("all-cas-section")}
           >
@@ -373,7 +373,7 @@ const openAssignDialog = async (client: any) => {
             </CardContent>
           </Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-slate-50 transition-colors border-transparent hover:border-slate-200"
             onClick={() => {
               setClientSortOrder("started-first");
@@ -385,7 +385,7 @@ const openAssignDialog = async (client: any) => {
               <div className="text-sm text-slate-600">Started</div>
             </CardContent>
           </Card>
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-orange-50 transition-colors border-transparent hover:border-orange-200"
             onClick={() => {
               setClientSortOrder("active-first");
@@ -397,7 +397,7 @@ const openAssignDialog = async (client: any) => {
               <div className="text-sm text-slate-600">Active Clients</div>
             </CardContent>
           </Card>
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-green-50 transition-colors border-transparent hover:border-green-200"
             onClick={() => {
               setClientSortOrder("completed-first");
@@ -409,7 +409,7 @@ const openAssignDialog = async (client: any) => {
               <div className="text-sm text-slate-600">Completed</div>
             </CardContent>
           </Card>
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-red-50 transition-colors border-transparent hover:border-red-200"
             onClick={() => {
               setClientSortOrder("paused-first");
@@ -418,10 +418,10 @@ const openAssignDialog = async (client: any) => {
           >
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-red-900">{stats.renewedClients}</div>
-              <div className="text-sm text-slate-600">Renewed Clients</div>
+              <div className="text-sm text-slate-600">Non Renewed Clients</div>
             </CardContent>
           </Card>
-          <Card 
+          <Card
             className="cursor-pointer hover:bg-slate-50 transition-colors border-transparent hover:border-slate-200"
             onClick={() => {
               setClientSortOrder("status-paused-first");
@@ -495,93 +495,93 @@ const openAssignDialog = async (client: any) => {
                 </DialogContent>
               </Dialog>
               {/* Assign Client Dialog */}
-<Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Assign Client to CA</DialogTitle>
-    </DialogHeader>
-    <div className="space-y-4">
-      {clientToAssign && (() => {
-        const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
-        return (
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-900">Client: {clientToAssign.name}</h4>
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              <div className="text-sm">
-                <span className="font-medium text-blue-700">Current CA:</span>
-                <div className="text-blue-600 mt-1">
-                  {currentCA ? (
-                    <>
-                      <div>{currentCA.name}</div>
-                      <div className="text-xs text-blue-500">{currentCA.email}</div>
-                    </>
-                  ) : (
-                    <div className="text-red-600">Not assigned</div>
-                  )}
-                </div>
-              </div>
-              <div className="text-sm">
-                <span className="font-medium text-green-700">New CA:</span>
-                <div className="text-green-600 mt-1">
-                  <div>Select below →</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-      
-      <div>
-        <Label htmlFor="ca-select" className="text-slate-700">
-          Select New CA from Your Team
-        </Label>
-        <Select onValueChange={(value) => {
-          const selectedCA = availableCAs.find(ca => ca.id === value)
-          if (selectedCA && clientToAssign) {
-            // Show confirmation with both CA names
-            const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
-            const confirmMessage = `Are you sure you want to assign this client?\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${selectedCA.name}`
-            
-            if (window.confirm(confirmMessage)) {
-              handleAssignClient(clientToAssign.id, value)
-            }
-          }
-        }}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Choose a CA from your team..." />
-          </SelectTrigger>
-          <SelectContent>
-            {availableCAs.length > 0 ? (
-              availableCAs.map((ca) => (
-                <SelectItem key={ca.id} value={ca.id}>
-                  <div className="flex flex-col">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{ca.name}</span>
-                      <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
-                        {ca.designation || "CA"}
-                      </Badge>
+              <Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Assign Client to CA</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {clientToAssign && (() => {
+                      const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+                      return (
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <h4 className="font-semibold text-blue-900">Client: {clientToAssign.name}</h4>
+                          <div className="grid grid-cols-2 gap-4 mt-2">
+                            <div className="text-sm">
+                              <span className="font-medium text-blue-700">Current CA:</span>
+                              <div className="text-blue-600 mt-1">
+                                {currentCA ? (
+                                  <>
+                                    <div>{currentCA.name}</div>
+                                    <div className="text-xs text-blue-500">{currentCA.email}</div>
+                                  </>
+                                ) : (
+                                  <div className="text-red-600">Not assigned</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-sm">
+                              <span className="font-medium text-green-700">New CA:</span>
+                              <div className="text-green-600 mt-1">
+                                <div>Select below →</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    <div>
+                      <Label htmlFor="ca-select" className="text-slate-700">
+                        Select New CA from Your Team
+                      </Label>
+                      <Select onValueChange={(value) => {
+                        const selectedCA = availableCAs.find(ca => ca.id === value)
+                        if (selectedCA && clientToAssign) {
+                          // Show confirmation with both CA names
+                          const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+                          const confirmMessage = `Are you sure you want to assign this client?\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${selectedCA.name}`
+
+                          if (window.confirm(confirmMessage)) {
+                            handleAssignClient(clientToAssign.id, value)
+                          }
+                        }
+                      }}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose a CA from your team..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCAs.length > 0 ? (
+                            availableCAs.map((ca) => (
+                              <SelectItem key={ca.id} value={ca.id}>
+                                <div className="flex flex-col">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{ca.name}</span>
+                                    <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
+                                      {ca.designation || "CA"}
+                                    </Badge>
+                                  </div>
+                                  <span className="text-xs text-slate-500">{ca.email}</span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-sm text-slate-500 text-center">
+                              No active CAs available in your team
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <span className="text-xs text-slate-500">{ca.email}</span>
+
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
-                </SelectItem>
-              ))
-            ) : (
-              <div className="p-2 text-sm text-slate-500 text-center">
-                No active CAs available in your team
-              </div>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-      
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
-          Cancel
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardHeader>
           <CardContent>
@@ -630,14 +630,14 @@ const openAssignDialog = async (client: any) => {
                     <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
                       {client.is_active ? "Active" : "Inactive"}
                     </Badge>
-                       <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-purple-300"
-                        onClick={() => openAssignDialog(client)}
-                      >
-                        Assign
-                      </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-purple-300"
+                      onClick={() => openAssignDialog(client)}
+                    >
+                      Assign
+                    </Button>
                     {/* New: Toggle button */}
                     <Button
                       variant="outline"

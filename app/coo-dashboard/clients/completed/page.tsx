@@ -12,7 +12,7 @@ export default function COOCompletedClientsPage({
 
   return (
     <RoleShell basePath="/coo-dashboard">
-      <ClientsList
+      <ClientsList clientLinkPrefix="/coo-dashboard/client/" 
         title="Clients Information — COO"
         teamId={teamId}
         initialStatus="Completed"

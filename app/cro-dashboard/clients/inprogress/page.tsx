@@ -13,7 +13,7 @@ export default function CROInProgressClientsPage({
 
   return (
     <RoleShell basePath="/cro-dashboard">
-      <ClientsList
+      <ClientsList clientLinkPrefix="/cro-dashboard/client/" 
         title="Clients Information — CRO"
         teamId={teamId}
         initialStatus="Started"

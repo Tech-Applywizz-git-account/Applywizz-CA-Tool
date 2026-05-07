@@ -12,7 +12,7 @@ export default function CPOPausedClientsPage({
 
   return (
     <RoleShell basePath="/cpo-dashboard">
-      <ClientsList
+      <ClientsList clientLinkPrefix="/cpo-dashboard/client/" 
         title="Clients Information — CPO"
         teamId={teamId}
         initialActive="inactive"

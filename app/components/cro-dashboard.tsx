@@ -1136,9 +1136,9 @@ const openAssignDialog = async (client: any) => {
                             {caClients[ca.id].map((client) => (
                               <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
                                 <div className="flex gap-4 items-center">
-                                  <span className="w-56 truncate font-medium text-slate-900 mr-16">
+                                  <Link href={`/cro-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
                                     {client.name}
-                                  </span>
+                                  </Link>
                                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                                     <span className="inline-flex items-center gap-1">
                                       <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
@@ -1316,9 +1316,9 @@ const openAssignDialog = async (client: any) => {
                             {caClients[ca.id].map((client) => (
                               <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
                                 <div className="flex gap-4 items-center">
-                                  <span className="w-56 truncate font-medium text-gray-600 mr-16">
+                                  <Link href={`/cro-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
                                     {client.name}
-                                  </span>
+                                  </Link>
                                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                                     <span className="inline-flex items-center gap-1">
                                       <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}

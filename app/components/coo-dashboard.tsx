@@ -762,9 +762,9 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
                                     <div className="flex gap-2 items-center">
-                                      <span className="w-56 truncate font-medium text-slate-900">
+                                      <Link href={`/coo-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline">
                                         {client.name}
-                                      </span>
+                                      </Link>
                                       {/* Status colored badge */}
                                       <Badge
                                         className={

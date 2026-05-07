@@ -8,7 +8,7 @@
 // export default function COOClientsPage() {
 //   return (
 //     <RoleShell basePath="/coo-dashboard">
-//       <ClientsList title="Clients Information — COO" />
+//       <ClientsList clientLinkPrefix="/coo-dashboard/client/"  clientLinkPrefix="/coo-dashboard/client/"  title="Clients Information — COO" />
 //     </RoleShell>
 //   )
 // }
@@ -43,7 +43,7 @@ export default function COOClientsPage({
 
   return (
     <RoleShell basePath="/coo-dashboard">
-      <ClientsList
+      <ClientsList clientLinkPrefix="/coo-dashboard/client/" 
         title="Clients Information — COO"
         teamId={teamId}
         initialActive={initialActive}
