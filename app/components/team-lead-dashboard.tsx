@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, Plus, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NewClientForm } from "./new-client-form"
-import { User } from "lucide-react"
+import { User, Users } from "lucide-react"
 import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -63,6 +63,25 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     // Optimistically update UI
     setClients(prev =>
       prev.map(c => (c.id === clientId ? { ...c, is_active: data.is_active } : c))
+    );
+  };
+
+  const handleToggleCAActive = async (caId: string, currentIsActive: boolean) => {
+    const { data, error } = await supabase
+      .from("users")
+      .update({ isactive: !currentIsActive })
+      .eq("id", caId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to toggle CA active state:", error.message);
+      return;
+    }
+
+    // Optimistically update UI
+    setTeamMembers(prev =>
+      prev.map(m => (m.id === caId ? { ...m, isactive: data.isactive } : m))
     );
   };
 
@@ -128,8 +147,13 @@ const caOptions = [
     selectedCA === "all"
       ? clients
       : clients.filter((c) => c.assigned_ca_id === selectedCA);
+  const [clientSortOrder, setClientSortOrder] = useState<"active-first" | "paused-first" | "started-first" | "completed-first" | "status-paused-first" | null>("active-first");
 
   const q = searchTerm.trim().toLowerCase();
+
+  const scrollToElement = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  };
 
   // const filteredClients = !q
   //   ? baseClients
@@ -146,10 +170,31 @@ const caOptions = [
       const email = (c.email ?? "").toLowerCase();
       return name.includes(q) || email.includes(q);
     }))
-  // ⭐ Sort Active first, then Inactive
+  // ⭐ Sort dynamically based on clientSortOrder
   .sort((a, b) => {
-    if (a.is_active === b.is_active) return 0;
-    return a.is_active ? -1 : 1;  // active → inactive
+    if (clientSortOrder === "active-first") {
+      if (a.is_active === b.is_active) return 0;
+      return a.is_active ? -1 : 1;
+    } else if (clientSortOrder === "paused-first") {
+      if (a.is_active === b.is_active) return 0;
+      return a.is_active ? 1 : -1;
+    } else if (clientSortOrder === "started-first") {
+      const aStarted = a.status === "Started";
+      const bStarted = b.status === "Started";
+      if (aStarted === bStarted) return 0;
+      return aStarted ? -1 : 1;
+    } else if (clientSortOrder === "completed-first") {
+      const aCompleted = a.status === "Completed";
+      const bCompleted = b.status === "Completed";
+      if (aCompleted === bCompleted) return 0;
+      return aCompleted ? -1 : 1;
+    } else if (clientSortOrder === "status-paused-first") {
+      const aPaused = a.status === "Paused";
+      const bPaused = b.status === "Paused";
+      if (aPaused === bPaused) return 0;
+      return aPaused ? -1 : 1;
+    }
+    return 0;
   });
 
 
@@ -158,8 +203,8 @@ const caOptions = [
     totalClients: filteredClients.length,
     startedClients: filteredClients.filter((c) => c.status === "Started").length,
     completedClients: filteredClients.filter((c) => c.status === "Completed").length,
-    missingUpdates: filteredClients.filter((c) => c.status === "Started" && c.jobs_applied === 0).length,
-    pausedClients: filteredClients.filter((c) => c.is_active === false).length,
+    renewedClients: filteredClients.filter((c) => c.is_active === false).length,
+    statusPausedClients: filteredClients.filter((c) => c.status === "Paused").length,
     activeClients: filteredClients.filter((c) => c.is_active === true).length,
   }
 
@@ -318,13 +363,76 @@ const openAssignDialog = async (client: any) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div><div className="text-sm text-slate-600">Active CAs</div></CardContent></Card>
+          <Card 
+            className="cursor-pointer hover:bg-blue-50 transition-colors border-transparent hover:border-blue-200"
+            onClick={() => scrollToElement("all-cas-section")}
+          >
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div>
+              <div className="text-sm text-slate-600">Active CAs</div>
+            </CardContent>
+          </Card>
           <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.startedClients}</div><div className="text-sm text-slate-600">Started</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div><div className="text-sm text-slate-600">Active Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-green-600">{stats.completedClients}</div><div className="text-sm text-slate-600">Completed</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-900">{stats.pausedClients}</div><div className="text-sm text-slate-600">Paused Clients</div></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-red-600">{stats.missingUpdates}</div><div className="text-sm text-slate-600">Missing Updates</div></CardContent></Card>
+          <Card 
+            className="cursor-pointer hover:bg-slate-50 transition-colors border-transparent hover:border-slate-200"
+            onClick={() => {
+              setClientSortOrder("started-first");
+              scrollToElement("all-clients-section");
+            }}
+          >
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{stats.startedClients}</div>
+              <div className="text-sm text-slate-600">Started</div>
+            </CardContent>
+          </Card>
+          <Card 
+            className="cursor-pointer hover:bg-orange-50 transition-colors border-transparent hover:border-orange-200"
+            onClick={() => {
+              setClientSortOrder("active-first");
+              scrollToElement("all-clients-section");
+            }}
+          >
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div>
+              <div className="text-sm text-slate-600">Active Clients</div>
+            </CardContent>
+          </Card>
+          <Card 
+            className="cursor-pointer hover:bg-green-50 transition-colors border-transparent hover:border-green-200"
+            onClick={() => {
+              setClientSortOrder("completed-first");
+              scrollToElement("all-clients-section");
+            }}
+          >
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">{stats.completedClients}</div>
+              <div className="text-sm text-slate-600">Completed</div>
+            </CardContent>
+          </Card>
+          <Card 
+            className="cursor-pointer hover:bg-red-50 transition-colors border-transparent hover:border-red-200"
+            onClick={() => {
+              setClientSortOrder("paused-first");
+              scrollToElement("all-clients-section");
+            }}
+          >
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-red-900">{stats.renewedClients}</div>
+              <div className="text-sm text-slate-600">Renewed Clients</div>
+            </CardContent>
+          </Card>
+          <Card 
+            className="cursor-pointer hover:bg-slate-50 transition-colors border-transparent hover:border-slate-200"
+            onClick={() => {
+              setClientSortOrder("status-paused-first");
+              scrollToElement("all-clients-section");
+            }}
+          >
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-slate-600">{stats.statusPausedClients}</div>
+              <div className="text-sm text-slate-600">Paused</div>
+            </CardContent>
+          </Card>
         </div>
 
         {selectedCAIncentive && (
@@ -354,7 +462,7 @@ const openAssignDialog = async (client: any) => {
             </CardContent>
           </Card>
         )}
-        <Card>
+        <Card id="all-clients-section">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
@@ -483,7 +591,12 @@ const openAssignDialog = async (client: any) => {
                   <div className="flex items-center gap-3">
                     {client.status === "Started" && client.jobs_applied === 0 && <AlertTriangle className="h-5 w-5 text-red-500" />}
                     <div>
-                      <h3 className="font-semibold text-slate-900">{client.name}</h3>
+                      <Link
+                        href={`/team-lead-dashboard/client/${client.id}`}
+                        className="font-semibold text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer"
+                      >
+                        {client.name}
+                      </Link>
                       <p className="text-sm text-slate-600">{client.date_assigned}</p>
                     </div>
                   </div>
@@ -546,6 +659,60 @@ const openAssignDialog = async (client: any) => {
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* All CA Card */}
+        <Card className="mt-6" id="all-cas-section">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              All Career Associates (CAs)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {teamMembers.map((ca) => {
+                const caClientsCount = clients.filter(c => c.assigned_ca_id === ca.id).length;
+                return (
+                  <div key={ca.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <User className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{ca.name}</h3>
+                        <p className="text-sm text-slate-600">{ca.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-8">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-blue-600">{caClientsCount}</div>
+                        <div className="text-xs text-slate-600">Assigned Clients</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-slate-800">{ca.designation || "CA"}</div>
+                        <div className="text-xs text-slate-600">Designation</div>
+                      </div>
+                      <Badge className={ca.isactive ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
+                        {ca.isactive ? "Active" : "Inactive"}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={ca.isactive ? "bg-red-50 text-red-700 hover:bg-red-100 border-red-200" : "bg-green-50 text-green-700 hover:bg-green-100 border-green-200"}
+                        onClick={() => handleToggleCAActive(ca.id, ca.isactive)}
+                      >
+                        {ca.isactive ? "Set Inactive" : "Set Active"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              {teamMembers.length === 0 && (
+                <p className="text-center text-sm text-slate-500 py-4">No CAs found in your team.</p>
+              )}
             </div>
           </CardContent>
         </Card>

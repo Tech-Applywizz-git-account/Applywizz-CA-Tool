@@ -73,7 +73,7 @@ export async function GET(req: Request) {
             // --- LOGIC FOR HISTORY (from work_history table) ---
             const { data: history, error: histError } = await supabaseAdmin
                 .from("work_history")
-                .select("ca_id, ca_name, completed_profiles")
+                .select("ca_id, ca_name, completed_profiles:work_history_profiles(client_id, name, emails_submitted)")
                 .eq("date", dateParam);
 
             if (histError) {
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
                     const profiles = Array.isArray(h.completed_profiles)
                         ? h.completed_profiles
                         : JSON.parse(h.completed_profiles as string || "[]");
-                    profiles.forEach((p: any) => { if (p.id) profileIds.push(p.id); });
+                    profiles.forEach((p: any) => { if (p.client_id) profileIds.push(p.client_id); });
                 });
 
                 // 2. Fetch CA and TL info in one go
@@ -130,7 +130,7 @@ export async function GET(req: Request) {
                     const caInfo = userMap[h.ca_id];
 
                     profiles.forEach((p: any) => {
-                        const clientData = applywizzMap[p.id];
+                        const clientData = applywizzMap[p.client_id];
                         const awlId = p.applywizz_id || clientData?.awl_id;
 
                         if (awlId) {

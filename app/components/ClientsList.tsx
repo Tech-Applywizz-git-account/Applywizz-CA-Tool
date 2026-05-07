@@ -380,6 +380,7 @@
 "use client"
  
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -419,6 +420,7 @@ type ClientsListProps = {
   pageSize?: number
   initialActive?: "all" | "active" | "inactive"
   initialStatus?: "all" | "Not Started" | "Started" | "Paused" | "Completed"
+  clientLinkPrefix?: string
 }
  
 type SortKey =
@@ -445,6 +447,7 @@ export default function ClientsList({
   pageSize = 20,
   initialActive = "all",
   initialStatus = "all",
+  clientLinkPrefix,
 }: ClientsListProps) {
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
@@ -689,7 +692,13 @@ export default function ClientsList({
                   {/* Client Name */}
                   <TableCell className="text-left">
                     <div className="flex flex-col">
-                      <span className="font-medium text-slate-900">{c.name || "—"}</span>
+                      {clientLinkPrefix ? (
+                        <Link href={`${clientLinkPrefix}${c.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                          {c.name || "—"}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-slate-900">{c.name || "—"}</span>
+                      )}
                       <span className="text-sm text-slate-600">{c.email}</span>
                     </div>
                   </TableCell>

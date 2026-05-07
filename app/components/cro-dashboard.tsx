@@ -210,7 +210,7 @@ useEffect(() => {
         .select(`
           ca_id,
           date,
-          completed_profiles 
+          completed_profiles:work_history_profiles(id)
           `)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
@@ -223,7 +223,7 @@ useEffect(() => {
         .select(`
           ca_id,
           date,
-          completed_profiles 
+          completed_profiles:work_history_profiles(id)
           `)
         .gte("date", dateFrom)
         .lte("date", dateTo)

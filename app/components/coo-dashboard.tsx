@@ -176,7 +176,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
       // Historical from work_history (range)
       const { data: histByCA, error: histErr } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
         .lte("date", dateTo)
@@ -184,7 +184,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
       // For workingDays baseline, use all histories in range
       const { data: histAll, error: histAllErr } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 

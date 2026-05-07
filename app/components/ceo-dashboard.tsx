@@ -194,7 +194,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         .select(`
           ca_id,
           date,
-          completed_profiles
+          completed_profiles:work_history_profiles(id)
         `)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
@@ -205,7 +205,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         .select(`
           ca_id,
           date,
-          completed_profiles
+          completed_profiles:work_history_profiles(id)
         `)
         .gte("date", dateFrom)
         .lte("date", dateTo)

@@ -161,14 +161,14 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
       // Historical from work_history for given range
       const { data: data1, error: error1 } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
       const { data: data2, error: error2 } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
