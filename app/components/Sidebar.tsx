@@ -11,7 +11,7 @@ type SidebarProps = {
   basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"
 }
 
-const EXEC_PATHS = ["/cro-dashboard", "/ceo-dashboard", "/coo-dashboard"]
+const EXEC_PATHS = ["/cro-dashboard", "/ceo-dashboard", "/coo-dashboard", "/team-lead-dashboard"]
 
 export default function Sidebar({ basePath }: SidebarProps) {
   const pathname = usePathname()
