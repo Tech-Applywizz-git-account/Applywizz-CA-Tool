@@ -17,6 +17,7 @@ import { User, Users } from "lucide-react"
 import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useRef } from "react"
 
 
 interface TeamLeadDashboardProps {
@@ -37,6 +38,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [assignClientOpen, setAssignClientOpen] = useState(false)
   const [clientToAssign, setClientToAssign] = useState<any | null>(null)
   const [availableCAs, setAvailableCAs] = useState<any[]>([])
+  const clientListRef = useRef<HTMLDivElement>(null)
 
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
@@ -152,7 +154,21 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const q = searchTerm.trim().toLowerCase();
 
   const scrollToElement = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    const element = document.getElementById(id);
+    if (element) {
+      const offset = 160;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+    }
+  };
+
+  const handleSortClick = (order: typeof clientSortOrder) => {
+    setClientSortOrder(order);
+    scrollToElement("all-clients-section");
+    if (clientListRef.current) {
+      clientListRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // const filteredClients = !q
@@ -261,179 +277,139 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Team Lead Dashboard</h1>
-            <p className="text-slate-600">Welcome back, {user.name}!</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="p-0 rounded-full h-10 w-10 flex items-center justify-center bg-black">
-                  <User className="h-6 w-6 text-white" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col">
-                    <p className="font-medium">{user.name}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>
-                  <div className="flex flex-col">
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onLogout}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <div className="flex gap-4 mb-6">
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Select CA</label>
-            <Select value={selectedCA} onValueChange={setSelectedCA}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {caOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{option.label}</span>
-                      {/* Only show badge for CA options, not for "all" option */}
-                      {'isactive' in option && (
-                        <Badge
-                          variant={option.isactive ? "default" : "secondary"}
-                          className={option.isactive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
-                        >
-                          {option.isactive ? "Active" : "Inactive"}
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Date</label>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 px-3 py-1 bg-white border rounded">
-                <Calendar className="h-4 w-4" />
-                <span className="text-sm text-slate-600">{dateTo}</span>
+    <div className="min-h-screen bg-slate-50">
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Lead</p>
+                <h1 className="text-xl font-bold text-slate-900 leading-tight">{user.name}</h1>
               </div>
-              <Button variant="outline" size="sm">
-                Today
-              </Button>
+              <div className="h-8 w-px bg-slate-200" />
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Select CA</span>
+                  <Select value={selectedCA} onValueChange={setSelectedCA}>
+                    <SelectTrigger className="w-44 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {caOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{option.label}</span>
+                            {'isactive' in option && (
+                              <Badge
+                                variant={option.isactive ? "default" : "secondary"}
+                                className={option.isactive ? "bg-green-100 text-green-800 h-4 text-[9px] px-1" : "bg-gray-100 text-gray-600 h-4 text-[9px] px-1"}
+                              >
+                                {option.isactive ? "Act" : "In"}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Search Clients</span>
+                  <div className="relative">
+                    <Input
+                      placeholder="Name or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-56 h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {selectedCAObj && (
+                  <Link href={`/team-lead-dashboard/ca/${selectedCAObj.id}`}>
+                    <Button variant="outline" size="sm" className="h-8 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200">
+                      View {selectedCAObj.name.split(" ")[0]}'s Dashboard
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Today's Date</span>
+                <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded border border-slate-200 h-8">
+                  <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                  <span className="text-xs font-semibold text-slate-700">{dateTo}</span>
+                </div>
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="p-0 rounded-full h-8 w-8 flex items-center justify-center bg-black hover:bg-black/80">
+                    <User className="h-4 w-4 text-white" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="font-medium">{user.name}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onLogout} className="text-red-600">Logout</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-          <div>
-            <Label className="text-sm font-medium">Search Clients</Label>
-            <Input
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64"
-            />
+
+          {/* Sticky Stats Cards */}
+          <div className="grid grid-cols-7 gap-3">
+            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => scrollToElement("all-cas-section")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-blue-600 leading-tight">{stats.totalCAs}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Active CAs</div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => scrollToElement("all-clients-section")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-blue-600 leading-tight">{stats.totalClients}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Total Clients</div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => handleSortClick("started-first")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-blue-600 leading-tight">{stats.startedClients}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Started</div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-orange-50 transition-colors border-slate-100" onClick={() => handleSortClick("active-first")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-orange-600 leading-tight">{stats.activeClients}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Active Clients</div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-green-50 transition-colors border-slate-100" onClick={() => handleSortClick("completed-first")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-green-600 leading-tight">{stats.completedClients}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Completed</div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-red-50 transition-colors border-slate-100" onClick={() => handleSortClick("paused-first")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-red-900 leading-tight">{stats.renewedClients}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase leading-none">Non Renewed</div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => handleSortClick("status-paused-first")}>
+              <CardContent className="p-2 text-center">
+                <div className="text-lg font-bold text-slate-600 leading-tight">{stats.statusPausedClients}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Paused</div>
+              </CardContent>
+            </Card>
           </div>
-          {/* <Link href={`/team-lead-dashboard/ca/${ca.id}`} className="inline-block">
-            <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
-              Go to Dashboard
-            </Button>
-          </Link> */}
-          {selectedCAObj && (
-            <Link
-              href={`/team-lead-dashboard/ca/${selectedCAObj.id}`}
-              className="inline-block"
-            >
-              <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
-                Go to {selectedCAObj.name ? `${selectedCAObj.name.split(" ")[0]}'s ` : ""}Dashboard
-              </Button>
-            </Link>
-          )}
-
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          <Card
-            className="cursor-pointer hover:bg-blue-50 transition-colors border-transparent hover:border-blue-200"
-            onClick={() => scrollToElement("all-cas-section")}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.totalCAs}</div>
-              <div className="text-sm text-slate-600">Active CAs</div>
-            </CardContent>
-          </Card>
-          <Card><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-blue-600">{stats.totalClients}</div><div className="text-sm text-slate-600">Total Clients</div></CardContent></Card>
-          <Card
-            className="cursor-pointer hover:bg-slate-50 transition-colors border-transparent hover:border-slate-200"
-            onClick={() => {
-              setClientSortOrder("started-first");
-              scrollToElement("all-clients-section");
-            }}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.startedClients}</div>
-              <div className="text-sm text-slate-600">Started</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer hover:bg-orange-50 transition-colors border-transparent hover:border-orange-200"
-            onClick={() => {
-              setClientSortOrder("active-first");
-              scrollToElement("all-clients-section");
-            }}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats.activeClients}</div>
-              <div className="text-sm text-slate-600">Active Clients</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer hover:bg-green-50 transition-colors border-transparent hover:border-green-200"
-            onClick={() => {
-              setClientSortOrder("completed-first");
-              scrollToElement("all-clients-section");
-            }}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.completedClients}</div>
-              <div className="text-sm text-slate-600">Completed</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer hover:bg-red-50 transition-colors border-transparent hover:border-red-200"
-            onClick={() => {
-              setClientSortOrder("paused-first");
-              scrollToElement("all-clients-section");
-            }}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-900">{stats.renewedClients}</div>
-              <div className="text-sm text-slate-600">Non Renewed Clients</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="cursor-pointer hover:bg-slate-50 transition-colors border-transparent hover:border-slate-200"
-            onClick={() => {
-              setClientSortOrder("status-paused-first");
-              scrollToElement("all-clients-section");
-            }}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-slate-600">{stats.statusPausedClients}</div>
-              <div className="text-sm text-slate-600">Paused</div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="p-4 pt-6 max-w-7xl mx-auto">
 
         {selectedCAIncentive && (
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
@@ -462,13 +438,13 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
             </CardContent>
           </Card>
         )}
-        <Card id="all-clients-section">
-          <CardHeader>
+        <Card id="all-clients-section" className="overflow-visible">
+          <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
             <div className="flex items-center justify-between">
-              <CardTitle>{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
+              <CardTitle className="text-sm font-bold text-slate-700">{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
               <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
                 <DialogTrigger asChild>
-                  <Button><Plus className="h-4 w-4 mr-2" />Add New Client</Button>
+                  <Button size="sm" className="h-7 text-xs px-3"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Client</Button>
                 </DialogTrigger>
 
                 <Dialog open={editClientOpen} onOpenChange={setEditClientOpen}>
@@ -584,7 +560,10 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
               </Dialog>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent 
+            ref={clientListRef}
+            className="max-h-[720px] overflow-y-auto pt-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent scroll-smooth"
+          >
             <div className="space-y-4">
               {filteredClients.map((client) => (
                 <div key={client.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
@@ -664,14 +643,14 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         </Card>
 
         {/* All CA Card */}
-        <Card className="mt-6" id="all-cas-section">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600" />
+        <Card className="mt-6 overflow-visible" id="all-cas-section">
+          <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <Users className="h-4 w-4 text-blue-600" />
               All Career Associates (CAs)
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="max-h-[400px] overflow-y-auto pt-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             <div className="space-y-4">
               {teamMembers.map((ca) => {
                 const caClientsCount = clients.filter(c => c.assigned_ca_id === ca.id).length;
