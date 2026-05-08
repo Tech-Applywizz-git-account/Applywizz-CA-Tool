@@ -26,6 +26,8 @@ interface LeadDetail {
     team_lead_name: string;
     tl_email: string;
     emails_submitted: number;
+    client_designation?: string | null;
+    experience?: number | null;
 }
 
 interface DetailedReportResponse {
@@ -104,6 +106,8 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                         work_done_ca_name, 
                         team_lead_name, 
                         emails_submitted,
+                        client_designation,
+                        experience,
                         ca:work_done_by (email),
                         team:team_id (
                             lead:lead_id (email)
@@ -126,6 +130,8 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                                 team_lead_name: client.team_lead_name,
                                 tl_email: client.team?.lead?.email || null,
                                 emails_submitted: client.emails_submitted,
+                                client_designation: client.client_designation,
+                                experience: client.experience,
                             };
                         }
                     }
@@ -171,12 +177,17 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                     // 3. Fetch missing applywizz_ids and names from clients table
                     const { data: clientInfo } = await supabase
                         .from("clients")
-                        .select("id, applywizz_id, name")
+                        .select("id, applywizz_id, name, client_designation, experience")
                         .in("id", profileIds);
 
-                    const applywizzMap: Record<string, { awl_id: string, name: string }> = {};
+                    const applywizzMap: Record<string, { awl_id: string, name: string, designation: string, experience: number }> = {};
                     clientInfo?.forEach(c => {
-                        if (c.applywizz_id) applywizzMap[c.id] = { awl_id: c.applywizz_id, name: c.name || "" };
+                        if (c.applywizz_id) applywizzMap[c.id] = { 
+                            awl_id: c.applywizz_id, 
+                            name: c.name || "",
+                            designation: c.client_designation,
+                            experience: c.experience
+                        };
                     });
 
                     // 4. Assemble by_lead response
@@ -198,7 +209,9 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                                     ca_mail: caInfo?.email || null,
                                     team_lead_name: caInfo?.team?.lead?.name || null,
                                     tl_email: caInfo?.team?.lead?.email || null,
-                                    emails_submitted: p.emails_submitted || 0
+                                    emails_submitted: p.emails_submitted || 0,
+                                    client_designation: clientData?.designation || null,
+                                    experience: clientData?.experience || null,
                                 };
                             }
                         });
@@ -619,6 +632,12 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                                         {sortConfig?.key === 'client_name' && (sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                                     </div>
                                 </th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => toggleSort('client_designation')}>
+                                    <div className="flex items-center space-x-1">
+                                        <span>Designation/Exp</span>
+                                        {sortConfig?.key === 'client_designation' && (sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                                    </div>
+                                </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => toggleSort('work_done_ca_name')}>
                                     <div className="flex items-center space-x-1 text-blue-600">
                                         <Users className="h-3 w-3" />
@@ -654,6 +673,7 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                             </tr>
                             {/* Filter Row */}
                             <tr className="bg-white border-t border-gray-200">
+                                <th className="px-6 py-2"></th>
                                 <th className="px-6 py-2"></th>
                                 <th className="px-6 py-2"></th>
                                 <th className="px-6 py-2"></th>
@@ -712,6 +732,11 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                                                     <div className="flex flex-col">
                                                         <span className="text-gray-900 font-semibold">{lead.client_name || 'Anonymous Client'}</span>
                                                     </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-gray-900 text-sm font-medium">{lead.client_designation ? `${lead.client_designation}${lead.experience ? `/${lead.experience}exp` : ''}` : 'N/A'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
