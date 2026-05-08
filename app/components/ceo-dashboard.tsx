@@ -194,7 +194,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         .select(`
           ca_id,
           date,
-          completed_profiles
+          completed_profiles:work_history_profiles(id)
         `)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
@@ -205,7 +205,7 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
         .select(`
           ca_id,
           date,
-          completed_profiles
+          completed_profiles:work_history_profiles(id)
         `)
         .gte("date", dateFrom)
         .lte("date", dateTo)
@@ -578,10 +578,9 @@ export function CEODashboard({ user, onLogout }: CEODashboardProps) {
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
                                     <div className="flex gap-3 items-center">
-                                      {/* Client name (added for clarity) */}
-                                      <span className="w-56 truncate font-medium text-slate-900">
+                                      <Link href={`/ceo-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline">
                                         {client.name}
-                                      </span>
+                                      </Link>
 
                                       <Badge
                                         className={

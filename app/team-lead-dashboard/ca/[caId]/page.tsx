@@ -45,6 +45,7 @@ export default function Page({ params }: { params: { caId: string } }) {
         onLogout={() => router.push("/team-lead-dashboard")}
         viewerMode
         forceCAId={caId}
+        clientLinkPrefix="/team-lead-dashboard/client/"
       />
     </div>
   )

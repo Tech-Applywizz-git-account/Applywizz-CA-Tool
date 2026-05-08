@@ -176,7 +176,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
       // Historical from work_history (range)
       const { data: histByCA, error: histErr } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
         .lte("date", dateTo)
@@ -184,7 +184,7 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
       // For workingDays baseline, use all histories in range
       const { data: histAll, error: histAllErr } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
@@ -762,9 +762,9 @@ export function COODashboard({ user, onLogout }: COODashboardProps) {
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
                                     <div className="flex gap-2 items-center">
-                                      <span className="w-56 truncate font-medium text-slate-900">
+                                      <Link href={`/coo-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline">
                                         {client.name}
-                                      </span>
+                                      </Link>
                                       {/* Status colored badge */}
                                       <Badge
                                         className={

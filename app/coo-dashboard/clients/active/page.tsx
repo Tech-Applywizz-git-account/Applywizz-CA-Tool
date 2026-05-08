@@ -7,7 +7,7 @@
 //     <div className="min-h-screen flex">
 //       <Sidebar basePath="/coo-dashboard" />
 //       <main className="flex-1 bg-slate-50 p-4">
-//         <ClientsList title="Clients Information — COO" initialActive="active" />
+//         <ClientsList clientLinkPrefix="/coo-dashboard/client/"  clientLinkPrefix="/coo-dashboard/client/"  title="Clients Information — COO" initialActive="active" />
 //       </main>
 //     </div>
 //   )
@@ -27,7 +27,7 @@ export default function CROActiveClientsPage({
 
   return (
     <RoleShell basePath="/coo-dashboard">
-      <ClientsList
+      <ClientsList clientLinkPrefix="/coo-dashboard/client/" 
         title="Clients Information — COO"
         teamId={teamId}
         initialActive="active"

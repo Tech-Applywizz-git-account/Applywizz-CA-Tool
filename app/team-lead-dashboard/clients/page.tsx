@@ -53,6 +53,7 @@ export default function TeamLeadClientsPage() {
               pageSize={20}
               initialActive="all"
               initialStatus="all"
+              clientLinkPrefix="/team-lead-dashboard/client/"
             />
           )}
         </div>

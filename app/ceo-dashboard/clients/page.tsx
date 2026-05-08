@@ -9,7 +9,7 @@ export default function CROClientsPage() {
   return (
     <RoleShell basePath="/ceo-dashboard">
       <div className="p-4">
-        <ClientsList title="All Clients" />
+        <ClientsList clientLinkPrefix="/ceo-dashboard/client/"  title="All Clients" />
       </div>
     </RoleShell>
   )

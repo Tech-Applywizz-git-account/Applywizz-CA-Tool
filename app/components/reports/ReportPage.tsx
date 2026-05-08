@@ -46,7 +46,7 @@ interface MergedLeadData extends Partial<LeadDetail> {
     inSummary: boolean;
 }
 
-export const ReportPage: React.FC = () => {
+export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail }) => {
     const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -223,17 +223,21 @@ export const ReportPage: React.FC = () => {
                 inSummary: summaryReport.by_lead?.[id] !== undefined
             }));
 
-            setReportData(merged);
+            const filteredMerged = teamLeadEmail 
+                ? merged.filter(item => item.tl_email === teamLeadEmail)
+                : merged;
 
-            const totalEmails = merged.reduce((sum, item) => sum + (item.emails_submitted || 0), 0);
-            const totalSummaryCount = merged.reduce((sum, item) => sum + (item.summary_count || 0), 0);
-            const missingTaskCount = merged.filter(item => item.inDetailed && !item.inSummary).length;
-            const missingCACount = merged.filter(item => !item.inDetailed && item.inSummary).length;
-            const caLeadCount = Object.keys(detailedReport.by_lead).length;
-            const taskLeadCount = Object.keys(summaryReport.by_lead || {}).length;
+            setReportData(filteredMerged);
+
+            const totalEmails = filteredMerged.reduce((sum, item) => sum + (item.emails_submitted || 0), 0);
+            const totalSummaryCount = filteredMerged.reduce((sum, item) => sum + (item.summary_count || 0), 0);
+            const missingTaskCount = filteredMerged.filter(item => item.inDetailed && !item.inSummary).length;
+            const missingCACount = filteredMerged.filter(item => !item.inDetailed && item.inSummary).length;
+            const caLeadCount = filteredMerged.filter(item => item.inDetailed).length;
+            const taskLeadCount = filteredMerged.filter(item => item.inSummary).length;
 
             setSummary({
-                totalLeads: detailedReport.total_leads_count || Object.keys(summaryReport.by_lead || {}).length,
+                totalLeads: filteredMerged.length,
                 totalEmails,
                 totalSummaryCount,
                 missingTaskCount,

@@ -14,7 +14,7 @@ export default function COOInProgressClientsPage({
 
   return (
     <RoleShell basePath="/coo-dashboard">
-      <ClientsList
+      <ClientsList clientLinkPrefix="/coo-dashboard/client/" 
         title="Clients Information — COO"
         teamId={teamId}
         initialStatus="Started"

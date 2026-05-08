@@ -3,6 +3,7 @@
 "use client"
 
 import type React from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,7 @@ interface CADashboardProps {
   onLogout: () => void
   viewerMode?: boolean
   forceCAId?: string
+  clientLinkPrefix?: string
 }
 
 function PermissionOverlay({
@@ -56,7 +58,7 @@ function PermissionOverlay({
 }
 
 
-export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: CADashboardProps) {
+export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, clientLinkPrefix }: CADashboardProps) {
   const [currentView, setCurrentView] = useState<"myself" | "onbehalf">("myself")
   const [selectedCA, setSelectedCA] = useState<string>("")
   const [selectedClient, setSelectedClient] = useState<any>(null)
@@ -111,6 +113,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
     end: string | null
     durationMin: number | null
     status: string
+    client_id?: string
   }
 
   const flatWHRows = useMemo<FlatWHRow[]>(() => {
@@ -144,7 +147,8 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId }: C
           start: startISO,
           end: endISO,
           durationMin,
-          status: p?.status ?? "-"
+          status: p?.status ?? "-",
+          client_id: p?.client_id || p?.id
         })
       }
     }
@@ -386,7 +390,7 @@ const { data, error } = await supabase
 
       const { data, error } = await supabase
         .from("work_history")
-        .select("*")
+        .select("*, completed_profiles:work_history_profiles(*)")
         .eq("ca_id", caId)
         .gte("date", start)   // date is a DATE column
         .lt("date", end)      // end-exclusive
@@ -993,7 +997,18 @@ const { data, error } = await supabase
                 <TableBody>
                   {clients.map((client) => (
                     <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {clientLinkPrefix ? (
+                          <Link
+                            href={`${clientLinkPrefix}${client.id}`}
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {client.name}
+                          </Link>
+                        ) : (
+                          client.name
+                        )}
+                      </TableCell>
                       <TableCell>{client.email}</TableCell>
                       <TableCell>
                         <Badge
@@ -1140,7 +1155,15 @@ const { data, error } = await supabase
                             <div className="font-medium">{fmtDateLabel(r.date)}</div>
                             <div className="text-xs text-muted-foreground">{r.date}</div>
                           </TableCell>
-                          <TableCell className="font-medium">{r.name}</TableCell>
+                          <TableCell className="font-medium">
+                            {clientLinkPrefix && r.client_id ? (
+                              <Link href={`${clientLinkPrefix}${r.client_id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+                                {r.name}
+                              </Link>
+                            ) : (
+                              r.name
+                            )}
+                          </TableCell>
                           <TableCell>{r.designation}</TableCell>
                           <TableCell className="text-right">{r.emails}</TableCell>
                           <TableCell className="text-right">{r.jobs}</TableCell>

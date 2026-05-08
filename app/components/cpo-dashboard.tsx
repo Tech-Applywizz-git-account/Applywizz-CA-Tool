@@ -161,14 +161,14 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
       // Historical from work_history for given range
       const { data: data1, error: error1 } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .in("ca_id", caIds)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
       const { data: data2, error: error2 } = await supabase
         .from("work_history")
-        .select(`ca_id, date, completed_profiles`)
+        .select(`ca_id, date, completed_profiles:work_history_profiles(id)`)
         .gte("date", dateFrom)
         .lte("date", dateTo)
 
@@ -662,9 +662,9 @@ export function CPODashboard({ user, onLogout }: CPODashboardProps) {
                                 {caClients[ca.id].map((client) => (
                                   <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
                                     <div className="flex gap-4 items-center">
-                                      <span className="w-56 truncate font-medium text-slate-900 mr-16">
+                                      <Link href={`/cpo-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
                                         {client.name}
-                                      </span>
+                                      </Link>
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                                         <span className="inline-flex items-center gap-1">
                                           <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
