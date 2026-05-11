@@ -4,81 +4,50 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, BarChart2, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { LayoutDashboard, Users, BarChart2, PanelLeftClose, PanelLeftOpen, TrendingUp } from "lucide-react"
 
 type SidebarProps = {
   basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"
 }
 
-const EXEC_PATHS = ["/cro-dashboard", "/ceo-dashboard", "/coo-dashboard", "/team-lead-dashboard"]
-
 export default function Sidebar({ basePath }: SidebarProps) {
   const pathname = usePathname()
-  const [isCollapsed, setIsCollapsed] = useState(false)
-
   const links = [
-    { href: `${basePath}`, label: "My Dashboard", icon: LayoutDashboard },
+    { href: `${basePath}`, label: "CA Dashboard", icon: LayoutDashboard },
+    { href: `${basePath}/sales`, label: "Sales Dashboard", icon: TrendingUp },
+    { href: `${basePath}/marketing`, label: "Marketing Dashboard", icon: TrendingUp },
+    { href: `${basePath}/resume`, label: "Resume Dashboard", icon: TrendingUp },
+    { href: `${basePath}/tech`, label: "Tech Dashboard", icon: TrendingUp },
     { href: `${basePath}/clients`, label: "Clients Information", icon: Users },
-    ...(EXEC_PATHS.includes(basePath)
-      ? [{ href: `${basePath}/reports`, label: "Performance Report", icon: BarChart2 }]
-      : []),
-  ]
+    { href: `${basePath}/reports`, label: "Performance Reports", icon: BarChart2 },
+  ].filter(link => {
+    if (basePath === "/team-lead-dashboard") {
+      return link.label === "CA Dashboard" || link.label === "Clients Information" || link.label === "Performance Reports"
+    }
+    return true
+  })
 
   return (
-    <aside 
-      className={cn(
-        "sticky top-0 h-screen transition-all duration-300 border-r bg-white/70 backdrop-blur flex flex-col",
-        isCollapsed ? "w-16 cursor-pointer hover:bg-slate-50" : "w-64"
-      )}
-      onClick={() => {
-        if (isCollapsed) setIsCollapsed(false)
-      }}
-    >
-      <div className={cn(
-        "p-4 flex items-center justify-between",
-        isCollapsed && "justify-center px-0"
-      )}>
-        {!isCollapsed && <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide truncate">Navigation</h2>}
-        {!isCollapsed ? (
-          <button 
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsCollapsed(true)
-            }}
-            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-            title="Collapse Sidebar"
-          >
-            <PanelLeftClose className="h-5 w-5" />
-          </button>
-        ) : (
-          <div className="text-slate-400">
-             <PanelLeftOpen className="h-5 w-5" />
-          </div>
-        )}
+    <aside className="w-64 shrink-0 border-r bg-white/70 backdrop-blur h-[100dvh] sticky top-0 overflow-y-auto custom-scrollbar">
+      <div className="p-4">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Navigation</h2>
       </div>
-
-      <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
+      <nav className="px-2 space-y-1">
         {links.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (pathname.startsWith(href + "/") && href !== basePath)
+          const active = pathname === href
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2 rounded-lg py-2 transition-all duration-200",
-                isCollapsed ? "justify-center px-0" : "px-3",
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
                 active
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "bg-slate-900 text-white"
                   : "text-slate-700 hover:bg-slate-100"
               )}
-              title={isCollapsed ? label : undefined}
             >
-              <Icon className={cn("h-5 w-5 shrink-0", active ? "text-white" : "text-slate-500")} />
-              {!isCollapsed && (
-                <span className="truncate font-medium text-sm transition-opacity duration-300 opacity-100">
-                  {label}
-                </span>
-              )}
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
             </Link>
           )
         })}

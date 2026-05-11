@@ -1,23 +1,24 @@
 // app/api/bulk-invite/route.ts
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
 
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // service role
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder'
 );
 
 const PUBLIC_SUPABASE = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! // for public table ops
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 );
 
 type CsvRow = {
   name?: string;
   email: string;
   password?: string; // <-- NEW (optional)
-  role: "CA" | "Junior CA" | "Career Associative Trainee" | "Team Lead" | "CRO" | "COO" | "CEO" | "Admin";
+  role: "CA" | "Junior CA" | "Career Associative Trainee" | "Team Lead" | "CRO" | "COO" | "CEO" | "Admin" | "Resume Header" | "Resume Associate" | "Technical Head" | "Technical Associate";
   department?: string;
   isactive?: string | boolean;
   team_lead_email?: string;
@@ -123,6 +124,10 @@ const normalized: CsvRow[] = rows.map((r) => {
     department =
       role === "CA" || role === "Junior CA" || role === "Career Associative Trainee" || role === "Team Lead"
         ? "Client Operations"
+        : role === "Resume Header" || role === "Resume Associate"
+        ? "Resume"
+        : role === "Technical Head" || role === "Technical Associate"
+        ? "Tech"
         : "Executive";
   }
 

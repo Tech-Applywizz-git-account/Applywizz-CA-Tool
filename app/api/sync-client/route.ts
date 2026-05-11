@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { SupabaseClient, createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -5,8 +7,8 @@ import { z } from "zod";
 export const runtime = "nodejs"; // Run on Node runtime (not edge)
 
 const supabaseAdmin: SupabaseClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder',
     {
         auth: { persistSession: false, autoRefreshToken: false },
     }

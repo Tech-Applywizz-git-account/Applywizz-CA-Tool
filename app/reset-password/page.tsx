@@ -164,7 +164,7 @@ export default function ResetPasswordPage() {
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader>
           <CardTitle className="text-center text-green-600 text-xl">
-            Applywizz CA Management
+            Applywizz Incentives Management
           </CardTitle>
           <CardTitle className="text-center text-blue-600 text-xl">
             Reset Password
