@@ -43,14 +43,8 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<any | null>(null);
 
-<<<<<<< HEAD
-
-
-
-=======
   const [shiftSettingOpen, setShiftSettingOpen] = useState(false);
   const [shiftTime, setShiftTime] = useState("20:00");
->>>>>>> merging-branch
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -84,10 +78,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
   useEffect(() => {
     fetchUsers();
     fetchTeams(); // 🔥 call team fetch here
-<<<<<<< HEAD
-  }, []);
-
-=======
     fetchShiftSetting();
   }, []);
 
@@ -101,7 +91,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
     setShiftSettingOpen(false);
     alert("Shift time updated successfully!");
   };
->>>>>>> merging-branch
 
   const fetchTeams = async () => {
     const { data, error } = await supabase
@@ -156,11 +145,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
         created_at: new Date().toISOString(),
         base_salary: null,
         team_id:
-<<<<<<< HEAD
-          formData.role === "CA" || formData.role === "Junior CA" || formData.role === "Career Associative Trainee"
-=======
           formData.role === "CA" || formData.role === "Junior CA" || formData.role === "Trainee" || formData.role === "Career Associative Trainee"
->>>>>>> merging-branch
             ? selectedTeamId
             : null,
       })
@@ -280,8 +265,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
             <p className="text-slate-600">User Management & System Administration</p>
           </div>
           <div className="flex items-center gap-4">
-<<<<<<< HEAD
-=======
             <Dialog open={shiftSettingOpen} onOpenChange={setShiftSettingOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">Shift Settings</Button>
@@ -304,7 +287,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                 </div>
               </DialogContent>
             </Dialog>
->>>>>>> merging-branch
             <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">Bulk Import CSV</Button>
@@ -482,10 +464,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Roles</SelectItem>
-<<<<<<< HEAD
-                      <SelectItem value="CA">Career Associate</SelectItem>
-                      <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
-=======
                       <SelectItem value="BDT-P">BDT-P - (Business Development Trainee - Provisional)</SelectItem>
                       <SelectItem value="BDT">BDT - (Business Development Trainee)</SelectItem>
                       <SelectItem value="BDA">BDA - (Business Development Associate)</SelectItem>
@@ -494,7 +472,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="CA">Career Associate</SelectItem>
                       <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
                       <SelectItem value="Trainee">Trainee</SelectItem>
->>>>>>> merging-branch
                       <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
                       <SelectItem value="Team Lead">Team Lead</SelectItem>
                       <SelectItem value="CRO">CRO</SelectItem>
@@ -502,8 +479,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="CEO">CEO</SelectItem>
                       <SelectItem value="CPO">CPO</SelectItem>
                       <SelectItem value="Admin">System Admin</SelectItem>
-<<<<<<< HEAD
-=======
                       <SelectItem value="Marketing Head">Marketing Head</SelectItem>
                       <SelectItem value="Marketing">Marketing</SelectItem>
                       <SelectItem value="Marketing Associate">Marketing Associate</SelectItem>
@@ -511,7 +486,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="Resume Associate">Resume Associate</SelectItem>
                       <SelectItem value="Technical Head">Technical Head</SelectItem>
                       <SelectItem value="Technical Associate">Technical Associate</SelectItem>
->>>>>>> merging-branch
                     </SelectContent>
                   </Select>
                 </div>
@@ -574,10 +548,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                           <SelectContent>
-<<<<<<< HEAD
-                            <SelectItem value="CA">Career Associate</SelectItem>
-                            <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
-=======
                             <SelectItem value="BDT-P">BDT-P - (Business Development Trainee - Provisional)</SelectItem>
                             <SelectItem value="BDT">BDT - (Business Development Trainee)</SelectItem>
                             <SelectItem value="BDA">BDA - (Business Development Associate)</SelectItem>
@@ -586,7 +556,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="CA">Career Associate</SelectItem>
                             <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
                             <SelectItem value="Trainee">Trainee</SelectItem>
->>>>>>> merging-branch
                             <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
                             <SelectItem value="Team Lead">Team Lead</SelectItem>
                             <SelectItem value="CRO">CRO</SelectItem>
@@ -594,8 +563,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="CEO">CEO</SelectItem>
                             <SelectItem value="CPO">CPO</SelectItem>
                             <SelectItem value="Admin">System Admin</SelectItem>
-<<<<<<< HEAD
-=======
                             <SelectItem value="Marketing Head">Marketing Head</SelectItem>
                             <SelectItem value="Marketing">Marketing</SelectItem>
                             <SelectItem value="Marketing Associate">Marketing Associate</SelectItem>
@@ -603,7 +570,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="Resume Associate">Resume Associate</SelectItem>
                             <SelectItem value="Technical Head">Technical Head</SelectItem>
                             <SelectItem value="Technical Associate">Technical Associate</SelectItem>
->>>>>>> merging-branch
                           </SelectContent>
                         </Select>
                       </div>
@@ -621,23 +587,16 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="Executive">Executive</SelectItem>
                             <SelectItem value="HR">Human Resources</SelectItem>
                             <SelectItem value="IT">Information Technology</SelectItem>
-<<<<<<< HEAD
-=======
                             <SelectItem value="Sales">Sales</SelectItem>
                             <SelectItem value="Marketing">Marketing</SelectItem>
                             <SelectItem value="Resume">Resume</SelectItem>
                             <SelectItem value="Tech">Tech</SelectItem>
->>>>>>> merging-branch
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                     <div>
-<<<<<<< HEAD
-                      {(formData.role === "CA" || formData.role === "Junior CA" || formData.role === "Career Associative Trainee") && (
-=======
                       {(formData.role === "CA" || formData.role === "Junior CA" || formData.role === "Trainee" || formData.role === "Career Associative Trainee") && (
->>>>>>> merging-branch
                         <div>
                           <Label htmlFor="team-lead">Assign to Team Lead</Label>
                           <Select
@@ -826,10 +785,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-<<<<<<< HEAD
-                      <SelectItem value="CA">Career Associate</SelectItem>
-                      <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
-=======
                       <SelectItem value="BDT-P">BDT-P - (Business Development Trainee - Provisional)</SelectItem>
                       <SelectItem value="BDT">BDT - (Business Development Trainee)</SelectItem>
                       <SelectItem value="BDA">BDA - (Business Development Associate)</SelectItem>
@@ -838,7 +793,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="CA">Career Associate</SelectItem>
                       <SelectItem value="Junior CA">Junior Career Associate</SelectItem>
                       <SelectItem value="Trainee">Trainee</SelectItem>
->>>>>>> merging-branch
                       <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
                       <SelectItem value="Team Lead">Team Lead</SelectItem>
                       <SelectItem value="CRO">CRO</SelectItem>
@@ -846,8 +800,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="CEO">CEO</SelectItem>
                       <SelectItem value="CPO">CPO</SelectItem>
                       <SelectItem value="Admin">System Admin</SelectItem>
-<<<<<<< HEAD
-=======
                       <SelectItem value="Marketing Head">Marketing Head</SelectItem>
                       <SelectItem value="Marketing">Marketing</SelectItem>
                       <SelectItem value="Marketing Associate">Marketing Associate</SelectItem>
@@ -855,7 +807,6 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="Resume Associate">Resume Associate</SelectItem>
                       <SelectItem value="Technical Head">Technical Head</SelectItem>
                       <SelectItem value="Technical Associate">Technical Associate</SelectItem>
->>>>>>> merging-branch
                     </SelectContent>
                   </Select>
                 </div>
@@ -873,13 +824,10 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="Executive">Executive</SelectItem>
                       <SelectItem value="HR">Human Resources</SelectItem>
                       <SelectItem value="IT">Information Technology</SelectItem>
-<<<<<<< HEAD
-=======
                       <SelectItem value="Sales">Sales</SelectItem>
                       <SelectItem value="Marketing">Marketing</SelectItem>
                       <SelectItem value="Resume">Resume</SelectItem>
                       <SelectItem value="Tech">Tech</SelectItem>
->>>>>>> merging-branch
                     </SelectContent>
                   </Select>
                 </div>
