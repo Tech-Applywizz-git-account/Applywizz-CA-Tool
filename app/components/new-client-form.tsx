@@ -179,12 +179,12 @@ export function NewClientForm({
     <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[600px] p-4">
       <div>
         <Label htmlFor="name">Client Name</Label>
-        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required disabled={isEdit} className={isEdit ? "bg-slate-100 text-slate-500" : ""} />
       </div>
 
       <div>
         <Label htmlFor="email">Client Email</Label>
-        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isEdit} className={isEdit ? "bg-slate-100 text-slate-500" : ""} />
       </div>
 
       <div>
@@ -197,48 +197,52 @@ export function NewClientForm({
         />
       </div>
 
-      <div>
-        <Label>Assigned CA</Label>
-        <Select value={selectedCA} onValueChange={setSelectedCA}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select CA" />
-          </SelectTrigger>
-          <SelectContent>
-            {teamMembers.map((ca) => (
-              <SelectItem key={ca.id} value={ca.id}>
-                {ca.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* UI-only controls (not written to DB) */}
-      <div className="grid grid-cols-2 gap-4">
+      {!isEdit && (
         <div>
-          <Label>Designation</Label>
-          <Select value={role} onValueChange={(v: "Junior CA" | "CA") => setRole(v)}>
+          <Label>Assigned CA</Label>
+          <Select value={selectedCA} onValueChange={setSelectedCA}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Select CA" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Junior CA">Junior CA</SelectItem>
-              <SelectItem value="CA">CA</SelectItem>
-              <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
+              {teamMembers.map((ca) => (
+                <SelectItem key={ca.id} value={ca.id}>
+                  {ca.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label>Salary</Label>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={salary}
-            onChange={(e) => setSalary(Number(e.target.value))}
-          />
+      )}
+
+      {/* UI-only controls (not written to DB) */}
+      {!isEdit && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Designation</Label>
+            <Select value={role} onValueChange={(v: "Junior CA" | "CA") => setRole(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Junior CA">Junior CA</SelectItem>
+                <SelectItem value="CA">CA</SelectItem>
+                <SelectItem value="Career Associative Trainee">Career Associative Trainee</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Salary</Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={salary}
+              onChange={(e) => setSalary(Number(e.target.value))}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Schema-backed fields */}
       <div className="space-y-2">
@@ -288,31 +292,35 @@ export function NewClientForm({
         </Select>
       </div>
 
-      <div>
-        <Label>Number of Emails Required</Label>
-        <Input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          value={emailsRequired}
-          onChange={(e) => setEmailsRequired(Number(e.target.value || 0))}
-        />
-      </div>
+      {!isEdit && (
+        <div>
+          <Label>Number of Emails Required</Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={emailsRequired}
+            onChange={(e) => setEmailsRequired(Number(e.target.value || 0))}
+          />
+        </div>
+      )}
 
-      <div>
-        <Label>Client Status</Label>
-        <Select value={status} onValueChange={(v: ClientStatus) => setStatus(v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Not Started">Not Started</SelectItem>
-            <SelectItem value="Started">Started</SelectItem>
-            <SelectItem value="Paused">Paused</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {!isEdit && (
+        <div>
+          <Label>Client Status</Label>
+          <Select value={status} onValueChange={(v: ClientStatus) => setStatus(v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Not Started">Not Started</SelectItem>
+              <SelectItem value="Started">Started</SelectItem>
+              <SelectItem value="Paused">Paused</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <Button type="submit" disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700">
         {submitting ? (isEdit ? "Saving..." : "Adding...") : (isEdit ? "Save Changes" : "Add Client")}
