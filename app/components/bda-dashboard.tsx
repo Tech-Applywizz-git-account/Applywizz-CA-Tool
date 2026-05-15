@@ -11,7 +11,7 @@ import {
   DollarSign, FileText, Users, User, TrendingUp, Calendar, Gift,
   ChevronLeft, ChevronRight, Eye, EyeOff, Target, LockOpen, CheckCircle2,
   AlertCircle, Flame, BarChart3, Receipt, LayoutDashboard, Menu, X,
-  Activity, Crosshair, Zap, Award, ArrowUpRight, ArrowDownRight, Search
+  Activity, Crosshair, Zap, Award, ArrowUpRight, ArrowDownRight, Search, LogOut
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { supabase } from "@/lib/supabaseClient"
@@ -22,6 +22,7 @@ import {
 
 // Lazy-load the heavy Expected Revenue Panel — it's only needed when tracker tab is active
 const ExpectedRevenuePanel = lazy(() => import("./expected-revenue-panel").then(m => ({ default: m.ExpectedRevenuePanel })));
+import { SalesSubmissionForm } from "./sales-submission-form";
 
 // Default slabs as fallback
 const defaultBDASlab = [
@@ -55,7 +56,7 @@ interface BDADashboardProps {
   viewerMode?: boolean;
 }
 
-type SidebarTab = "tracker" | "incentive" | "bonuses" | "sales" | "analytics";
+type SidebarTab = "tracker" | "incentive" | "bonuses" | "sales" | "analytics" | "submission-form";
 
 const getNextSlab = (role: string, currentRevenue: number, bdtTarget: number, slabMap: Record<string, any[]>) => {
   const currentSlab = slabMap[role] || [];
@@ -188,7 +189,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
           fetch(`/api/booster-night-cycles?month=${monthKey}&activeOnly=true`)
             .then(r => r.json())
             .then(d => { if (d.success) setBoosterCycles(d.cycles || []); })
-            .catch(() => {});
+            .catch(() => { });
         } catch (e) { console.error("Rules render fault", e); }
       }
       setSettingsLoading(false);
@@ -210,17 +211,17 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
   // Memoize expensive filtering so it doesn't re-run on every render
   const filteredPeriods = useMemo(() => data?.periods
     ? Object.entries(data.periods)
-        .filter(([periodName]) => periodName.startsWith(targetPrefix))
-        .sort((a, b) => a[0].localeCompare(b[0]))
+      .filter(([periodName]) => periodName.startsWith(targetPrefix))
+      .sort((a, b) => a[0].localeCompare(b[0]))
     : [], [data, targetPrefix]);
 
   const filteredSales = useMemo(() => {
     let rawSales = data?.crmSales?.filter((sale: any) => sale.closed_at?.startsWith(targetPrefix)) || [];
-    
+
     if (salesSearchQuery.trim()) {
       const q = salesSearchQuery.toLowerCase().trim();
-      rawSales = rawSales.filter((s: any) => 
-        (s.awl_id || "").toLowerCase().includes(q) || 
+      rawSales = rawSales.filter((s: any) =>
+        (s.awl_id || "").toLowerCase().includes(q) ||
         (s.lead_id || "").toLowerCase().includes(q) ||
         (s.lead_name || "").toLowerCase().includes(q)
       );
@@ -264,7 +265,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
 
   useEffect(() => {
     if (!activeBooster) return;
-    
+
     const updateCountdown = () => {
       const end = new Date(activeBooster.end).getTime();
       const now = new Date().getTime();
@@ -278,7 +279,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
         setBoosterTimeLeft(`${h}h ${m}m ${s}s`);
       }
     };
-    
+
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
@@ -322,6 +323,13 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
       icon: Activity,
       color: "text-violet-500",
       gradient: "from-violet-500 to-fuchsia-500",
+    },
+    {
+      id: "submission-form" as SidebarTab,
+      label: "Sales Success Submission",
+      icon: FileText,
+      color: "text-rose-500",
+      gradient: "from-rose-500 to-pink-500",
     },
   ];
 
@@ -464,7 +472,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">Total Rev</p>
                       <p className="font-extrabold text-slate-800 text-base">${pData.actual_revenue !== undefined ? pData.actual_revenue : pData.total_revenue}</p>
                       {pData.boosted_revenue > 0 && (
-                         <p className="text-[10px] font-bold text-orange-600 mt-0.5 animate-pulse" title="Booster Revenue">🚀 +${pData.boosted_revenue}</p>
+                        <p className="text-[10px] font-bold text-orange-600 mt-0.5 animate-pulse" title="Booster Revenue">🚀 +${pData.boosted_revenue}</p>
                       )}
                     </div>
                     <div className={`p-3 rounded-xl text-center border ${pData.daily_bonus > 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
@@ -546,9 +554,9 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                             // Filter by targetPrefix (current month being viewed)
                             if (date.startsWith(targetPrefix) && revenue >= threshold) {
                               const hasBooster = data.crmSales?.some((s: any) => {
-                                 if (!s.is_booster || !s.closed_at) return false;
-                                 const sd = getShiftDateLocal(s.closed_at, data?.shiftStartTime);
-                                 return sd === date;
+                                if (!s.is_booster || !s.closed_at) return false;
+                                const sd = getShiftDateLocal(s.closed_at, data?.shiftStartTime);
+                                return sd === date;
                               });
                               earnedBonuses.push({ date, amount: revenue, threshold, isBooster: hasBooster });
                             }
@@ -575,8 +583,8 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                         </div>
                         <div className="max-h-[350px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
                           {earnedBonuses.sort((a, b) => b.date.localeCompare(a.date)).map((bonus, i) => (
-                            <div 
-                              key={i} 
+                            <div
+                              key={i}
                               onClick={() => setSelectedBonusDate(bonus.date)}
                               className="bg-white border border-emerald-100 rounded-xl p-3 flex items-center justify-between shadow-sm hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all group active:scale-[0.98]"
                             >
@@ -736,8 +744,8 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-white/40 backdrop-blur-md p-4 rounded-[2rem] border border-white/60 shadow-sm">
         <div className="relative flex-none md:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Search Lead ID / AWL ID..." 
+          <Input
+            placeholder="Search Lead ID / AWL ID..."
             className="pl-11 h-12 bg-white/80 border-slate-200 rounded-2xl shadow-inner-sm focus:ring-2 focus:ring-blue-400 transition-all font-medium"
             value={salesSearchQuery}
             onChange={(e) => {
@@ -746,61 +754,60 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
             }}
           />
         </div>
-        
+
         <div className="flex-1 flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 px-2 no-scrollbar scroll-smooth">
-           <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className={`h-12 px-6 rounded-2xl font-bold whitespace-nowrap transition-all ${!selectedSalesDate ? 'bg-slate-900 text-white shadow-lg' : 'bg-white/60 text-slate-500 hover:bg-white border border-slate-100'}`}
             onClick={() => {
               setSelectedSalesDate(null);
               setSalesPage(1);
             }}
-           >
-             All Month
-           </Button>
-           <div className="h-8 w-[1px] bg-slate-200 shrink-0 mx-1"></div>
-           {/* Day Buttons with Smart Coloring */}
-           {(() => {
-             const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
-             const todayStr = new Date().toISOString().split('T')[0];
-             
-             return Array.from({ length: daysInMonth }, (_, i) => {
-               const day = i + 1;
-               const dateStr = `${targetPrefix}-${String(day).padStart(2, '0')}`;
-               const isActive = selectedSalesDate === dateStr;
-               const isFuture = dateStr > todayStr;
-               const isToday = dateStr === todayStr;
-               const hasSales = salesDates.has(dateStr);
-               
-               return (
-                 <button
-                   key={day}
-                   onClick={() => {
-                     setSelectedSalesDate(isActive ? null : dateStr);
-                     setSalesPage(1);
-                   }}
-                   disabled={isFuture && !isActive}
-                   className={`h-12 w-12 shrink-0 rounded-2xl border flex flex-col items-center justify-center transition-all relative ${
-                     isActive ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 scale-105 z-10' : 
-                     isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-400/20' :
-                     isFuture ? 'bg-slate-50/50 border-dashed border-slate-200 text-slate-300 opacity-60' :
-                     'bg-white/80 border-emerald-100 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30'
-                   }`}
-                 >
-                   <span className={`text-[9px] font-black uppercase leading-none opacity-60 mb-0.5 ${isActive ? 'text-white' : ''}`}>
-                      {new Date(dateStr).toLocaleDateString('default', { weekday: 'short' })}
-                   </span>
-                   <span className="text-sm font-black leading-none">{day}</span>
-                   
-                   {/* Sale Indicator Dot */}
-                   {hasSales && !isActive && (
-                     <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.6)]" />
-                   )}
-                 </button>
-               );
-             });
-           })()}
+          >
+            All Month
+          </Button>
+          <div className="h-8 w-[1px] bg-slate-200 shrink-0 mx-1"></div>
+          {/* Day Buttons with Smart Coloring */}
+          {(() => {
+            const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            return Array.from({ length: daysInMonth }, (_, i) => {
+              const day = i + 1;
+              const dateStr = `${targetPrefix}-${String(day).padStart(2, '0')}`;
+              const isActive = selectedSalesDate === dateStr;
+              const isFuture = dateStr > todayStr;
+              const isToday = dateStr === todayStr;
+              const hasSales = salesDates.has(dateStr);
+
+              return (
+                <button
+                  key={day}
+                  onClick={() => {
+                    setSelectedSalesDate(isActive ? null : dateStr);
+                    setSalesPage(1);
+                  }}
+                  disabled={isFuture && !isActive}
+                  className={`h-12 w-12 shrink-0 rounded-2xl border flex flex-col items-center justify-center transition-all relative ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 scale-105 z-10' :
+                    isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-400/20' :
+                      isFuture ? 'bg-slate-50/50 border-dashed border-slate-200 text-slate-300 opacity-60' :
+                        'bg-white/80 border-emerald-100 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30'
+                    }`}
+                >
+                  <span className={`text-[9px] font-black uppercase leading-none opacity-60 mb-0.5 ${isActive ? 'text-white' : ''}`}>
+                    {new Date(dateStr).toLocaleDateString('default', { weekday: 'short' })}
+                  </span>
+                  <span className="text-sm font-black leading-none">{day}</span>
+
+                  {/* Sale Indicator Dot */}
+                  {hasSales && !isActive && (
+                    <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.6)]" />
+                  )}
+                </button>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -864,8 +871,8 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                         <TableCell>
                           <Badge className={
                             sale.finance_status === 'Paid' ? 'bg-emerald-100 text-emerald-800 border-transparent text-xs' :
-                            sale.finance_status === 'Paused' ? 'bg-amber-100 text-amber-800 border-transparent text-xs' :
-                            'bg-slate-100 text-slate-800 border-transparent text-xs'
+                              sale.finance_status === 'Paused' ? 'bg-amber-100 text-amber-800 border-transparent text-xs' :
+                                'bg-slate-100 text-slate-800 border-transparent text-xs'
                           }>
                             {sale.finance_status}
                           </Badge>
@@ -908,15 +915,15 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
   // Fetch analytics data — stable deps, no infinite loop
   useEffect(() => {
     if (activeTab !== 'analytics') return;
-    
+
     const monthStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}`;
-    
+
     // Already fetched this month's data, or currently fetching
     if (analyticsFetchedMonth.current === monthStr || analyticsFetching.current) return;
-    
+
     analyticsFetching.current = true;
     setAnalyticsLoading(true);
-    
+
     fetch(`/api/expected-revenue?email=${encodeURIComponent(user.email)}&month=${monthStr}`)
       .then(r => r.json())
       .then(d => {
@@ -947,19 +954,19 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
 
     // Daily Revenue Trend Data
     const dailyRevenueData = allEntries
-        .filter(e => e.actual_revenue != null || e.has_revenue)
-        .sort((a, b) => a.shift_date.localeCompare(b.shift_date))
-        .map(e => {
-          const [y, m, d] = e.shift_date.split("-").map(Number);
-          const dayLabel = `${m}/${d}`;
-          const expectedRev = (e.sales || []).reduce((s: number, x: any) => s + (Number(x.expected_revenue) || 0), 0);
-          return {
-            date: dayLabel,
-            expected: expectedRev,
-            actual: Number(e.actual_revenue) || 0,
-            shift_date: e.shift_date,
-          };
-        });
+      .filter(e => e.actual_revenue != null || e.has_revenue)
+      .sort((a, b) => a.shift_date.localeCompare(b.shift_date))
+      .map(e => {
+        const [y, m, d] = e.shift_date.split("-").map(Number);
+        const dayLabel = `${m}/${d}`;
+        const expectedRev = (e.sales || []).reduce((s: number, x: any) => s + (Number(x.expected_revenue) || 0), 0);
+        return {
+          date: dayLabel,
+          expected: expectedRev,
+          actual: Number(e.actual_revenue) || 0,
+          shift_date: e.shift_date,
+        };
+      });
 
     // Overall AWL stats
     const totalPredicted = entries.reduce((s, e) => s + (e.sales?.length || 0), 0);
@@ -1045,7 +1052,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
             const isMatched = matchedIds.includes(id);
             const expected = (e.sales || []).find((s: any) => String(s.awl_id).trim().toUpperCase() === id)?.expected_revenue || 0;
             let actual = actualSalesMap[id] || 0;
-            
+
             // Fallback: If matched but no granular actual data, assume expected value for display
             if (isMatched && actual === 0 && expected > 0) {
               actual = expected;
@@ -1238,8 +1245,8 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                       <AreaChart data={hitRateTrend}>
                         <defs>
                           <linearGradient id="hitRateGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -1289,9 +1296,9 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                               <TableCell className="text-xs font-medium text-slate-500 pl-6">{d.date}</TableCell>
                               <TableCell className="font-mono text-xs font-bold text-slate-700">
                                 {viewerMode ? (
-                                  <a 
-                                    href={`https://applywizz-crm-tool.vercel.app/leads/${d.awl_id.trim()}`} 
-                                    target="_blank" 
+                                  <a
+                                    href={`https://applywizz-crm-tool.vercel.app/leads/${d.awl_id.trim()}`}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-indigo-600 hover:text-indigo-800 hover:underline decoration-indigo-300 transition-colors"
                                   >
@@ -1333,7 +1340,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                           Showing {(detailPage - 1) * detailsPerPage + 1} to {Math.min(detailPage * detailsPerPage, awlDetails.length)} of {awlDetails.length} leads
                         </p>
                         <div className="flex items-center gap-1.5">
-                          <Button 
+                          <Button
                             variant="outline" size="sm" className="h-7 w-7 p-0 rounded-md border-slate-200"
                             onClick={() => setDetailPage(p => Math.max(1, p - 1))}
                             disabled={detailPage === 1}
@@ -1345,7 +1352,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                               .filter(p => p === 1 || p === totalDetailPages || Math.abs(p - detailPage) <= 1)
                               .map((p, i, arr) => (
                                 <React.Fragment key={p}>
-                                  {i > 0 && arr[i-1] !== p - 1 && <span className="text-slate-300 text-[10px] px-0.5">...</span>}
+                                  {i > 0 && arr[i - 1] !== p - 1 && <span className="text-slate-300 text-[10px] px-0.5">...</span>}
                                   <button
                                     className={`h-7 w-7 rounded-md text-[11px] font-bold transition-all ${p === detailPage ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
                                     onClick={() => setDetailPage(p)}
@@ -1356,7 +1363,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                               ))
                             }
                           </div>
-                          <Button 
+                          <Button
                             variant="outline" size="sm" className="h-7 w-7 p-0 rounded-md border-slate-200"
                             onClick={() => setDetailPage(p => Math.min(totalDetailPages, p + 1))}
                             disabled={detailPage === totalDetailPages}
@@ -1432,315 +1439,336 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
               </p>
             </div>
             <div className="bg-white/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/30 font-bold text-sm shadow-inner flex items-center gap-2">
-               <Target className="h-4 w-4" /> {activeBooster.multiplier}x Multiplier on {activeBooster.target === 'both' ? 'All' : activeBooster.target} Incentives
+              <Target className="h-4 w-4" /> {activeBooster.multiplier}x Multiplier on {activeBooster.target === 'both' ? 'All' : activeBooster.target} Incentives
             </div>
             <div className="flex items-center gap-2 font-black text-sm bg-black/30 px-4 py-1.5 rounded-full shadow-inner border border-black/40">
-               <Activity className="h-4 w-4 animate-pulse text-emerald-400" />
-               <span className="text-emerald-400 font-mono tracking-widest">{boosterTimeLeft}</span> Remaining
+              <Activity className="h-4 w-4 animate-pulse text-emerald-400" />
+              <span className="text-emerald-400 font-mono tracking-widest">{boosterTimeLeft}</span> Remaining
             </div>
             <Zap className="h-6 w-6 text-yellow-400 animate-pulse drop-shadow-md hidden md:block" />
           </div>
         )}
-      {/* Top Header */}
-      <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          {/* Left: hamburger + brand */}
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              onClick={() => setSidebarOpen(o => !o)}
-            >
-              {sidebarOpen ? <X className="h-5 w-5 text-slate-600" /> : <Menu className="h-5 w-5 text-slate-600" />}
-            </button>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-md">
-                <LayoutDashboard className="h-4 w-4 text-white" />
+        {/* Top Header */}
+        <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+            {/* Left: hamburger + brand */}
+            <div className="flex items-center gap-3">
+              <button
+                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                onClick={() => setSidebarOpen(o => !o)}
+              >
+                {sidebarOpen ? <X className="h-5 w-5 text-slate-600" /> : <Menu className="h-5 w-5 text-slate-600" />}
+              </button>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-md">
+                  <LayoutDashboard className="h-4 w-4 text-white" />
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">Sales Portal</p>
+                  <p className="text-sm font-black text-slate-800 leading-tight">
+                    {viewerMode ? "Viewer Mode" : "My Dashboard"}
+                  </p>
+                </div>
               </div>
-              <div className="hidden sm:block">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">Sales Portal</p>
-                <p className="text-sm font-black text-slate-800 leading-tight">
-                  {viewerMode ? "Viewer Mode" : "My Dashboard"}
-                </p>
+            </div>
+
+            {/* Center: user info */}
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden md:block">
+                <p className="text-sm font-bold text-slate-800 leading-tight">{user.name}</p>
+                <p className="text-xs text-slate-400 leading-tight">{user.email}</p>
               </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md text-white font-black text-base">
+                {user.name?.charAt(0)?.toUpperCase()}
+              </div>
+              <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 shadow-sm font-semibold text-xs px-2.5">
+                {user.role}
+              </Badge>
             </div>
-          </div>
 
-          {/* Center: user info */}
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden md:block">
-              <p className="text-sm font-bold text-slate-800 leading-tight">{user.name}</p>
-              <p className="text-xs text-slate-400 leading-tight">{user.email}</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md text-white font-black text-base">
-              {user.name?.charAt(0)?.toUpperCase()}
-            </div>
-            <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 shadow-sm font-semibold text-xs px-2.5">
-              {user.role}
-            </Badge>
-          </div>
-
-          {/* Right: logout */}
-          {!viewerMode && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-9 w-9 rounded-full hover:bg-slate-100 p-0">
-                  <User className="h-4 w-4 text-slate-500" />
+            {/* Right: logout */}
+            {!viewerMode && (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-semibold shadow-sm"
+                  onClick={() => window.open(process.env.NEXT_PUBLIC_SEND_INVOICE_LINK || "#", "_blank")}
+                >
+                  Send Invoice
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 border-slate-200">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col gap-0.5">
-                    <p className="text-sm font-semibold text-slate-800">{user.name}</p>
-                    <p className="text-xs text-slate-400">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onLogout} className="text-red-600 font-medium cursor-pointer gap-2">
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </header>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold shadow-sm"
+                  onClick={() => window.open(process.env.NEXT_PUBLIC_REFERRAL_FORM_LINK || "#", "_blank")}
+                >
+                  Referral Form
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 rounded-full hover:bg-slate-100 p-0 shadow-sm border border-slate-200">
+                      <User className="h-4 w-4 text-slate-500" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 border-slate-200">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-semibold text-slate-800">{user.name}</p>
+                        <p className="text-xs text-slate-400">{user.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onLogout} className="text-red-600 font-medium cursor-pointer gap-2">
+                      <LogOut className="h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </div>
+        </header>
 
-      {/* Body: sidebar + main */}
-      <div className="flex flex-1 max-w-[1600px] mx-auto w-full">
-        {/* Sidebar */}
-        <aside className={`
+        {/* Body: sidebar + main */}
+        <div className="flex flex-1 max-w-[1600px] mx-auto w-full">
+          {/* Sidebar */}
+          <aside className={`
           fixed lg:sticky top-16 z-40 h-[calc(100vh-4rem)] w-64 shrink-0
           bg-white border-r border-slate-200 shadow-xl lg:shadow-none
           flex flex-col transition-transform duration-300
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
-          {/* Sidebar header */}
-          <div className="p-5 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 flex items-center justify-center">
-                <Users className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Navigation</p>
-                <p className="text-sm font-bold text-slate-700">Sales Tools</p>
+            {/* Sidebar header */}
+            <div className="p-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Navigation</p>
+                  <p className="text-sm font-bold text-slate-700">Sales Tools</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Nav items */}
-          <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const isActive = activeTab === item.id;
-              const Icon = item.icon;
-              const activeGradients: Record<SidebarTab, string> = {
-                tracker:  'linear-gradient(135deg, #f97316, #f59e0b)',
-                incentive:'linear-gradient(135deg, #6366f1, #a855f7)',
-                bonuses:  'linear-gradient(135deg, #10b981, #14b8a6)',
-                sales:    'linear-gradient(135deg, #3b82f6, #06b6d4)',
-                analytics:'linear-gradient(135deg, #8b5cf6, #d946ef)',
-              };
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
-                    isActive ? 'shadow-md' : 'hover:bg-slate-50'
-                  }`}
-                  style={isActive ? { background: activeGradients[item.id] } : {}}
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all"
-                    style={isActive ? { background: 'rgba(255,255,255,0.22)' } : {}}
+            {/* Nav items */}
+            <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                const Icon = item.icon;
+                const activeGradients: Record<SidebarTab, string> = {
+                  tracker: 'linear-gradient(135deg, #f97316, #f59e0b)',
+                  incentive: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  bonuses: 'linear-gradient(135deg, #10b981, #14b8a6)',
+                  sales: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  analytics: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+                  "submission-form": 'linear-gradient(135deg, #f43f5e, #ec4899)',
+                };
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${isActive ? 'shadow-md' : 'hover:bg-slate-50'
+                      }`}
+                    style={isActive ? { background: activeGradients[item.id] } : {}}
                   >
-                    <Icon
-                      className={isActive ? 'text-white' : item.color}
-                      style={{ width: '1.1rem', height: '1.1rem' }}
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all"
+                      style={isActive ? { background: 'rgba(255,255,255,0.22)' } : {}}
+                    >
+                      <Icon
+                        className={isActive ? 'text-white' : item.color}
+                        style={{ width: '1.1rem', height: '1.1rem' }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold truncate ${isActive ? 'text-white' : 'text-slate-700 group-hover:text-slate-800'}`}>
+                        {item.label}
+                      </p>
+                    </div>
+                    {isActive && <div className="w-2 h-2 rounded-full bg-white/60 shrink-0" />}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Sidebar footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>System Active</span>
+              </div>
+            </div>
+          </aside>
+
+          {/* Overlay for mobile sidebar */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          {/* Main Content Area */}
+          <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-auto">
+            {/* Page title bar with gradient */}
+            <div className={`mb-6 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden ${activeTab === 'tracker' ? 'bg-gradient-to-r from-orange-500 to-amber-500' :
+              activeTab === 'incentive' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' :
+                activeTab === 'bonuses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' :
+                  activeTab === 'analytics' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
+                    activeTab === 'submission-form' ? 'bg-gradient-to-r from-rose-500 to-pink-600' :
+                      'bg-gradient-to-r from-blue-500 to-cyan-600'
+              }`}>
+              <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -translate-y-10 translate-x-10" />
+              <div className="absolute bottom-0 left-20 w-24 h-24 rounded-full bg-white/5 translate-y-8" />
+
+              <div className="relative">
+                <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-0.5">Sales Management</p>
+                <h1 className="text-2xl font-black tracking-tight">
+                  {activeTab === 'tracker' ? '🔥 Expected Revenue Tracker' :
+                    activeTab === 'incentive' ? '📈 Incentive Achieved' :
+                      activeTab === 'bonuses' ? '🎁 Daily Bonuses' :
+                        activeTab === 'analytics' ? '📊 Performance & Analytics' :
+                          activeTab === 'submission-form' ? '📝 Sales Success Submission' :
+                            '🧾 Sales Records'}
+                </h1>
+                <p className="text-white/70 text-sm mt-1 font-medium">
+                  Welcome back, <strong className="text-white">{user.name}</strong>
+                  {user.isactive && <span className="ml-3 text-xs bg-white/20 px-2 py-0.5 rounded-full">● Active</span>}
+                </p>
+              </div>
+            </div>
+
+            {/* Error state */}
+            {error && (
+              <div className="mb-5 bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 shrink-0" /> {error}
+              </div>
+            )}
+
+            {/* Loading state */}
+            {loading && activeTab !== 'tracker' ? (
+              <div className="flex flex-col items-center justify-center py-24">
+                <div className="w-14 h-14 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin mb-5" />
+                <p className="text-slate-500 font-semibold">Loading your data...</p>
+              </div>
+            ) : (
+              <>
+                {activeTab === 'tracker' && (
+                  <Suspense fallback={
+                    <div className="flex flex-col items-center justify-center py-24">
+                      <div className="w-14 h-14 rounded-full border-4 border-orange-200 border-t-orange-600 animate-spin mb-5" />
+                      <p className="text-slate-500 font-semibold">Loading tracker...</p>
+                    </div>
+                  }>
+                    <ExpectedRevenuePanel
+                      user={user}
+                      viewerMode={viewerMode}
+                      isCompactBtn={false}
+                      hideCrmLinks={true}
+                      calMonthOverride={monthOffset}
                     />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold truncate ${isActive ? 'text-white' : 'text-slate-700 group-hover:text-slate-800'}`}>
-                      {item.label}
-                    </p>
-                  </div>
-                  {isActive && <div className="w-2 h-2 rounded-full bg-white/60 shrink-0" />}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Sidebar footer */}
-          <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>System Active</span>
-            </div>
-          </div>
-        </aside>
-
-        {/* Overlay for mobile sidebar */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main Content Area */}
-        <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-auto">
-          {/* Page title bar with gradient */}
-          <div className={`mb-6 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden ${
-            activeTab === 'tracker' ? 'bg-gradient-to-r from-orange-500 to-amber-500' :
-            activeTab === 'incentive' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' :
-            activeTab === 'bonuses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' :
-            activeTab === 'analytics' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
-            'bg-gradient-to-r from-blue-500 to-cyan-600'
-          }`}>
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -translate-y-10 translate-x-10" />
-            <div className="absolute bottom-0 left-20 w-24 h-24 rounded-full bg-white/5 translate-y-8" />
-
-            <div className="relative">
-              <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-0.5">Sales Management</p>
-              <h1 className="text-2xl font-black tracking-tight">
-                {activeTab === 'tracker' ? '🔥 Expected Revenue Tracker' :
-                 activeTab === 'incentive' ? '📈 Incentive Achieved' :
-                 activeTab === 'bonuses' ? '🎁 Daily Bonuses' :
-                 activeTab === 'analytics' ? '📊 Performance & Analytics' :
-                 '🧾 Sales Records'}
-              </h1>
-              <p className="text-white/70 text-sm mt-1 font-medium">
-                Welcome back, <strong className="text-white">{user.name}</strong>
-                {user.isactive && <span className="ml-3 text-xs bg-white/20 px-2 py-0.5 rounded-full">● Active</span>}
-              </p>
-            </div>
-          </div>
-
-          {/* Error state */}
-          {error && (
-            <div className="mb-5 bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 shrink-0" /> {error}
-            </div>
-          )}
-
-          {/* Loading state */}
-          {loading && activeTab !== 'tracker' ? (
-            <div className="flex flex-col items-center justify-center py-24">
-              <div className="w-14 h-14 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin mb-5" />
-              <p className="text-slate-500 font-semibold">Loading your data...</p>
-            </div>
-          ) : (
-            <>
-              {activeTab === 'tracker' && (
-                <Suspense fallback={
-                  <div className="flex flex-col items-center justify-center py-24">
-                    <div className="w-14 h-14 rounded-full border-4 border-orange-200 border-t-orange-600 animate-spin mb-5" />
-                    <p className="text-slate-500 font-semibold">Loading tracker...</p>
-                  </div>
-                }>
-                  <ExpectedRevenuePanel
-                    user={user}
-                    viewerMode={viewerMode}
-                    isCompactBtn={false}
-                    hideCrmLinks={true}
-                    calMonthOverride={monthOffset}
-                  />
-                </Suspense>
-              )}
-              {activeTab === 'incentive' && IncentivePanel()}
-              {activeTab === 'bonuses' && BonusPanel()}
-              {activeTab === 'sales' && SalesPanel()}
-              {activeTab === 'analytics' && <AnalyticsPanel />}
-            </>
-          )}
-        </main>
+                  </Suspense>
+                )}
+                {activeTab === 'incentive' && IncentivePanel()}
+                {activeTab === 'bonuses' && BonusPanel()}
+                {activeTab === 'sales' && SalesPanel()}
+                {activeTab === 'analytics' && <AnalyticsPanel />}
+                {activeTab === 'submission-form' && <SalesSubmissionForm user={user} viewerMode={viewerMode} />}
+              </>
+            )}
+          </main>
+        </div>
       </div>
-    </div>
 
       {/* Daily Bonus Detail Dialog */}
       <Dialog open={!!selectedBonusDate} onOpenChange={(open) => !open && setSelectedBonusDate(null)}>
         <DialogContent className="max-w-2xl rounded-3xl p-0 overflow-hidden border-0 shadow-2xl">
           {selectedBonusDate && (() => {
-             const shiftSales = (data?.crmSales || []).filter((s: any) => 
-               getShiftDateLocal(s.closed_at, data?.shiftStartTime) === selectedBonusDate
-             ).sort((a: any, b: any) => b.sale_value - a.sale_value);
-             const totalRev = shiftSales.reduce((sum: number, s: any) => sum + (Number(s.sale_value) || 0), 0);
-             
-             return (
-               <div className="flex flex-col">
-                 <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white">
-                   <DialogHeader className="p-0 text-left">
-                     <div className="flex items-center justify-between">
-                       <div>
-                         <p className="text-emerald-100 text-[10px] uppercase font-black tracking-widest mb-1">Bonus Shift Details</p>
-                         <DialogTitle className="text-2xl font-black">{new Date(selectedBonusDate).toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}</DialogTitle>
-                       </div>
-                       <div className="text-right">
-                         <p className="text-emerald-100 text-[10px] uppercase font-black tracking-widest mb-1">Shift Total</p>
-                         <p className="text-2xl font-black">${totalRev.toLocaleString()}</p>
-                       </div>
-                     </div>
-                   </DialogHeader>
-                 </div>
+            const shiftSales = (data?.crmSales || []).filter((s: any) =>
+              getShiftDateLocal(s.closed_at, data?.shiftStartTime) === selectedBonusDate
+            ).sort((a: any, b: any) => b.sale_value - a.sale_value);
+            const totalRev = shiftSales.reduce((sum: number, s: any) => sum + (Number(s.sale_value) || 0), 0);
 
-                 <div className="p-6 bg-slate-50/50 max-h-[60vh] overflow-y-auto">
-                   <DialogDescription className="sr-only">Sales breakdown for {selectedBonusDate}</DialogDescription>
-                   {shiftSales.length > 0 ? (
-                     <div className="space-y-3">
-                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">{shiftSales.length} Deals Contributing</p>
-                       {shiftSales.map((sale: any, idx: number) => (
-                         <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-emerald-200 hover:shadow-md transition-all group">
-                           <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-                               <Receipt className="h-5 w-5" />
-                             </div>
-                             <div>
-                               <p className="font-bold text-slate-800">{sale.lead_name}</p>
-                               <div className="flex items-center gap-2 mt-0.5">
-                                 {(() => {
-                                   const id = sale.awl_id || sale.lead_id;
-                                   if (!id) return null;
-                                   return (
-                                     <a
-                                       href={`https://applywizz-crm-tool.vercel.app/leads/${id.trim()}`}
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       className="text-[10px] font-mono font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition-all"
-                                     >
-                                       {id}
-                                     </a>
-                                   );
-                                 })()}
-                                 <div className="w-1 h-1 rounded-full bg-slate-200"></div>
-                                 <span className="text-[10px] font-bold text-slate-500 uppercase">{new Date(sale.closed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                               </div>
-                             </div>
-                           </div>
-                           <div className="text-right">
-                             <p className="text-lg font-black text-emerald-600">${Number(sale.sale_value).toLocaleString()}</p>
-                             <Badge variant="outline" className="text-[9px] font-black uppercase text-slate-400 border-slate-200">
-                               {sale.payment_mode || 'Record'}
-                             </Badge>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   ) : (
-                     <div className="py-20 text-center">
-                       <AlertCircle className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                       <p className="text-slate-500 font-medium">No individual sales found for this shift.</p>
-                       <p className="text-[11px] text-slate-400 mt-1">This may happen if the shift summary was recorded but sales records are pending sync.</p>
-                     </div>
-                   )}
-                 </div>
+            return (
+              <div className="flex flex-col">
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white">
+                  <DialogHeader className="p-0 text-left">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-emerald-100 text-[10px] uppercase font-black tracking-widest mb-1">Bonus Shift Details</p>
+                        <DialogTitle className="text-2xl font-black">{new Date(selectedBonusDate).toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' })}</DialogTitle>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-emerald-100 text-[10px] uppercase font-black tracking-widest mb-1">Shift Total</p>
+                        <p className="text-2xl font-black">${totalRev.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </DialogHeader>
+                </div>
 
-                 <div className="p-4 bg-white border-t border-slate-100 flex justify-end">
-                   <Button 
+                <div className="p-6 bg-slate-50/50 max-h-[60vh] overflow-y-auto">
+                  <DialogDescription className="sr-only">Sales breakdown for {selectedBonusDate}</DialogDescription>
+                  {shiftSales.length > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">{shiftSales.length} Deals Contributing</p>
+                      {shiftSales.map((sale: any, idx: number) => (
+                        <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-emerald-200 hover:shadow-md transition-all group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                              <Receipt className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800">{sale.lead_name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {(() => {
+                                  const id = sale.awl_id || sale.lead_id;
+                                  if (!id) return null;
+                                  return (
+                                    <a
+                                      href={`https://applywizz-crm-tool.vercel.app/leads/${id.trim()}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] font-mono font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition-all"
+                                    >
+                                      {id}
+                                    </a>
+                                  );
+                                })()}
+                                <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">{new Date(sale.closed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-black text-emerald-600">${Number(sale.sale_value).toLocaleString()}</p>
+                            <Badge variant="outline" className="text-[9px] font-black uppercase text-slate-400 border-slate-200">
+                              {sale.payment_mode || 'Record'}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-20 text-center">
+                      <AlertCircle className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                      <p className="text-slate-500 font-medium">No individual sales found for this shift.</p>
+                      <p className="text-[11px] text-slate-400 mt-1">This may happen if the shift summary was recorded but sales records are pending sync.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-white border-t border-slate-100 flex justify-end">
+                  <Button
                     onClick={() => setSelectedBonusDate(null)}
                     className="rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold h-10 px-8 transition-all active:scale-95"
-                   >
-                     Close Breakdown
-                   </Button>
-                 </div>
-               </div>
-             );
+                  >
+                    Close Breakdown
+                  </Button>
+                </div>
+              </div>
+            );
           })()}
         </DialogContent>
       </Dialog>

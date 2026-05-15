@@ -43,8 +43,8 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
     const [savingRate, setSavingRate] = useState(false)
 
     // Sub-UI States for Tab Switching
-    const [activeConfigTab, setActiveConfigTab] = useState<'applywizz' | 'jobboard' | 'skillpassport' | 'influencer'>('applywizz')
-    
+    const [activeConfigTab, setActiveConfigTab] = useState<'jobboard' | 'skillpassport' | 'influencer'>('jobboard')
+
     // Dynamic Tiers
     const [customJobBoardTiers, setCustomJobBoardTiers] = useState<any[]>([])
 
@@ -118,7 +118,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                 const r = (rep.role || "").toLowerCase();
                 const d = (rep.designation || "").toLowerCase();
                 const isTraineeRep = r.includes("trainee") || d.includes("trainee") || r === "bdt-p" || d === "bdt-p";
-                
+
                 return {
                     ...rep,
                     incentive_inr: isTraineeRep ? 0 : (incn?.applywizz_incentive_inr || 0) + (incn?.job_board_incentive_inr || 0) + (incn?.skill_passport_incentive_inr || 0) + (incn?.influencer_incentive_inr || 0),
@@ -430,15 +430,16 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                             <BarChart3 className="h-4 w-4 text-indigo-400" />
                         </CardHeader>
                         <CardContent className="pt-5 space-y-4 pb-5">
+
                             <div>
                                 <div className="flex justify-between items-center text-xs mb-1.5">
                                     <span className="text-slate-600 font-bold flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-800"></div> Apply-Wizz
+                                        <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div> Influencer Referrals
                                     </span>
-                                    <span className="font-black text-slate-800">{totalFreshSalesGlobal}</span>
+                                    <span className="font-black text-pink-600">{totalInfluencerCountGlobal} <span className="text-[10px] text-slate-400 font-medium">({totalInfluencerUnpaidCountGlobal} Unpaid / {totalInfluencerPaidCountGlobal} Paid)</span></span>
                                 </div>
                                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-slate-800 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (totalFreshSalesGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal || 1)) * 100)}%` }}></div>
+                                    <div className="bg-pink-500 h-full rounded-full transition-all duration-1000 ease-out delay-100" style={{ width: `${Math.min(100, (totalInfluencerCountGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal + totalInfluencerCountGlobal || 1)) * 100)}%` }}></div>
                                 </div>
                             </div>
                             <div>
@@ -449,7 +450,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                     <span className="font-black text-emerald-600">{totalJobBoardSalesCountGlobal}</span>
                                 </div>
                                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out delay-100" style={{ width: `${Math.min(100, (totalJobBoardSalesCountGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal || 1)) * 100)}%` }}></div>
+                                    <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out delay-200" style={{ width: `${Math.min(100, (totalJobBoardSalesCountGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal || 1)) * 100)}%` }}></div>
                                 </div>
                             </div>
                             <div>
@@ -460,18 +461,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                     <span className="font-black text-orange-500">{totalSkillPassportSalesCountGlobal}</span>
                                 </div>
                                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-orange-500 h-full rounded-full transition-all duration-1000 ease-out delay-200" style={{ width: `${Math.min(100, (totalSkillPassportSalesCountGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal || 1)) * 100)}%` }}></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between items-center text-xs mb-1.5">
-                                    <span className="text-slate-600 font-bold flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div> From Influencer
-                                    </span>
-                                    <span className="font-black text-pink-600">{totalInfluencerCountGlobal} <span className="text-[10px] text-slate-400 font-medium">({totalInfluencerUnpaidCountGlobal} Unpaid / {totalInfluencerPaidCountGlobal} Paid)</span></span>
-                                </div>
-                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-pink-500 h-full rounded-full transition-all duration-1000 ease-out delay-300" style={{ width: `${Math.min(100, (totalInfluencerCountGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal + totalInfluencerCountGlobal || 1)) * 100)}%` }}></div>
+                                    <div className="bg-orange-500 h-full rounded-full transition-all duration-1000 ease-out delay-300" style={{ width: `${Math.min(100, (totalSkillPassportSalesCountGlobal / (totalFreshSalesGlobal + totalJobBoardSalesCountGlobal + totalSkillPassportSalesCountGlobal || 1)) * 100)}%` }}></div>
                                 </div>
                             </div>
                         </CardContent>
@@ -501,12 +491,13 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                             </div>
 
                             <div className="space-y-3 mt-2 border-t border-emerald-100/60 pt-4 bg-white/40 rounded-b-xl backdrop-blur-sm -mx-2 px-2 pb-1">
+
                                 <div className="flex justify-between items-center text-xs group">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-slate-500 font-bold group-hover:text-slate-800 transition-colors">Apply-Wizz</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">{totalFreshSalesGlobal} × $3 = <span className="text-slate-500">₹{totalApplywizzIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
+                                        <span className="text-slate-500 font-bold group-hover:text-pink-700 transition-colors">Influencer Referrals</span>
+                                        <span className="text-[10px] text-slate-400 font-medium">({totalInfluencerUnpaidCountGlobal} unpaid × ${influencerUnpaidRate} + {totalInfluencerPaidCountGlobal} paid × ${influencerPaidRate}) = <span className="text-pink-500/70">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
                                     </div>
-                                    <span className="font-extrabold text-slate-800">₹{totalApplywizzIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                    <span className="font-extrabold text-pink-600">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs group">
                                     <div className="flex flex-col gap-0.5">
@@ -521,13 +512,6 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                         <span className="text-[10px] text-slate-400 font-medium">{totalSkillPassportSalesCountGlobal} × ₹{totalSkillPassportSalesCountGlobal > 0 ? (totalSkillPassportIncentivesGlobal / totalSkillPassportSalesCountGlobal).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0} = <span className="text-orange-500/70">₹{totalSkillPassportIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
                                     </div>
                                     <span className="font-extrabold text-orange-600">₹{totalSkillPassportIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs group">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-slate-500 font-bold group-hover:text-pink-700 transition-colors">From Influencer</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">({totalInfluencerUnpaidCountGlobal} unpaid × ${influencerUnpaidRate} + {totalInfluencerPaidCountGlobal} paid × ${influencerPaidRate}) = <span className="text-pink-500/70">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
-                                    </div>
-                                    <span className="font-extrabold text-pink-600">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -574,16 +558,10 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
 
                     {editingRate && (
                         <div className="bg-slate-50/50 animate-in slide-in-from-top-8 fade-in duration-500 ease-out border-t border-slate-200">
-                            
+
                             {/* Navigation Tabs */}
                             <div className="flex flex-wrap gap-2 px-6 pt-6 md:px-8 md:pt-8 border-b border-slate-200/50 pb-4">
-                                <Button
-                                    variant={activeConfigTab === 'applywizz' ? "default" : "outline"}
-                                    onClick={() => setActiveConfigTab('applywizz')}
-                                    className={`rounded-full transition-all ${activeConfigTab === 'applywizz' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-sm' : 'bg-white hover:bg-slate-50 text-slate-600'}`}
-                                >
-                                    <Globe className="h-4 w-4 mr-2" /> Apply-Wizz Engine
-                                </Button>
+
                                 <Button
                                     variant={activeConfigTab === 'jobboard' ? "default" : "outline"}
                                     onClick={() => setActiveConfigTab('jobboard')}
@@ -603,42 +581,13 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                     onClick={() => setActiveConfigTab('influencer')}
                                     className={`rounded-full transition-all ${activeConfigTab === 'influencer' ? 'bg-pink-600 hover:bg-pink-700 shadow-sm text-white' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
                                 >
-                                    <TrendingUp className="h-4 w-4 mr-2" /> From Influencer Config
+                                    <TrendingUp className="h-4 w-4 mr-2" /> Influencer Referral Config
                                 </Button>
                             </div>
 
                             <div className="p-6 md:p-8 pt-6">
 
-                                {/* Apply-Wizz Section */}
-                                {activeConfigTab === 'applywizz' && (
-                                    <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden text-left animate-in fade-in slide-in-from-left-4 duration-300">
-                                        <div className="bg-slate-50/80 border-b border-slate-200 px-6 py-4 flex items-center gap-3">
-                                            <div className="bg-indigo-100/50 p-2 rounded-lg"><Globe className="h-5 w-5 text-indigo-600" /></div>
-                                            <h3 className="font-bold text-slate-800 tracking-tight text-lg">Apply-Wizz Engine</h3>
-                                        </div>
-                                        <div className="p-6">
-                                            <div className="flex flex-col md:flex-row gap-6">
-                                                <Card className="border border-indigo-100 shadow-sm overflow-hidden group hover:shadow-md transition-shadow max-w-sm w-full">
-                                                    <div className="h-1 w-full bg-indigo-500"></div>
-                                                    <CardContent className="p-5">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Global Forex Multiplier</label>
-                                                        </div>
-                                                        <div className="relative group">
-                                                            <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">₹</span>
-                                                            <Input
-                                                                value={conversionRate}
-                                                                onChange={(e) => setConversionRate(e.target.value)}
-                                                                className="pl-7 h-11 w-full border-indigo-200 focus-visible:ring-indigo-500 bg-indigo-50/30 text-lg font-bold text-slate-800"
-                                                            />
-                                                        </div>
-                                                        <p className="text-[10px] text-slate-400 mt-3 font-medium flex items-center gap-1.5"><TrendingUp className="h-3 w-3 text-indigo-400" /> Converts USD to INR automatically</p>
-                                                    </CardContent>
-                                                </Card>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 {/* Job Board Section */}
                                 {activeConfigTab === 'jobboard' && (
@@ -691,7 +640,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                                     <div className="h-1 w-full bg-emerald-500"></div>
                                                     <CardContent className="p-5">
                                                         <div className="flex items-center gap-2 mb-3">
-                                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Star className="h-3 w-3 text-emerald-500"/> JobBoard T-3</label>
+                                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Star className="h-3 w-3 text-emerald-500" /> JobBoard T-3</label>
                                                         </div>
                                                         <div className="relative group flex items-center">
                                                             <span className="absolute left-3 top-2.5 text-emerald-600 text-sm font-bold">₹</span>
@@ -706,10 +655,10 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                                 {customJobBoardTiers.map((tier, index) => (
                                                     <Card key={tier.id} className="border border-violet-200 shadow-sm overflow-hidden group hover:shadow-md transition-shadow relative animate-in zoom-in-95 duration-200">
                                                         <div className="h-1 w-full bg-violet-400"></div>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="absolute top-2 right-2 h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 z-10" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="absolute top-2 right-2 h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 z-10"
                                                             onClick={() => removeCustomTier(tier.id)}
                                                         >
                                                             <X className="h-3 w-3" />
@@ -725,10 +674,10 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                                             </div>
                                                             <div className="mt-3 flex items-center gap-2">
                                                                 <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">Target &ge;</span>
-                                                                <Input 
-                                                                    value={tier.threshold} 
-                                                                    onChange={(e) => updateCustomTier(tier.id, 'threshold', e.target.value)} 
-                                                                    className="h-7 w-20 text-[10px] px-2 py-0 border-slate-200" 
+                                                                <Input
+                                                                    value={tier.threshold}
+                                                                    onChange={(e) => updateCustomTier(tier.id, 'threshold', e.target.value)}
+                                                                    className="h-7 w-20 text-[10px] px-2 py-0 border-slate-200"
                                                                     placeholder="e.g. 2000"
                                                                 />
                                                             </div>
@@ -777,7 +726,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                             <h3 className="font-bold text-slate-800 tracking-tight text-lg">From Influencer Incentive Engine</h3>
                                         </div>
                                         <div className="p-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                 <Card className="border border-emerald-100 shadow-sm overflow-hidden group hover:shadow-md transition-shadow max-w-sm w-full">
                                                     <div className="h-1 w-full bg-emerald-500"></div>
                                                     <CardContent className="p-5">
@@ -804,6 +753,20 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                                             <span className="absolute right-3 top-3 text-xs text-slate-400 font-bold uppercase">/sale</span>
                                                         </div>
                                                         <p className="text-[10px] text-slate-400 mt-3 font-medium flex items-center gap-1.5"><TrendingUp className="h-3 w-3 text-amber-400" /> Each <strong>unpaid</strong> influencer sale contributes this USD to pool</p>
+                                                    </CardContent>
+                                                </Card>
+                                                <Card className="border border-indigo-100 shadow-sm overflow-hidden group hover:shadow-md transition-shadow max-w-sm w-full">
+                                                    <div className="h-1 w-full bg-indigo-500"></div>
+                                                    <CardContent className="p-5">
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <label className="text-xs font-bold text-indigo-700 uppercase tracking-widest">USD to INR Rate</label>
+                                                        </div>
+                                                        <div className="relative group flex items-center">
+                                                            <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">₹</span>
+                                                            <Input value={conversionRate} onChange={(e) => setConversionRate(e.target.value)} className="pl-7 h-11 w-full border-indigo-200 focus-visible:ring-indigo-500 bg-indigo-50/30 text-lg font-bold text-slate-800" />
+                                                            <span className="absolute right-3 top-3 text-xs text-slate-400 font-bold uppercase">/USD</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-400 mt-3 font-medium flex items-center gap-1.5"><Globe className="h-3 w-3 text-indigo-400" /> Rate used to convert USD pool to INR</p>
                                                     </CardContent>
                                                 </Card>
                                             </div>
@@ -859,7 +822,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                         <TableHead>Email</TableHead>
                                         <TableHead>Designation</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead>Apply-Wizz (INR)</TableHead>
+
                                         <TableHead>Job Board (INR)</TableHead>
                                         <TableHead>Skill Passport</TableHead>
                                         <TableHead>Influencer (INR)</TableHead>
@@ -893,9 +856,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                                         Set Inactive
                                                     </Button>
                                                 </TableCell>
-                                                <TableCell className="font-semibold text-slate-700">
-                                                    ₹{rep.applywizz_incentive_inr.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                                </TableCell>
+
                                                 <TableCell className="font-semibold text-emerald-600">
                                                     ₹{rep.job_board_incentive_inr.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                                                 </TableCell>
@@ -928,64 +889,64 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                 </Card>
 
                 {/* Trainees Table */}
-                        <Card className="mb-8">
-                            <CardHeader>
-                                <CardTitle className="text-lg">Active Marketing Trainees</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-slate-50">
-                                                <TableHead>Name</TableHead>
-                                                <TableHead>Email</TableHead>
-                                                <TableHead>Designation</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead className="text-right">Actions</TableHead>
+                <Card className="mb-8">
+                    <CardHeader>
+                        <CardTitle className="text-lg">Active Marketing Trainees</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-slate-50">
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Designation</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {activeTrainees.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-6 text-slate-500">
+                                                No active marketing trainees found.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        activeTrainees.map((rep) => (
+                                            <TableRow key={rep.id} className="hover:bg-slate-50 transition-colors">
+                                                <TableCell className="font-medium text-slate-800">{rep.name}</TableCell>
+                                                <TableCell className="text-slate-600">{rep.email}</TableCell>
+                                                <TableCell>
+                                                    <Badge className="bg-blue-100 text-blue-800 border-none">{rep.role}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge className="bg-emerald-100 text-emerald-800 border-none mr-2">Active</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right flex items-center justify-end gap-2">
+                                                    <div className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200 shadow-sm italic">
+                                                        Trainee (No Dashboard)
+                                                    </div>
+                                                    <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200 text-xs h-7" onClick={() => handlePromoteTrainee(rep.id)}>
+                                                        Promote to Associate
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 text-xs h-7"
+                                                        onClick={() => handleToggleActive(rep.id, rep.isactive)}
+                                                    >
+                                                        Deactivate
+                                                    </Button>
+                                                </TableCell>
                                             </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {activeTrainees.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={5} className="text-center py-6 text-slate-500">
-                                                        No active marketing trainees found.
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                activeTrainees.map((rep) => (
-                                                    <TableRow key={rep.id} className="hover:bg-slate-50 transition-colors">
-                                                        <TableCell className="font-medium text-slate-800">{rep.name}</TableCell>
-                                                        <TableCell className="text-slate-600">{rep.email}</TableCell>
-                                                        <TableCell>
-                                                            <Badge className="bg-blue-100 text-blue-800 border-none">{rep.role}</Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge className="bg-emerald-100 text-emerald-800 border-none mr-2">Active</Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right flex items-center justify-end gap-2">
-                                                            <div className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200 shadow-sm italic">
-                                                                Trainee (No Dashboard)
-                                                            </div>
-                                                            <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200 text-xs h-7" onClick={() => handlePromoteTrainee(rep.id)}>
-                                                                Promote to Associate
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 text-xs h-7"
-                                                                onClick={() => handleToggleActive(rep.id, rep.isactive)}
-                                                            >
-                                                                Deactivate
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Inactive User Table */}
                 {inactiveReps.length > 0 && (

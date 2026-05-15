@@ -12,12 +12,14 @@ import Link from "next/link"
 import {
   Users, TrendingUp, DollarSign, Calendar, Search, LogOut, Medal, BarChart3,
   LayoutDashboard, Target, Flame, Trophy, Sparkles, Eye, ChevronLeft, ChevronRight,
-  FileText, Loader2, Crown, Activity, ArrowUpRight, Zap, Receipt, Download, Filter
+  FileText, Loader2, Crown, Activity, ArrowUpRight, Zap, Receipt, Download, Filter,
+  Settings2, PlusCircle, ArrowRight, LockOpen, Trash2, Save
 } from "lucide-react"
 
 // Import existing reusable modules
 import { ExpectedRevenueOverview } from "./expected-revenue-overview"
 import { GlobalAwlTracker } from "./global-awl-tracker"
+import { SubmissionFormsPanel } from "./submission-forms-panel"
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
@@ -26,7 +28,7 @@ interface SalesHeadDashboardProps {
   onLogout: () => void;
 }
 
-type TabType = "overview" | "leaderboard" | "awl-tracker" | "roster" | "sales-records";
+type TabType = "overview" | "leaderboard" | "awl-tracker" | "roster" | "sales-records" | "slab-config" | "submission-forms";
 
 export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview")
@@ -34,6 +36,7 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("All")
+  const [rosterStatusFilter, setRosterStatusFilter] = useState("All")
   const [confirmRep, setConfirmRep] = useState<{ id: string, isActive: boolean, name: string } | null>(null)
 
   // Sales Records state
@@ -61,6 +64,55 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
 
   // Role configs for target reference
   const [roleConfigs, setRoleConfigs] = useState<Record<string, { target: number; daily_bonus: number; slabs: any[] }>>({})
+  const [selectedRoleConfig, setSelectedRoleConfig] = useState<string>("BDA")
+  const [configSaving, setConfigSaving] = useState(false)
+
+  const saveFinancialSettings = async () => {
+    setConfigSaving(true)
+    const baseKeys: { key: string, value: string }[] = [];
+
+    Object.entries(roleConfigs).forEach(([role, config]) => {
+      const rKey = role.toLowerCase();
+      baseKeys.push({ key: `${rKey}_target`, value: config.target.toString() });
+      baseKeys.push({ key: `${rKey}_daily_bonus`, value: config.daily_bonus.toString() });
+      baseKeys.push({ key: `${rKey}_slab_rules`, value: JSON.stringify(config.slabs) });
+    });
+
+    const updates = []
+    for (const b of baseKeys) {
+      updates.push(b)
+    }
+
+    let currentFocusDate = new Date(targetDate)
+    for (let i = 0; i < 18; i++) {
+      const pMonthStr = currentFocusDate.toLocaleString("default", { month: "long", year: "numeric" });
+      for (const b of baseKeys) {
+        updates.push({ key: `${b.key}_${pMonthStr}`, value: b.value })
+      }
+      currentFocusDate.setMonth(currentFocusDate.getMonth() + 1);
+    }
+
+    for (const update of updates) {
+      await supabase.from("sales_settings").upsert(update, { onConflict: "key" })
+    }
+
+    // Recalculate incentives after saving
+    try {
+      const activeRepsForCalc = salesReps.filter(r => r.isactive);
+      const calcPromises = activeRepsForCalc.map(rep =>
+        fetch(`/api/calculate-sales-incentives?email=${encodeURIComponent(rep.email)}&role=${encodeURIComponent(rep.role)}&period=${encodeURIComponent(monthName)}&t=${new Date().getTime()}`, {
+          cache: "no-store"
+        })
+      );
+      await Promise.all(calcPromises);
+    } catch (e) {
+      console.error("Recalculation error:", e);
+    }
+
+    setConfigSaving(false)
+    alert("Sales Configuration Updated Successfully for this and future months!")
+    fetchFinancialSettings()
+  }
 
   const fetchSalesUsers = useCallback(async () => {
     setLoading(true)
@@ -412,6 +464,10 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
       match = match && !!(m.name?.toLowerCase().includes(t) || m.email?.toLowerCase().includes(t))
     }
     if (roleFilter !== "All") match = match && m.role === roleFilter
+    if (rosterStatusFilter !== "All") {
+      const wantActive = rosterStatusFilter === "Active"
+      match = match && m.isactive === wantActive
+    }
     return match
   }).sort((a, b) => {
     const weight: Record<string, number> = { "SBDA": 4, "BDA": 3, "BDT": 2, "BDT-P": 1 }
@@ -427,6 +483,8 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
     { id: "awl-tracker" as TabType, label: "AWL Tracker", icon: FileText },
     { id: "roster" as TabType, label: "Sales Force Directory", icon: Users },
     { id: "sales-records" as TabType, label: "Sales Ledger", icon: Receipt },
+    { id: "submission-forms" as TabType, label: "Submission Forms", icon: FileText },
+    { id: "slab-config" as TabType, label: "Slab Rules Config", icon: Settings2 },
   ]
 
   const getRoleBadgeClasses = (role: string) => {
@@ -609,8 +667,8 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all whitespace-nowrap ${activeTab === tab.id
-                    ? 'bg-white text-rose-600 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] border border-b-0 border-slate-200/60'
-                    : 'text-slate-400 hover:text-slate-600 hover:bg-white/40'
+                  ? 'bg-white text-rose-600 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] border border-b-0 border-slate-200/60'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/40'
                   }`}
               >
                 <tab.icon className="h-3.5 w-3.5" />
@@ -841,6 +899,16 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                       <SelectItem value="BDT-P">BDT-P</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={rosterStatusFilter} onValueChange={setRosterStatusFilter}>
+                    <SelectTrigger className="w-[130px] h-9 bg-white/80 text-sm">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Status</SelectItem>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
@@ -852,7 +920,6 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                       <TableHead className="w-12 font-bold text-[10px] uppercase tracking-wider text-slate-400 pl-6">#</TableHead>
                       <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400">Representative</TableHead>
                       <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Role</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Employee Code</TableHead>
                       <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">
                         <div className="flex items-center justify-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Streaks</div>
                       </TableHead>
@@ -863,24 +930,24 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-16">
+                        <TableCell colSpan={6} className="text-center py-16">
                           <Loader2 className="h-6 w-6 animate-spin text-violet-500 mx-auto mb-3" />
                           <span className="text-sm text-slate-400 font-medium">Loading roster...</span>
                         </TableCell>
                       </TableRow>
                     ) : filteredRoster.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-16 text-slate-400 font-medium">No representatives found.</TableCell>
+                        <TableCell colSpan={6} className="text-center py-16 text-slate-400 font-medium">No representatives found.</TableCell>
                       </TableRow>
                     ) : (
                       filteredRoster.map((member, idx) => (
-                        <TableRow key={member.id} className={`transition-colors ${!member.isactive ? 'opacity-50 grayscale-[0.4]' : 'hover:bg-violet-50/20'}`}>
+                        <TableRow key={member.id} className={`transition-colors ${!member.isactive ? 'bg-slate-50/80' : 'hover:bg-violet-50/20'}`}>
                           <TableCell className="text-slate-400 text-xs font-bold pl-6">{idx + 1}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-black uppercase shrink-0 ${member.isactive
-                                  ? 'bg-gradient-to-br from-violet-100 to-indigo-100 text-violet-700'
-                                  : 'bg-slate-100 text-slate-400'
+                                ? 'bg-gradient-to-br from-violet-100 to-indigo-100 text-violet-700'
+                                : 'bg-slate-100 text-slate-400'
                                 }`}>
                                 {member.name?.substring(0, 2) || '--'}
                               </div>
@@ -892,9 +959,6 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                           </TableCell>
                           <TableCell className="text-center">
                             <Badge className={`border-none text-[10px] ${getRoleBadgeClasses(member.role)}`}>{member.role}</Badge>
-                          </TableCell>
-                          <TableCell className="text-center text-xs font-semibold text-slate-500 font-mono">
-                            {member.employee_code || '—'}
                           </TableCell>
                           <TableCell className="text-center">
                             <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold ${(streaksMap[member.email] || 0) > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'text-slate-300'}`}>
@@ -912,7 +976,10 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-[10px] h-7 px-2 font-bold"
+                              className={`text-[10px] h-7 px-2 font-bold transition-colors ${member.isactive
+                                ? 'hover:bg-red-100 hover:text-red-600 hover:border-red-200'
+                                : 'hover:bg-emerald-100 hover:text-emerald-600 hover:border-emerald-200'
+                                }`}
                               onClick={() => setConfirmRep({ id: member.id, isActive: member.isactive, name: member.name })}
                             >
                               {member.isactive ? "Set Inactive" : "Set Active"}
@@ -1150,6 +1217,206 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* ==================== TAB: SLAB CONFIG ==================== */}
+        {activeTab === "slab-config" && (
+          <Card className="border-0 shadow-xl overflow-hidden ring-1 ring-slate-200/50 bg-white rounded-xl">
+            <CardHeader className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 text-white py-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-400/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
+              <div className="absolute top-0 right-[20%] w-[1px] h-full bg-gradient-to-b from-transparent via-white/10 to-transparent"></div>
+
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="flex items-center gap-5">
+                  <div className="p-4 rounded-2xl shadow-inner transition-colors duration-500 bg-white/10 border border-white/20">
+                    <Settings2 className="h-7 w-7 text-indigo-100" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-3 text-white">
+                      Edit Slab Rules
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold uppercase tracking-widest text-[10px]">Active Controls</Badge>
+                    </CardTitle>
+                    <p className="text-sm mt-1.5 font-medium max-w-lg leading-relaxed text-indigo-200/90">
+                      Slab Rules for {monthName}. Changes will implicitly propagate to future cycles.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <div className="p-6 md:p-8">
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                {/* Left Column: Role Selector & Quotas */}
+                <div className="xl:col-span-4 space-y-6">
+                  <Card className="border-0 shadow-sm ring-1 ring-slate-200 bg-white">
+                    <CardHeader className="py-4 border-b border-slate-100 bg-slate-50/40">
+                      <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2 uppercase tracking-widest">
+                        <Users className="h-4 w-4 text-indigo-500" /> Select Role to Configure
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="flex flex-wrap gap-2">
+                        {["BDT-P", "BDT", "BDA", "SBDA"].map(role => (
+                          <Button
+                            key={role}
+                            variant={selectedRoleConfig === role ? "default" : "outline"}
+                            className={selectedRoleConfig === role ? "bg-indigo-600 text-white" : "text-slate-600"}
+                            onClick={() => setSelectedRoleConfig(role)}
+                          >
+                            {role}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-sm ring-1 ring-slate-200 overflow-hidden bg-white">
+                    <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                    <CardHeader className="py-4 border-b border-slate-100 bg-slate-50/40">
+                      <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2 uppercase tracking-widest">
+                        <Target className="h-4 w-4 text-indigo-500" /> {selectedRoleConfig} Settings
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5 space-y-5">
+                      <div className="space-y-2 group">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center justify-between">
+                          Revenue Target <span className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">USD</span>
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold">$</div>
+                          <Input type="number"
+                            value={roleConfigs[selectedRoleConfig]?.target || 0}
+                            onChange={e => {
+                              setRoleConfigs(prev => ({
+                                ...prev,
+                                [selectedRoleConfig]: { ...prev[selectedRoleConfig], target: Number(e.target.value) }
+                              }))
+                            }}
+                            className="pl-7 bg-slate-50 border-slate-200 font-semibold focus-visible:ring-indigo-500 transition-all" />
+                        </div>
+                      </div>
+                      <div className="space-y-2 group">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center justify-between">
+                          Daily Bonus Threshold <span className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">USD</span>
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold">$</div>
+                          <Input type="number"
+                            value={roleConfigs[selectedRoleConfig]?.daily_bonus || 0}
+                            onChange={e => {
+                              setRoleConfigs(prev => ({
+                                ...prev,
+                                [selectedRoleConfig]: { ...prev[selectedRoleConfig], daily_bonus: Number(e.target.value) }
+                              }))
+                            }}
+                            className="pl-7 bg-slate-50 border-slate-200 font-semibold focus-visible:ring-indigo-500 transition-all" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Right Column: Dynamic Matrices */}
+                <div className="xl:col-span-8 flex flex-col gap-6">
+                  <Card className="border-0 shadow-sm ring-1 ring-slate-200 overflow-hidden bg-white flex-1 flex flex-col">
+                    <CardHeader className="py-4 border-b border-slate-100 bg-slate-50/40 flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2 uppercase tracking-widest">
+                          <TrendingUp className="h-4 w-4 text-indigo-500" /> {selectedRoleConfig} Incentive Matrix
+                        </CardTitle>
+                      </div>
+                      <Button size="sm"
+                        onClick={() => {
+                          setRoleConfigs(prev => {
+                            const conf = prev[selectedRoleConfig];
+                            return {
+                              ...prev,
+                              [selectedRoleConfig]: { ...conf, slabs: [{ threshold: 0, incentive: 0 }, ...(conf.slabs || [])] }
+                            }
+                          })
+                        }}
+                        className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 h-8 text-xs font-bold shadow-sm transition-all">
+                        <PlusCircle className="h-3.5 w-3.5 mr-1.5" /> Add Level
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 relative bg-slate-50/20">
+                      <div className="absolute inset-0 overflow-y-auto custom-scrollbar p-5 space-y-3">
+                        {(!roleConfigs[selectedRoleConfig]?.slabs || roleConfigs[selectedRoleConfig].slabs.length === 0) ? (
+                          <div className="flex flex-col items-center justify-center py-10 text-center opacity-60">
+                            <Users className="h-10 w-10 text-slate-400 mb-3" />
+                            <p className="text-sm font-semibold text-slate-500">No calculation tiers found for {selectedRoleConfig}.</p>
+                            <p className="text-xs text-slate-400">Add a level to define rules.</p>
+                          </div>
+                        ) : (
+                          roleConfigs[selectedRoleConfig].slabs.map((slab, index) => (
+                            <div key={`slab-${index}`} className="flex flex-wrap md:flex-nowrap gap-3 items-center bg-white p-3 rounded-xl border border-slate-200 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] hover:border-indigo-300 hover:shadow-indigo-100 transition-all duration-300 group">
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1 block mb-1">Gate (USD)</label>
+                                <div className="relative">
+                                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 font-bold text-xs">$</div>
+                                  <Input type="number" value={slab.threshold} onChange={(e) => {
+                                    setRoleConfigs(prev => {
+                                      const conf = prev[selectedRoleConfig];
+                                      const newSlabs = [...conf.slabs];
+                                      newSlabs[index].threshold = Number(e.target.value);
+                                      return { ...prev, [selectedRoleConfig]: { ...conf, slabs: newSlabs } };
+                                    });
+                                  }} className="h-9 font-semibold pl-6 bg-slate-50 group-hover:bg-white transition-colors" />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-center px-1 opacity-50"><ArrowRight className="h-4 w-4 text-slate-400" /></div>
+                              <div className="flex-[1.5] min-w-[140px]">
+                                <label className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest pl-1 block mb-1">Grant (INR)</label>
+                                <div className="relative">
+                                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-emerald-600/60 font-bold text-xs">₹</div>
+                                  <Input type="number" value={slab.incentive} onChange={(e) => {
+                                    setRoleConfigs(prev => {
+                                      const conf = prev[selectedRoleConfig];
+                                      const newSlabs = [...conf.slabs];
+                                      newSlabs[index].incentive = Number(e.target.value);
+                                      return { ...prev, [selectedRoleConfig]: { ...conf, slabs: newSlabs } };
+                                    });
+                                  }} className="h-9 border-emerald-200 focus-visible:ring-emerald-500 bg-emerald-50/40 text-emerald-800 font-bold pl-6 transition-colors group-hover:bg-emerald-50/80" />
+                                </div>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => {
+                                setRoleConfigs(prev => {
+                                  const conf = prev[selectedRoleConfig];
+                                  const newSlabs = conf.slabs.filter((_, i) => i !== index);
+                                  return { ...prev, [selectedRoleConfig]: { ...conf, slabs: newSlabs } };
+                                });
+                              }} className="mt-4 md:mt-0 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors h-9 w-9 rounded-lg"><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Footer */}
+            <div className="bg-slate-100/80 border-t border-slate-200 p-5 px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-sm font-semibold text-slate-500 flex items-center gap-2">
+                <LockOpen className="h-4 w-4 text-emerald-500" />
+                Rule changes instantly lock into <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md font-bold">{monthName}</span>.
+              </div>
+              <Button
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 px-8 h-12 text-md rounded-xl shadow-lg shadow-indigo-600/30 transition-all hover:-translate-y-0.5"
+                onClick={saveFinancialSettings}
+                disabled={configSaving}
+              >
+                {configSaving ? <Flame className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                {configSaving ? "Committing... it takes some time to change the settings." : "Commit Financial Engine"}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* SUBMISSION FORMS TAB */}
+        {activeTab === "submission-forms" && (
+          <SubmissionFormsPanel />
         )}
       </div>
     </div>

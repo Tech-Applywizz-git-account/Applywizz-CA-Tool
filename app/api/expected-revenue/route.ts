@@ -37,7 +37,7 @@ const getShiftDate = (closedAtStr: string, shiftTimeStr: string) => {
             year = dateParts[0];
             month = dateParts[1];
             day = dateParts[2];
-            const timeParts = timePart.replace(/[Z+].*/,'').split(':').map(Number);
+            const timeParts = timePart.replace(/[Z+].*/, '').split(':').map(Number);
             hours = timeParts[0];
             minutes = timeParts[1] || 0;
         } else if (str.includes('/')) {
@@ -119,7 +119,7 @@ async function getCrmSales(email: string, year: number, month: number): Promise<
     }
     const key = `${email}|${year}-${month}`;
     if (crmCache.has(key)) return crmCache.get(key)!;
-    
+
     try {
         const url = `${crmBase}/api/sales-report?email=${encodeURIComponent(email)}&month=${month}&year=${year}`;
         const crmRes = await fetch(url);
@@ -145,7 +145,7 @@ function getIstTime() {
 
 function needsCrmSync(e: any, istNow: Date) {
     const [year, month, day] = e.shift_date.split("-").map(Number);
-    
+
     // Create shift start/end precisely in IST
     const shiftStartTime = new Date(`${e.shift_date}T20:00:00+05:30`);
     const shiftEndTime = new Date(shiftStartTime.getTime() + 24 * 60 * 60 * 1000); // 24 hours later
@@ -154,7 +154,7 @@ function needsCrmSync(e: any, istNow: Date) {
 
     // If shift hasn't started yet, no need to sync
     if (nowTime < shiftStartTime.getTime()) return false;
-    
+
     // If already verified AND has actual sales data populated, no need to sync again
     // UNLESS granular data is missing
     if (nowTime > shiftEndTime.getTime() && e.verified) {
@@ -171,6 +171,14 @@ function needsCrmSync(e: any, istNow: Date) {
             const minsSinceSync = (nowTime - lastSync) / (1000 * 60);
             if (minsSinceSync >= 30) return true; // Re-check every 30 mins even if verified
         }
+        // Force re-sync if no actual sales were found and it's within 48 hours of shift end (catches late CRM entries)
+        const hoursSinceShiftEnd = (nowTime - shiftEndTime.getTime()) / (1000 * 60 * 60);
+        if ((!e.actual_awl_ids || e.actual_awl_ids.length === 0) && hoursSinceShiftEnd < 48) {
+            if (!e.verified_at) return true;
+            const lastSync = new Date(e.verified_at).getTime();
+            const minsSinceSync = (nowTime - lastSync) / (1000 * 60);
+            if (minsSinceSync >= 60) return true; // Re-check every hour
+        }
         return false;
     }
 
@@ -178,19 +186,19 @@ function needsCrmSync(e: any, istNow: Date) {
     // This applies to ALL entries: with or without predictions
     if (nowTime > shiftEndTime.getTime() && !e.verified) return true;
 
-    // During active shift: sync every 5 minutes
+    // During active shift: sync every 15 minutes
     // This applies to ALL entries: with or without predictions
     if (!e.verified_at) return true;
     const lastSync = new Date(e.verified_at);
     const minsSinceSync = (nowTime - lastSync.getTime()) / (1000 * 60);
-    return minsSinceSync >= 5;
+    return minsSinceSync >= 15;
 }
 
 function isShiftOver(shift_date: string, istNow: Date) {
     // shift_date is YYYY-MM-DD. Shift starts at 8:00 PM (20:00) IST.
     // Shift ends exactly 24 hours later.
     const shiftStartTime = new Date(`${shift_date}T20:00:00+05:30`);
-    const shiftEndTime = new Date(shiftStartTime.getTime() + 24 * 60 * 60 * 1000); 
+    const shiftEndTime = new Date(shiftStartTime.getTime() + 24 * 60 * 60 * 1000);
     return istNow > shiftEndTime;
 }
 
@@ -215,7 +223,7 @@ async function verifyWithCachedCrm(entry: any, cachedSales: any[], shiftTime: st
                     crmAwlIds.push(String(id).trim().toUpperCase());
                     actualRevenue += val;
                     actualSalesData.push({ awl_id: String(id).trim().toUpperCase(), revenue: val });
-                    
+
                     if (!lastActualSaleTime || new Date(saleCloseAt) > new Date(lastActualSaleTime)) {
                         lastActualSaleTime = saleCloseAt;
                     }
@@ -232,7 +240,7 @@ async function verifyWithCachedCrm(entry: any, cachedSales: any[], shiftTime: st
             const normId = normalizeId(rawId);
             return crmAwlIdsNormalized.includes(normId);
         });
-        
+
         // Streak count is simply the number of matched predicted sales
         const streakCount = matchedIds.length;
 
@@ -268,7 +276,7 @@ async function batchAutoVerifyEmpty(entries: any[], istNow: Date) {
         // AND no actual sales were found during that sync
         if (!e.verified_at && !e.has_revenue) return true; // Never synced and no predictions
         if (e.actual_awl_ids && e.actual_awl_ids.length > 0) return false;
-        
+
         const shiftStartTime = new Date(`${e.shift_date}T20:00:00+05:30`);
         const shiftEndTime = new Date(shiftStartTime.getTime() + 24 * 60 * 60 * 1000);
         return istNow > shiftEndTime;
@@ -421,7 +429,7 @@ async function optimizedSync(entries: any[], monthFilter?: string, requestedEmai
 
     // 4. Now process each entry using cached CRM data (no more external calls)
     const entryMap = new Map(allEntries.map(e => [`${e.email}|${e.shift_date}`, e]));
-    
+
     // Process entries with concurrency limit for DB updates
     const updatePromises: Promise<any>[] = [];
     for (const [email, repEntries] of byEmail) {
@@ -436,7 +444,7 @@ async function optimizedSync(entries: any[], monthFilter?: string, requestedEmai
             );
         }
     }
-    
+
     // Run DB updates with concurrency limit of 5
     const chunks = [];
     for (let i = 0; i < updatePromises.length; i += 5) {
@@ -587,7 +595,7 @@ export async function POST(req: Request) {
 
         // Enforce dynamic 2-hour edit window from shift start
         const hours = istNow.getHours();
-        
+
         const endHour = shiftHour + 2;
         if (hours < shiftHour || hours >= endHour) {
             return NextResponse.json({

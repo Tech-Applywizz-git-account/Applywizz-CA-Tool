@@ -116,31 +116,9 @@ export async function GET(req: Request) {
         // --- 2. FRESH SALES VERIFICATION ---
         // A sale is "fresh" if it's the FIRST sale for that lead_id ever.
         const allFetchedSales = crmSalesResult.data || [];
-        const currentMonthSales = allFetchedSales.filter((s: any) => parseFloat(s.sale_value || s.application_sale_value || '0') > 0);
-        const uniqueLeadIdsInMonth = Array.from(new Set(currentMonthSales.map((s: any) => s.lead_id)));
 
-        // Historical Audit: Check for ANY prior sales for these lead_ids
-        let leadsWithPriorHistory = new Set<string>();
-        if (uniqueLeadIdsInMonth.length > 0) {
-            const { data: historicalData } = await supabaseCRM.from("sales_closure")
-                .select("lead_id")
-                .in("lead_id", uniqueLeadIdsInMonth)
-                .lt("closed_at", startISO);
-
-            if (historicalData) {
-                historicalData.forEach(h => leadsWithPriorHistory.add(h.lead_id));
-            }
-        }
-
-        // Count as fresh if no prior history
-        let freshSalesCount = 0;
-        const processedLeadsInBatch = new Set();
-        currentMonthSales.forEach((sale: any) => {
-            if (!leadsWithPriorHistory.has(sale.lead_id) && !processedLeadsInBatch.has(sale.lead_id)) {
-                freshSalesCount++;
-                processedLeadsInBatch.add(sale.lead_id);
-            }
-        });
+        // REMOVED APPLYWIZZ SALES AS REQUESTED BY USER
+        const freshSalesCount = 0;
 
         // --- 3. JB SALES CALCULATION ---
         const jbRaw = jbMonthTransactions.data || [];
