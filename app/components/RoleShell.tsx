@@ -11,9 +11,13 @@ type RoleShellProps = {
 
 export default function RoleShell({ basePath, children }: RoleShellProps) {
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <Sidebar basePath={basePath} />
-      <main className="flex-1 p-4 overflow-x-hidden">{children}</main>
+    <div className="min-h-screen bg-slate-50">
+      <div>
+        <div className="flex">
+          <Sidebar basePath={basePath} />
+          <main className="flex-1 p-4">{children}</main>
+        </div>
+      </div>
     </div>
   )
 }

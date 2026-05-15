@@ -1,18 +1,3 @@
-// "use client"
-// import ClientsList from "@/app/components/ClientsList"
-// import Sidebar from "@/app/components/Sidebar"
-
-// export default function COOActiveClientsPage() {
-//   return (
-//     <div className="min-h-screen flex">
-//       <Sidebar basePath="/coo-dashboard" />
-//       <main className="flex-1 bg-slate-50 p-4">
-//         <ClientsList clientLinkPrefix="/coo-dashboard/client/"  clientLinkPrefix="/coo-dashboard/client/"  title="Clients Information — COO" initialActive="active" />
-//       </main>
-//     </div>
-//   )
-// }
-
 // app/coo-dashboard/clients/active/page.tsx
 import RoleShell from "@/app/components/RoleShell"
 import ClientsList from "@/app/components/ClientsList"
