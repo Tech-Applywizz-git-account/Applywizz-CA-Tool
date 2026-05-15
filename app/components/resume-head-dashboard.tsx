@@ -41,11 +41,11 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
   const [totalForageUsd, setTotalForageUsd] = useState<number>(0)
   const [totalIncentiveInr, setTotalIncentiveInr] = useState<number>(0)
   const [globalActiveRepsCount, setGlobalActiveRepsCount] = useState<number>(0)
-  
+
   const [resumeData, setResumeData] = useState<any[]>([])
   const [forageSalesData, setForageSalesData] = useState<any[]>([])
   const [backendInsights, setBackendInsights] = useState<any[]>([])
-  
+
   // Rules
   const [resumeRate, setResumeRate] = useState<string>("80")
   const [baselineTarget, setBaselineTarget] = useState<number>(0)
@@ -98,7 +98,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
             const emailKey = u.email ? u.email.toLowerCase() : ""
             const insight = insightsData.find((ins: any) => ins.email === emailKey) || {}
             const isTraineeRep = (u.designation || "").toLowerCase().includes("trainee") || (u.role || "").toLowerCase().includes("trainee")
-            
+
             return {
               id: u.id,
               name: u.name || u.email,
@@ -246,7 +246,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
   // --- UI Components ---
   const overviewStatCards = (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <Card 
+      <Card
         onClick={() => setActiveTab("roster")}
         className="hover:shadow-lg transition-all duration-300 relative overflow-hidden group border-slate-200/60 bg-white cursor-pointer"
       >
@@ -263,7 +263,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
         </CardContent>
       </Card>
 
-      <Card 
+      <Card
         onClick={() => {
           setActiveTab("tracker")
           setTimeout(() => document.getElementById("resumes-log")?.scrollIntoView({ behavior: "smooth" }), 100)
@@ -283,7 +283,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
         </CardContent>
       </Card>
 
-      <Card 
+      <Card
         onClick={() => {
           setActiveTab("tracker")
           setTimeout(() => document.getElementById("forage-log")?.scrollIntoView({ behavior: "smooth" }), 100)
@@ -303,18 +303,18 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
         </CardContent>
       </Card>
 
-      <Card 
+      <Card
         onClick={() => setActiveTab("leaderboard")}
         className="hover:shadow-lg transition-all duration-300 relative overflow-hidden group bg-gradient-to-br from-indigo-50 via-white to-blue-50/50 border-blue-200 cursor-pointer"
       >
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
         <CardHeader className="flex flex-row items-center justify-between pb-1 bg-transparent relative z-10">
           <CardTitle className="text-[11px] font-extrabold text-blue-800 uppercase tracking-widest">Master Pool Yield</CardTitle>
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               setShowYield(!showYield);
-            }} 
+            }}
             className="text-blue-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-blue-50"
           >
             {showYield ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -348,7 +348,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
               <h1 className="text-lg font-black text-slate-800 tracking-tight leading-tight">Resume Head Command Center</h1>
               <p className="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
                 <Activity className="h-3 w-3 text-emerald-500" />
-                Monitoring {activeReps.length + activeTrainees.length} active member{ (activeReps.length + activeTrainees.length) !== 1 ? 's' : ''}
+                Monitoring {activeReps.length + activeTrainees.length} active member{(activeReps.length + activeTrainees.length) !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -394,8 +394,8 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all whitespace-nowrap ${activeTab === tab.id
-                    ? 'bg-white text-indigo-600 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] border border-b-0 border-slate-200/60'
-                    : 'text-slate-400 hover:text-slate-600 hover:bg-white/40'
+                  ? 'bg-white text-indigo-600 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] border border-b-0 border-slate-200/60'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/40'
                   }`}
               >
                 <tab.icon className="h-3.5 w-3.5" />
@@ -408,7 +408,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
 
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6 animate-in fade-in duration-500">
-        
+
         {/* Toggle Modal */}
         <Dialog open={!!confirmRep} onOpenChange={() => setConfirmRep(null)}>
           <DialogContent>
@@ -451,7 +451,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
             {activeTab === "overview" && (
               <div className="space-y-6">
                 {overviewStatCards}
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <Card className="border-0 shadow-xl ring-1 ring-slate-200/50 bg-white overflow-hidden lg:col-span-1">
                     <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 to-indigo-500" />
@@ -505,13 +505,13 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                         </TableHeader>
                         <TableBody>
                           {leaderboardReps.slice(0, 4).map((rep, idx) => (
-                             <TableRow key={rep.id}>
-                               <TableCell className="text-center font-bold text-slate-500">{idx + 1}</TableCell>
-                               <TableCell className="font-semibold text-slate-700">{rep.name}</TableCell>
-                               <TableCell className="text-center"><Badge variant="secondary" className="shadow-none">{rep.completedResumes}</Badge></TableCell>
-                               <TableCell className="text-center"><Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 shadow-none">${rep.forageSalesUsd}</Badge></TableCell>
-                               <TableCell className="text-right pr-6 font-bold text-indigo-600">₹{rep.totalCombinedInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                             </TableRow>
+                            <TableRow key={rep.id}>
+                              <TableCell className="text-center font-bold text-slate-500">{idx + 1}</TableCell>
+                              <TableCell className="font-semibold text-slate-700">{rep.name}</TableCell>
+                              <TableCell className="text-center"><Badge variant="secondary" className="shadow-none">{rep.completedResumes}</Badge></TableCell>
+                              <TableCell className="text-center"><Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 shadow-none">${rep.forageSalesUsd}</Badge></TableCell>
+                              <TableCell className="text-right pr-6 font-bold text-indigo-600">₹{rep.totalCombinedInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                            </TableRow>
                           ))}
                           {leaderboardReps.length === 0 && (
                             <TableRow><TableCell colSpan={5} className="text-center py-8 text-slate-400">No active members yet.</TableCell></TableRow>
@@ -586,7 +586,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                     </TableHeader>
                     <TableBody>
                       {leaderboardReps.length === 0 ? (
-                         <TableRow><TableCell colSpan={5} className="text-center py-12 text-slate-500">No active resume reps found.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="text-center py-12 text-slate-500">No active resume reps found.</TableCell></TableRow>
                       ) : (
                         leaderboardReps.map((rep, idx) => (
                           <TableRow key={rep.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
@@ -633,8 +633,8 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                     <button
                       onClick={() => setTrackerSubTab("resumes")}
                       className={`px-6 py-2 text-xs font-black uppercase tracking-widest rounded-md transition-all ${trackerSubTab === "resumes"
-                          ? "bg-white text-indigo-600 shadow-sm"
-                          : "text-slate-400 hover:text-slate-600"
+                        ? "bg-white text-indigo-600 shadow-sm"
+                        : "text-slate-400 hover:text-slate-600"
                         }`}
                     >
                       Resume Registry
@@ -642,8 +642,8 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                     <button
                       onClick={() => setTrackerSubTab("forage")}
                       className={`px-6 py-2 text-xs font-black uppercase tracking-widest rounded-md transition-all ${trackerSubTab === "forage"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "text-slate-400 hover:text-slate-600"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-slate-600"
                         }`}
                     >
                       Forage Certificates
@@ -712,11 +712,13 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                           ) : (
                             filteredForageSales.map((row, i) => {
                               const fInfo = row.forage_info?.[0] || {};
+                              const certs = row.forage_internship_certification || fInfo.forage_internship_certification || '0';
+                              const soldValue = fInfo.forage_sold_value || row.forage_internship_sale_value || '0';
                               return (
                                 <TableRow key={i} className="hover:bg-slate-50 border-b border-slate-50">
                                   <TableCell className="pl-6 text-sm font-semibold text-slate-700">{fInfo.forage_sold_by_email || 'Unknown'}</TableCell>
-                                  <TableCell><Badge className="bg-indigo-50 text-indigo-600 border-0">{fInfo.forage_internship_certification || '0'} Certs</Badge></TableCell>
-                                  <TableCell className="text-sm font-bold text-slate-700">${fInfo.forage_sold_value || '0'}</TableCell>
+                                  <TableCell><Badge className="bg-indigo-50 text-indigo-600 border-0">{certs} Certs</Badge></TableCell>
+                                  <TableCell className="text-sm font-bold text-slate-700">${soldValue}</TableCell>
                                   <TableCell className="text-right pr-6 text-xs text-slate-500">{new Date(row.closed_at).toLocaleDateString()}</TableCell>
                                 </TableRow>
                               )
@@ -759,7 +761,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                       </TableHeader>
                       <TableBody>
                         {activeReps.length === 0 ? (
-                           <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400">No active members found.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400">No active members found.</TableCell></TableRow>
                         ) : (
                           activeReps.map((rep) => (
                             <TableRow key={rep.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
@@ -811,7 +813,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                       </TableHeader>
                       <TableBody>
                         {activeTrainees.length === 0 ? (
-                           <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400">No active trainees found.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400">No active trainees found.</TableCell></TableRow>
                         ) : (
                           activeTrainees.map((rep) => (
                             <TableRow key={rep.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50">

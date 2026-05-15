@@ -490,7 +490,8 @@ export function TechHeadDashboard({ user, onLogout }: TechHeadDashboardProps) {
                           <TableRow>
                             <TableHead className="w-16 text-center text-xs">Rank</TableHead>
                             <TableHead className="text-xs">Associate</TableHead>
-                            <TableHead className="text-center text-xs">Total Tasks</TableHead>
+                            <TableHead className="text-center text-xs">Portfolios</TableHead>
+                            <TableHead className="text-center text-xs">Githubs</TableHead>
                             <TableHead className="text-center text-xs">Git Sales</TableHead>
                             <TableHead className="text-right pr-6 text-xs">Yield</TableHead>
                           </TableRow>
@@ -500,7 +501,8 @@ export function TechHeadDashboard({ user, onLogout }: TechHeadDashboardProps) {
                              <TableRow key={rep.id}>
                                <TableCell className="text-center font-bold text-slate-500">{idx + 1}</TableCell>
                                <TableCell className="font-semibold text-slate-700">{rep.name}</TableCell>
-                               <TableCell className="text-center"><Badge variant="secondary" className="shadow-none">{rep.totalTasks}</Badge></TableCell>
+                               <TableCell className="text-center"><Badge variant="secondary" className="shadow-none">{rep.completedPortfolios}</Badge></TableCell>
+                               <TableCell className="text-center"><Badge variant="secondary" className="shadow-none">{rep.completedGithubs}</Badge></TableCell>
                                <TableCell className="text-center"><Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 shadow-none">{rep.salesCount}</Badge></TableCell>
                                <TableCell className="text-right pr-6 font-bold text-indigo-600">₹{rep.totalCombinedInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                              </TableRow>

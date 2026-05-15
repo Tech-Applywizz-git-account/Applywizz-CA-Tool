@@ -499,6 +499,8 @@ export function CROSalesDashboard({ basePath, user, onLogout }: CROSalesDashboar
     return b.overAchieverCount - a.overAchieverCount;
   });
 
+  const totalRevenueActiveReps = leaderboardReps.reduce((sum, rep) => sum + (rep.totalRevenue || 0), 0);
+
   const renderRepTable = (reps: any[], emptyMsg: string, isInactive: boolean = false) => (
     <div className="overflow-x-auto">
       <Table>
@@ -753,7 +755,7 @@ export function CROSalesDashboard({ basePath, user, onLogout }: CROSalesDashboar
         </Card>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Total Sales Reps</CardTitle>
@@ -774,6 +776,19 @@ export function CROSalesDashboard({ basePath, user, onLogout }: CROSalesDashboar
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-slate-800">{salesReps.filter(r => r.isactive).length}</div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:shadow-md transition-shadow cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/10"
+            onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">Total Revenue (Active sales rep only)</CardTitle>
+              <DollarSign className="h-4 w-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-800">${totalRevenueActiveReps.toLocaleString()}</div>
             </CardContent>
           </Card>
 
