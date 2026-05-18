@@ -1,18 +1,3 @@
-//app/coo-dashboard/clients/page.tsx
-
-// "use client"
-
-// import RoleShell from "../../components/RoleShell"
-// import ClientsList from "../../components/ClientsList"
-
-// export default function COOClientsPage() {
-//   return (
-//     <RoleShell basePath="/coo-dashboard">
-//       <ClientsList clientLinkPrefix="/coo-dashboard/client/"  clientLinkPrefix="/coo-dashboard/client/"  title="Clients Information — COO" />
-//     </RoleShell>
-//   )
-// }
-
 // app/coo-dashboard/clients/page.tsx
 import RoleShell from "@/app/components/RoleShell"
 import ClientsList from "@/app/components/ClientsList"

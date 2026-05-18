@@ -467,7 +467,7 @@ const { data, error } = await supabase
       const { data: teamData } = await supabase
         .from("users")
         .select("id, name, email")
-        .or("role.eq.Junior CA,role.eq.CA,role.eq.Career Associative Trainee")
+        .or("role.eq.Junior CA,role.eq.CA,role.eq.Trainee,role.eq.Career Associative Trainee")
         .order("name", { ascending: true })
       // .eq("team_id", user.team_id)
       // .neq("id", user.id)
@@ -663,7 +663,7 @@ const { data, error } = await supabase
         {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">🧭 ApplyWizz CA Performance Tracker</h1>
+            <h1 className="text-3xl font-bold text-slate-900">CA Dashboard</h1>
             <p className="text-slate-600">Welcome back, {user.name}!</p>
           </div>
 

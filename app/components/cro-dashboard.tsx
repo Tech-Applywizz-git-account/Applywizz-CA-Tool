@@ -44,6 +44,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
   const [expandedCA, setExpandedCA] = useState<string | null>(null)
   const [caClients, setCaClients] = useState<Record<string, any[]>>({})
+  const [workHistoryKPIs, setWorkHistoryKPIs] = useState<{ totalClients: number, activeClients: number, pausedClients: number, submittedClients: number, missedToday: number } | null>(null)
 
   const [isResetting, setIsResetting] = useState(false)
   const [resetMsg, setResetMsg] = useState<string>("")
@@ -125,11 +126,11 @@ useEffect(() => {
       }
 
       const { data, error } = await query
-     if (!error && data) {
-    // Sort CAs by `isactive` (active first, then inactive)
-    const sortedCAs = data.sort((a, b) => (a.isactive === b.isactive ? 0 : a.isactive ? -1 : 1))
-    setCas(sortedCAs) // Update the state with sorted CAs
-  }
+      if (!error && data) {
+        // Sort CAs by `isactive` (active first, then inactive)
+        const sortedCAs = data.sort((a, b) => (a.isactive === b.isactive ? 0 : a.isactive ? -1 : 1))
+        setCas(sortedCAs) // Update the state with sorted CAs
+      }
       setLoading(false)
     }
     fetchCAs()
@@ -232,6 +233,32 @@ useEffect(() => {
       const workingDays = [...new Set(data2?.map(item => item.date))].length;
       console.log('bhan', workingDays)
 
+      if (dateFrom !== today || dateTo !== today) {
+        let hTotal = 0;
+        let hActive = 0;
+        let hPaused = 0;
+        let hSubmitted = 0;
+        let hMissed = 0;
+
+        data1?.forEach((row: any) => {
+          if (row.completed_profiles && Array.isArray(row.completed_profiles)) {
+            row.completed_profiles.forEach((profile: any) => {
+              hTotal++;
+              if (profile.status === "Paused" || profile.is_active === false) {
+                hPaused++;
+              } else {
+                hActive++;
+              }
+              if (profile.status === "Completed") hSubmitted++;
+              if (profile.status === "Started" && (profile.jobs_applied ?? 0) === 0) hMissed++;
+            });
+          }
+        });
+        setWorkHistoryKPIs({ totalClients: hTotal, activeClients: hActive, pausedClients: hPaused, submittedClients: hSubmitted, missedToday: hMissed });
+      } else {
+        setWorkHistoryKPIs(null);
+      }
+
 
 
       // Aggregate results
@@ -276,21 +303,21 @@ useEffect(() => {
   }, [cas, dateFrom, dateTo])
 
 
-const fetchClientsForCA = async (caId: string) => {
+  const fetchClientsForCA = async (caId: string) => {
 
-    console.log(`Current expandedCA: ${expandedCA}, Toggling for CA ID: ${caId}`); 
-  if (caClients[caId]) {
-    setExpandedCA(expandedCA === caId ? null : caId);
-    return;
-  }
-  const { data, error } = await supabase.from("clients").select("*").eq("assigned_ca_id", caId);
-  if (error) {
-    console.error("Error fetching clients:", error);
-    return;
-  }
-  setCaClients((prev) => ({ ...prev, [caId]: data || [] }));
-  setExpandedCA(caId);
-};
+    console.log(`Current expandedCA: ${expandedCA}, Toggling for CA ID: ${caId}`);
+    if (caClients[caId]) {
+      setExpandedCA(expandedCA === caId ? null : caId);
+      return;
+    }
+    const { data, error } = await supabase.from("clients").select("*").eq("assigned_ca_id", caId);
+    if (error) {
+      console.error("Error fetching clients:", error);
+      return;
+    }
+    setCaClients((prev) => ({ ...prev, [caId]: data || [] }));
+    setExpandedCA(caId);
+  };
 
 
   // Add this directly under fetchClientsForCA(...)
@@ -373,13 +400,14 @@ const fetchClientsForCA = async (caId: string) => {
 
   // --- KPI Calculations (team-aware via visibleClients) ---
   // --- KPI Calculations (team-aware via visibleClients) ---
-const totalCAs = cas.filter(ca => ca.isactive).length
+  const totalCAs = cas.filter(ca => ca.isactive).length
 
-  const totalClients = visibleClients.length
-  const pausedClients = visibleClients.filter((c) => c.is_active === false).length
-  const activeClients = visibleClients.filter((c) => c.is_active === true).length
-  const submittedClients = visibleClients.filter((c) => c.status === "Completed").length
-  const missedToday = visibleClients.filter((c) => c.status === "Started" && (c.jobs_applied ?? 0) === 0).length
+  const isHistorical = dateFrom !== new Date().toISOString().split("T")[0] || dateTo !== new Date().toISOString().split("T")[0]
+  const totalClients = isHistorical && workHistoryKPIs ? workHistoryKPIs.totalClients : visibleClients.length
+  const pausedClients = isHistorical && workHistoryKPIs ? workHistoryKPIs.pausedClients : visibleClients.filter((c) => c.is_active === false).length
+  const activeClients = isHistorical && workHistoryKPIs ? workHistoryKPIs.activeClients : visibleClients.filter((c) => c.is_active === true).length
+  const submittedClients = isHistorical && workHistoryKPIs ? workHistoryKPIs.submittedClients : visibleClients.filter((c) => c.status === "Completed").length
+  const missedToday = isHistorical && workHistoryKPIs ? workHistoryKPIs.missedToday : visibleClients.filter((c) => c.status === "Started" && (c.jobs_applied ?? 0) === 0).length
   const submissionRate = activeClients > 0
     ? Math.round((submittedClients / activeClients) * 100)
     : 0
