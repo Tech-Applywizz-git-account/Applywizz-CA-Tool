@@ -64,6 +64,19 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   const [selectedClient, setSelectedClient] = useState<any>(null)
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [actionClient, setActionClient] = useState<any>(null)
+  const [actionDialogOpen, setActionDialogOpen] = useState(false)
+  const [actionEmail, setActionEmail] = useState("")
+  const [assessmentType, setAssessmentType] = useState<string>("")
+  const [emailSubject, setEmailSubject] = useState("")
+  const [emailBody, setEmailBody] = useState("")
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false)
+  const [companyName, setCompanyName] = useState("")
+  const [jobRole, setJobRole] = useState("")
+  const [appliedDate, setAppliedDate] = useState("")
+  const [assessmentReceivedDate, setAssessmentReceivedDate] = useState("")
+  const [emailUrl, setEmailUrl] = useState("")
   const [trackingMode, setTrackingMode] = useState<"daily" | "monthly">("daily")
   const today = new Date().toISOString().split("T")[0]
   const [dateFrom, setDateFrom] = useState(today)
@@ -594,6 +607,91 @@ const { data, error } = await supabase
     alert("Status updated successfully!");
   };
 
+  const handleActionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!actionClient) return;
+    if (
+      !actionEmail ||
+      !assessmentType ||
+      !emailSubject ||
+      !emailBody ||
+      !appliedDate ||
+      !assessmentReceivedDate ||
+      !screenshotFile ||
+      !emailUrl
+    ) {
+      alert("Please fill all the required fields.");
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    let screenshotUrl = "";
+
+    try {
+      if (screenshotFile) {
+        const fileExt = screenshotFile.name.split(".").pop();
+        const fileName = `${actionClient.id}-${Date.now()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("assessment-screenshots")
+          .upload(fileName, screenshotFile);
+
+        if (uploadError) {
+          throw new Error(`Failed to upload screenshot: ${uploadError.message}`);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("assessment-screenshots")
+          .getPublicUrl(fileName);
+
+        screenshotUrl = publicUrlData.publicUrl;
+      }
+
+      // Insert record into client_assessments table
+      const { error: insertError } = await supabase
+        .from("client_assessments")
+        .insert({
+          client_id: actionClient.id,
+          applywizz_id: actionClient.applywizz_id || null,
+          client_email: actionEmail,
+          assessment_type: assessmentType,
+          email_subject: emailSubject,
+          email_body: emailBody,
+          screenshot_url: screenshotUrl || null,
+          company_name: companyName || null,
+          job_role: jobRole || null,
+          applied_date: appliedDate || null,
+          assessment_received_date: assessmentReceivedDate || null,
+          email_url: emailUrl || null,
+          created_by: user.id,
+          ca_name: user.name,
+          ca_email: user.email
+        });
+
+      if (insertError) {
+        throw new Error(`Failed to save action record: ${insertError.message}`);
+      }
+
+      alert("Client action recorded successfully!");
+      setActionDialogOpen(false);
+      // Reset form state
+      setAssessmentType("");
+      setEmailSubject("");
+      setEmailBody("");
+      setScreenshotFile(null);
+      setCompanyName("");
+      setJobRole("");
+      setAppliedDate("");
+      setAssessmentReceivedDate("");
+      setEmailUrl("");
+    } catch (err: any) {
+      alert(err.message || "An unexpected error occurred.");
+      console.error(err);
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
   // Sum of incentives from work_history for the active CA and month
   const monthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
     const v = Number(r?.incentives ?? 0)
@@ -1044,7 +1142,7 @@ const { data, error } = await supabase
                         {calcDurationLabel(client.start_time, client.end_time)}
                       </TableCell>
                       {!viewerMode ? (
-                        <TableCell>
+                        <TableCell className="space-x-2">
                           <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
                             <DialogTrigger asChild>
                               <Button
@@ -1064,6 +1162,25 @@ const { data, error } = await supabase
                               <StatusUpdateForm client={selectedClient} onUpdate={handleStatusUpdate} />
                             </DialogContent>
                           </Dialog>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
+                            onClick={() => {
+                              setActionClient(client)
+                              setActionEmail(client.email || "")
+                              setAssessmentType("")
+                              setEmailSubject("")
+                              setEmailBody("")
+                              setScreenshotFile(null)
+                              setEmailUrl("")
+                              setActionDialogOpen(true)
+                            }}
+                            disabled={client.is_active === false}
+                            title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : "Manage Assessments/Interviews"}
+                          >
+                            Action
+                          </Button>
                         </TableCell>
                       ) : null}
                     </TableRow>
@@ -1198,6 +1315,188 @@ const { data, error } = await supabase
           </Card>
         </PermissionOverlay>
       </div>
+
+      {/* Action Dialog Form */}
+      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+        <DialogContent className="bg-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Record Client Action</DialogTitle>
+          </DialogHeader>
+          {actionClient && (
+            <form onSubmit={handleActionSubmit} className="space-y-4 mt-2 max-h-[70vh] overflow-y-auto pr-2">
+              <div>
+                <Label htmlFor="action-email" className="text-sm font-medium">
+                  Client Email
+                </Label>
+                <Input
+                  id="action-email"
+                  type="email"
+                  value={actionEmail}
+                  onChange={(e) => setActionEmail(e.target.value)}
+                  placeholder="Enter client email"
+                  className="mt-1"
+                  disabled
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="assessment-type" className="text-sm font-medium">
+                  Assessment Type
+                </Label>
+                <Select value={assessmentType} onValueChange={setAssessmentType}>
+                  <SelectTrigger className="w-full mt-1" id="assessment-type">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="interview">Interview</SelectItem>
+                    <SelectItem value="assessment">Assessment</SelectItem>
+                    <SelectItem value="screening_call">Screening call</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {assessmentType && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="company-name" className="text-sm font-medium">
+                        Company Name
+                      </Label>
+                      <Input
+                        id="company-name"
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="e.g. Google"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="job-role" className="text-sm font-medium">
+                        Job Role
+                      </Label>
+                      <Input
+                        id="job-role"
+                        type="text"
+                        value={jobRole}
+                        onChange={(e) => setJobRole(e.target.value)}
+                        placeholder="e.g. Software Engineer"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="applied-date" className="text-sm font-medium">
+                        Applied Date <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="applied-date"
+                        type="date"
+                        value={appliedDate}
+                        onChange={(e) => setAppliedDate(e.target.value)}
+                        className="mt-1"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="assessment-date" className="text-sm font-medium">
+                        Date of Assessment Received <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="assessment-date"
+                        type="date"
+                        value={assessmentReceivedDate}
+                        onChange={(e) => setAssessmentReceivedDate(e.target.value)}
+                        className="mt-1"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email-subject" className="text-sm font-medium">
+                      Email Subject <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="email-subject"
+                      type="text"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder="Enter email subject"
+                      className="mt-1"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email-body" className="text-sm font-medium">
+                      Email Body <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="email-body"
+                      value={emailBody}
+                      onChange={(e) => setEmailBody(e.target.value)}
+                      placeholder="Enter email body details..."
+                      className="mt-1"
+                      rows={4}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="screenshot" className="text-sm font-medium">
+                      Screenshot <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="screenshot"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
+                      className="mt-1"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email-url" className="text-sm font-medium">
+                      Email URL <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="email-url"
+                      type="url"
+                      value={emailUrl}
+                      onChange={(e) => setEmailUrl(e.target.value)}
+                      placeholder="Enter email URL"
+                      className="mt-1"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              <Button
+                type="submit"
+                disabled={
+                  isSubmittingAction ||
+                  !actionEmail ||
+                  !assessmentType ||
+                  !emailSubject ||
+                  !emailBody ||
+                  !appliedDate ||
+                  !assessmentReceivedDate ||
+                  !screenshotFile ||
+                  !emailUrl
+                }
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-4"
+              >
+                {isSubmittingAction ? "Submitting..." : "Submit Action"}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
