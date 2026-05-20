@@ -74,36 +74,45 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         const authHeader = 'Basic ' + btoa('vivek@mail.com:Created@123');
         const baseUrl = process.env.NEXT_PUBLIC_APPLYWIZZ_API_URL;
         
-        // 1. Search for the lead by email to get the internal ID
-        const searchRes = await fetch(`${baseUrl}/api/v1/leads/?search=${encodeURIComponent(currentClient.email)}`, {
-          headers: { "Authorization": authHeader },
-        });
-        
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          if (searchData.results && searchData.results.length > 0) {
-            const internalId = searchData.results[0].id;
-            
-            // 2. Update the status using the internal ID
-            const res = await fetch(`${baseUrl}/api/v1/leads/${internalId}/`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": authHeader,
-              },
-              body: JSON.stringify({ status: newStatus }),
-            });
-            
-            if (res.ok) {
-              applywizzUpdated = true;
+        if (!baseUrl) {
+          applywizzErrorMsg = "NEXT_PUBLIC_APPLYWIZZ_API_URL environment variable is not defined in your deployment settings.";
+        } else {
+          // 1. Search for the lead by email to get the internal ID
+          const searchRes = await fetch(`${baseUrl}/api/v1/leads/?search=${encodeURIComponent(currentClient.email)}`, {
+            headers: { "Authorization": authHeader },
+          });
+          
+          if (searchRes.ok) {
+            const contentType = searchRes.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+              applywizzErrorMsg = `Applywizz API returned non-JSON response (${contentType || 'unknown'}). Please check if NEXT_PUBLIC_APPLYWIZZ_API_URL is configured correctly in your environment variables.`;
             } else {
-              applywizzErrorMsg = `Failed to update status on Applywizz backend: ${await res.text()}`;
+              const searchData = await searchRes.json();
+              if (searchData.results && searchData.results.length > 0) {
+                const internalId = searchData.results[0].id;
+                
+                // 2. Update the status using the internal ID
+                const res = await fetch(`${baseUrl}/api/v1/leads/${internalId}/`, {
+                  method: "PATCH",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": authHeader,
+                  },
+                  body: JSON.stringify({ status: newStatus }),
+                });
+                
+                if (res.ok) {
+                  applywizzUpdated = true;
+                } else {
+                  applywizzErrorMsg = `Failed to update status on Applywizz backend: ${await res.text()}`;
+                }
+              } else {
+                applywizzErrorMsg = `Lead not found on Applywizz backend for email: ${currentClient.email}`;
+              }
             }
           } else {
-            applywizzErrorMsg = `Lead not found on Applywizz backend for email: ${currentClient.email}`;
+            applywizzErrorMsg = `Failed to search lead on Applywizz backend: ${await searchRes.text()}`;
           }
-        } else {
-          applywizzErrorMsg = `Failed to search lead on Applywizz backend: ${await searchRes.text()}`;
         }
       } else {
         applywizzErrorMsg = "Client has no email, cannot sync with Applywizz.";
