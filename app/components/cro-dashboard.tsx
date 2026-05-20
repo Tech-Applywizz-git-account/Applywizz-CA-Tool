@@ -347,12 +347,18 @@ useEffect(() => {
     try {
       if (currentClient.email) {
         const newStatus = newIsActive ? "In Progress" : "Paused";
-        const authHeader = 'Basic ' + btoa('vivek@mail.com:Created@123');
-        const baseUrl = process.env.NEXT_PUBLIC_APPLYWIZZ_API_URL;
+        const apiEmail = process.env.NEXT_PUBLIC_APPLYWIZZ_API_EMAIL;
+        const apiPassword = process.env.NEXT_PUBLIC_APPLYWIZZ_API_PASSWORD;
+        const authHeader = 'Basic ' + btoa(`${apiEmail}:${apiPassword}`);
+        let baseUrl = process.env.NEXT_PUBLIC_APPLYWIZZ_API_URL;
         
         if (!baseUrl) {
           applywizzErrorMsg = "NEXT_PUBLIC_APPLYWIZZ_API_URL environment variable is not defined in your deployment settings.";
         } else {
+          // Normalize by removing trailing slash if present
+          if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.slice(0, -1);
+          }
           // 1. Search for the lead by email to get the internal ID
           const searchRes = await fetch(`${baseUrl}/api/v1/leads/?search=${encodeURIComponent(currentClient.email)}`, {
             headers: { "Authorization": authHeader },
