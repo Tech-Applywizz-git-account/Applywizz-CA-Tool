@@ -1,5 +1,9 @@
+"use client"
+
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
     Calendar,
     Users,
@@ -20,6 +24,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 interface LeadDetail {
+    client_id?: string;
     client_name?: string;
     work_done_ca_name: string;
     ca_mail: string;
@@ -49,6 +54,10 @@ interface MergedLeadData extends Partial<LeadDetail> {
 }
 
 export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail }) => {
+    const pathname = usePathname();
+    const dashboardSegment = pathname.split('/')[1] || '';
+    const clientLinkPrefix = dashboardSegment ? `/${dashboardSegment}/client/` : '';
+
     const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -101,6 +110,7 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                 const { data: clients, error: dbError } = await supabase
                     .from("clients")
                     .select(`
+                        id,
                         applywizz_id, 
                         name,
                         work_done_ca_name, 
@@ -124,10 +134,11 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                     for (const client of (clients as any[])) {
                         if (client.applywizz_id) {
                             by_lead[client.applywizz_id] = {
+                                client_id: client.id,
                                 client_name: client.name,
                                 work_done_ca_name: client.work_done_ca_name,
                                 ca_mail: client.ca?.email || null,
-                                team_lead_name: client.team_lead_name,
+                                team_lead_name: client.team_lead_name ? client.team_lead_name.trim() : null,
                                 tl_email: client.team?.lead?.email || null,
                                 emails_submitted: client.emails_submitted,
                                 client_designation: client.client_designation,
@@ -204,10 +215,11 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
 
                             if (awlId) {
                                 by_lead[awlId] = {
+                                    client_id: p.id,
                                     client_name: p.name || clientData?.name || null,
                                     work_done_ca_name: h.ca_name,
                                     ca_mail: caInfo?.email || null,
-                                    team_lead_name: caInfo?.team?.lead?.name || null,
+                                    team_lead_name: caInfo?.team?.lead?.name ? caInfo.team.lead.name.trim() : null,
                                     tl_email: caInfo?.team?.lead?.email || null,
                                     emails_submitted: p.emails_submitted || 0,
                                     client_designation: clientData?.designation || null,
@@ -304,8 +316,8 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
     };
 
     // Get unique values for filters
-    const uniqueCAs = Array.from(new Set(reportData.map(item => item.work_done_ca_name).filter(Boolean))).sort();
-    const uniqueTLs = Array.from(new Set(reportData.map(item => item.team_lead_name).filter(Boolean))).sort();
+    const uniqueCAs = Array.from(new Set(reportData.map(item => item.work_done_ca_name?.trim()).filter(Boolean))).sort();
+    const uniqueTLs = Array.from(new Set(reportData.map(item => item.team_lead_name?.trim()).filter(Boolean))).sort();
 
     const filteredData = reportData
         .filter(item => {
@@ -315,8 +327,8 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                 item.team_lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.ca_mail?.toLowerCase().includes(searchTerm.toLowerCase());
 
-            const matchesCA = filterCA === 'all' || item.work_done_ca_name === filterCA;
-            const matchesTL = filterTL === 'all' || item.team_lead_name === filterTL;
+            const matchesCA = filterCA === 'all' || item.work_done_ca_name?.trim() === filterCA;
+            const matchesTL = filterTL === 'all' || item.team_lead_name?.trim() === filterTL;
 
             let matchesEmailFilter = true;
             const taskCount = item.summary_count || 0;
@@ -626,7 +638,7 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                                         {sortConfig?.key === 'lead_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                                     </div>
                                 </th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => toggleSort('work_done_ca_name')}>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => toggleSort('client_name')}>
                                     <div className="flex items-center space-x-1">
                                         <span>Client Name</span>
                                         {sortConfig?.key === 'client_name' && (sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
@@ -730,7 +742,13 @@ export const ReportPage: React.FC<{ teamLeadEmail?: string }> = ({ teamLeadEmail
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center space-x-3">
                                                     <div className="flex flex-col">
-                                                        <span className="text-gray-900 font-semibold">{lead.client_name || 'Anonymous Client'}</span>
+                                                        {lead.client_id ? (
+                                                            <Link href={`${clientLinkPrefix}${lead.client_id}`} className="font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                                                {lead.client_name || 'Anonymous Client'}
+                                                            </Link>
+                                                        ) : (
+                                                            <span className="text-gray-900 font-semibold">{lead.client_name || 'Anonymous Client'}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
