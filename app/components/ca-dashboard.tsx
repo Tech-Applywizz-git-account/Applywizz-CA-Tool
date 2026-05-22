@@ -615,7 +615,6 @@ const { data, error } = await supabase
       !assessmentType ||
       !emailSubject ||
       !emailBody ||
-      !appliedDate ||
       !assessmentReceivedDate ||
       !screenshotFile ||
       !emailUrl
@@ -1389,7 +1388,7 @@ const { data, error } = await supabase
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="applied-date" className="text-sm font-medium">
-                        Applied Date <span className="text-red-500">*</span>
+                        Applied Date
                       </Label>
                       <Input
                         id="applied-date"
@@ -1397,7 +1396,6 @@ const { data, error } = await supabase
                         value={appliedDate}
                         onChange={(e) => setAppliedDate(e.target.value)}
                         className="mt-1"
-                        required
                       />
                     </div>
                     <div>
@@ -1484,7 +1482,6 @@ const { data, error } = await supabase
                   !assessmentType ||
                   !emailSubject ||
                   !emailBody ||
-                  !appliedDate ||
                   !assessmentReceivedDate ||
                   !screenshotFile ||
                   !emailUrl

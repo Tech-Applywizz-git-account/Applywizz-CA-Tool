@@ -13,10 +13,10 @@ export default function Page({ params }: { params: { clientId: string } }) {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 pt-4">
         <button
-          onClick={() => router.push("/coo-dashboard")}
+          onClick={() => router.back()}
           className="text-sm px-3 py-1.5 rounded bg-slate-200 hover:bg-slate-300 transition mb-4"
         >
-          ← Back to COO Dashboard
+          ← Back
         </button>
       </div>
       <div className="max-w-7xl mx-auto px-4 pb-8">
