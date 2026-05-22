@@ -24,6 +24,7 @@ interface ClientAssessmentsTrackerProps {
 export function ClientAssessmentsTracker({ user, scope, teamMembers = [], clients }: ClientAssessmentsTrackerProps) {
   const [assessments, setAssessments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [applicationDaysMap, setApplicationDaysMap] = useState<Map<string, number>>(new Map())
 
   // Compute base path dynamic based on user role
   const basePath = useMemo(() => {
@@ -47,6 +48,17 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   // UI Tabs
   const [activeTab, setActiveTab] = useState<"summary" | "comparison" | "logs">("summary")
 
+  // Dialog for Unique Companies
+  const [showUniqueCompaniesDialog, setShowUniqueCompaniesDialog] = useState(false)
+  const [modalCompanySearch, setModalCompanySearch] = useState("")
+
+  // Reset modal search on close
+  useEffect(() => {
+    if (!showUniqueCompaniesDialog) {
+      setModalCompanySearch("")
+    }
+  }, [showUniqueCompaniesDialog])
+
   // Fetch assessments
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -68,6 +80,38 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
     }
     fetchAssessments()
   }, [])
+
+  useEffect(() => {
+    const fetchApplicationDays = async () => {
+      if (!clients || clients.length === 0) return
+      try {
+        const clientIds = clients.map(c => c.id)
+        const response = await fetch("/api/client-onboarding-stats", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ clientIds }),
+        })
+
+        if (response.ok) {
+          const resData = await response.json()
+          const counts = new Map<string, number>()
+          if (resData.counts) {
+            Object.keys(resData.counts).forEach(key => {
+              counts.set(key, resData.counts[key])
+            })
+          }
+          setApplicationDaysMap(counts)
+        } else {
+          console.error("Failed to fetch application days from API:", response.statusText)
+        }
+      } catch (err) {
+        console.error("Error fetching application days count:", err)
+      }
+    }
+    fetchApplicationDays()
+  }, [clients])
 
   // Create a map/set of client IDs that are in-scope
   const inScopeClientIds = useMemo(() => new Set(clients.map(c => c.id)), [clients])
@@ -105,14 +149,42 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
     })
   }, [assessments, inScopeClientIds, dateFrom, dateTo, assessmentType, companySearch, selectedCA, clientSearch, clientsMap])
 
-  // Stats computed from filtered assessments
+  // Stats computed from assessments filtered by all criteria EXCEPT assessmentType
+  const statsAssessments = useMemo(() => {
+    return assessments.filter(item => {
+      // 1. Scope filter (must belong to in-scope clients)
+      if (!inScopeClientIds.has(item.client_id)) return false
+
+      // 2. Date filters (assessment_received_date)
+      if (dateFrom && item.assessment_received_date < dateFrom) return false
+      if (dateTo && item.assessment_received_date > dateTo) return false
+
+      // 3. Company Search
+      if (companySearch.trim() && !item.company_name?.toLowerCase().includes(companySearch.toLowerCase())) return false
+
+      // 4. CA Filter
+      if (selectedCA !== "all" && item.created_by !== selectedCA) return false
+
+      // 5. Client Search
+      if (clientSearch.trim()) {
+        const client = clientsMap.get(item.client_id)
+        const clientName = client?.name?.toLowerCase() || ""
+        const clientEmail = client?.email?.toLowerCase() || ""
+        const query = clientSearch.toLowerCase()
+        if (!clientName.includes(query) && !clientEmail.includes(query)) return false
+      }
+
+      return true
+    })
+  }, [assessments, inScopeClientIds, dateFrom, dateTo, companySearch, selectedCA, clientSearch, clientsMap])
+
   const stats = useMemo(() => {
     let interviews = 0
     let tests = 0
     let screeningCalls = 0
     const uniqueCompanies = new Set<string>()
 
-    filteredAssessments.forEach(item => {
+    statsAssessments.forEach(item => {
       if (item.assessment_type === "interview") interviews++
       else if (item.assessment_type === "assessment") tests++
       else if (item.assessment_type === "screening_call") screeningCalls++
@@ -126,10 +198,38 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       interviews,
       tests,
       screeningCalls,
-      total: filteredAssessments.length,
+      total: statsAssessments.length,
       companiesCount: uniqueCompanies.size
     }
-  }, [filteredAssessments])
+  }, [statsAssessments])
+
+  // Group by Unique Companies (all of them, not just top 10)
+  const allCompaniesList = useMemo(() => {
+    const counts: Record<
+      string,
+      { total: number; interviews: number; tests: number; screening: number; displayName: string }
+    > = {}
+    statsAssessments.forEach(item => {
+      if (!item.company_name) return
+      const name = item.company_name.trim()
+      const key = name.toLowerCase()
+      if (!counts[key]) {
+        counts[key] = { total: 0, interviews: 0, tests: 0, screening: 0, displayName: name }
+      }
+      counts[key].total++
+      if (item.assessment_type === "interview") counts[key].interviews++
+      else if (item.assessment_type === "assessment") counts[key].tests++
+      else if (item.assessment_type === "screening_call") counts[key].screening++
+    })
+
+    return Object.values(counts).sort((a, b) => b.total - a.total)
+  }, [statsAssessments])
+
+  const filteredModalCompanies = useMemo(() => {
+    return allCompaniesList.filter(c =>
+      c.displayName.toLowerCase().includes(modalCompanySearch.toLowerCase())
+    )
+  }, [allCompaniesList, modalCompanySearch])
 
   // Group by Top Companies
   const topCompanies = useMemo(() => {
@@ -352,36 +452,67 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
         <div className="space-y-6">
           {/* Key Metrics Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <Card
+              onClick={() => setAssessmentType("all")}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
+                assessmentType === "all"
+                  ? "bg-gradient-to-br from-indigo-100 to-indigo-200 border-indigo-400 ring-2 ring-indigo-600 ring-offset-2 scale-[1.02] shadow-sm"
+                  : "bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:border-indigo-300"
+              }`}
+            >
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-indigo-700">{stats.total}</span>
                 <span className="text-xs font-bold text-indigo-900 uppercase tracking-wide mt-1">Total Invites</span>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <Card
+              onClick={() => setAssessmentType("interview")}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
+                assessmentType === "interview"
+                  ? "bg-gradient-to-br from-emerald-100 to-emerald-200 border-emerald-400 ring-2 ring-emerald-600 ring-offset-2 scale-[1.02] shadow-sm"
+                  : "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:border-emerald-300"
+              }`}
+            >
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-emerald-700">{stats.interviews}</span>
                 <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide mt-1">Interviews</span>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <Card
+              onClick={() => setAssessmentType("assessment")}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
+                assessmentType === "assessment"
+                  ? "bg-gradient-to-br from-blue-100 to-blue-200 border-blue-400 ring-2 ring-blue-600 ring-offset-2 scale-[1.02] shadow-sm"
+                  : "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:border-blue-300"
+              }`}
+            >
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-blue-700">{stats.tests}</span>
                 <span className="text-xs font-bold text-blue-900 uppercase tracking-wide mt-1">Coding Tests</span>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <Card
+              onClick={() => setAssessmentType("screening_call")}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
+                assessmentType === "screening_call"
+                  ? "bg-gradient-to-br from-amber-100 to-amber-200 border-amber-400 ring-2 ring-amber-600 ring-offset-2 scale-[1.02] shadow-sm"
+                  : "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:border-amber-300"
+              }`}
+            >
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-amber-700">{stats.screeningCalls}</span>
                 <span className="text-xs font-bold text-amber-900 uppercase tracking-wide mt-1">Screening Calls</span>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 col-span-2 lg:col-span-1">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <Card
+              onClick={() => setShowUniqueCompaniesDialog(true)}
+              className="cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 hover:border-slate-300 col-span-2 lg:col-span-1"
+            >
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-slate-700">{stats.companiesCount}</span>
                 <span className="text-xs font-bold text-slate-900 uppercase tracking-wide mt-1">Unique Companies</span>
               </CardContent>
@@ -446,7 +577,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                 ) : (
                   <div className="space-y-3">
                     {topCompanies.map((c: any, index) => {
-                      const percentage = Math.round((c.total / stats.total) * 100)
+                      const percentage = filteredAssessments.length > 0 ? Math.round((c.total / filteredAssessments.length) * 100) : 0
                       return (
                         <div key={index} className="space-y-1">
                           <div className="flex justify-between text-xs">
@@ -513,11 +644,12 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                               <TableRow>
                                 <TableHead className="text-xs font-semibold text-slate-600">Client Name & Email</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600">Assigned CA</TableHead>
-                                <TableHead className="text-xs font-semibold text-slate-600">Client Status</TableHead>
+                                <TableHead className="text-xs font-semibold text-slate-600 text-center">Client Status</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Interviews</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Coding Tests</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Screen Calls</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Total Invites</TableHead>
+                                <TableHead className="text-xs font-semibold text-slate-600 text-center">application_days</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600">Interviews Companies</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -535,27 +667,23 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                   <TableCell className="text-xs text-slate-700">
                                     {client.assigned_ca_name || "Not Assigned"}
                                   </TableCell>
-                                  <TableCell className="text-xs">
+                                  <TableCell className="text-xs text-center">
                                     <Badge
                                       className={
-                                        client.status === "Not Started"
-                                          ? "bg-red-500 text-white"
-                                          : client.status === "Started"
-                                            ? "bg-orange-500 text-white"
-                                            : client.status === "Paused"
-                                              ? "bg-slate-100 text-slate-800 border"
-                                              : client.status === "Completed"
-                                                ? "bg-green-600 text-white"
-                                                : ""
+                                        client.status === "Completed" ? "bg-green-500 text-white"
+                                        : client.status === "Started" ? "bg-orange-500 text-white"
+                                        : client.status === "Paused" ? "bg-white text-black border border-slate-300"
+                                        : "bg-red-500 text-white"
                                       }
                                     >
-                                      {client.status}
+                                      {client.status || "Not Started"}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-xs font-bold text-center text-emerald-600">{client.interviewsCount}</TableCell>
                                   <TableCell className="text-xs font-bold text-center text-blue-600">{client.testsCount}</TableCell>
                                   <TableCell className="text-xs font-bold text-center text-amber-600">{client.screeningCount}</TableCell>
                                   <TableCell className="text-xs font-black text-center text-indigo-700 bg-indigo-50/30">{client.totalAssessmentsCount}</TableCell>
+                                  <TableCell className="text-xs font-bold text-center text-indigo-600 bg-slate-50/50">{applicationDaysMap.get(client.id) || 0}</TableCell>
                                   <TableCell className="text-xs text-slate-600">
                                     {client.companiesList.length > 0 ? (
                                       <div className="flex flex-wrap gap-1">
@@ -709,6 +837,71 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unique Companies Dialog */}
+      <Dialog open={showUniqueCompaniesDialog} onOpenChange={setShowUniqueCompaniesDialog}>
+        <DialogContent className="max-w-2xl bg-white flex flex-col p-6 rounded-lg">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-indigo-600" />
+              Unique Companies ({allCompaniesList.length})
+            </DialogTitle>
+            <p className="text-xs text-slate-500">
+              Click a company name to filter the tracker page for that company.
+            </p>
+          </DialogHeader>
+
+          {/* Search bar inside the modal */}
+          <div className="relative my-3">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search companies in list..."
+              className="pl-9 h-9 text-xs"
+              value={modalCompanySearch}
+              onChange={e => setModalCompanySearch(e.target.value)}
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto mt-2 pr-1 space-y-2 max-h-[50vh]">
+            {filteredModalCompanies.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-xs">
+                No companies found.
+              </div>
+            ) : (
+              filteredModalCompanies.map((c: any, idx: number) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    setCompanySearch(c.displayName)
+                    setShowUniqueCompaniesDialog(false)
+                  }}
+                  className="p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 rounded-lg text-xs flex justify-between items-center cursor-pointer transition-colors duration-150 group"
+                >
+                  <div>
+                    <span className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">
+                      {c.displayName}
+                    </span>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {c.interviews} interviews • {c.tests} tests • {c.screening} screening calls
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white transition-colors" variant="outline">
+                      {c.total} Invite{c.total > 1 ? "s" : ""}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="pt-4 border-t mt-4 flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => setShowUniqueCompaniesDialog(false)}>
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
