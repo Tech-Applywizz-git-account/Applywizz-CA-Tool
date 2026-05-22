@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowUpDown, Pencil } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
  
 type Client = {
   id: string
@@ -81,6 +83,52 @@ export default function ClientsList({
   const [sortKey, setSortKey] = useState<SortKey>("created_at")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [page, setPage] = useState(1)
+
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [editDesignation, setEditDesignation] = useState("")
+  const [editExperience, setEditExperience] = useState<number | "">("")
+  const [saving, setSaving] = useState(false)
+
+  const handleOpenEdit = (client: Client) => {
+    setEditingClient(client)
+    setEditDesignation(client.client_designation ?? "")
+    setEditExperience(client.experience ?? "")
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingClient) return
+    if (editExperience !== "" && Number(editExperience) < 0) {
+      alert("Experience cannot be negative")
+      return
+    }
+    setSaving(true)
+
+    const updatedDesignation = editDesignation.trim() || null
+    const updatedExperience = editExperience === "" ? null : Number(editExperience)
+
+    const { error } = await supabase
+      .from("clients")
+      .update({
+        client_designation: updatedDesignation,
+        experience: updatedExperience,
+      })
+      .eq("id", editingClient.id)
+
+    setSaving(false)
+    if (error) {
+      alert("Error updating client: " + error.message)
+    } else {
+      setClients((prev) =>
+        prev.map((c) =>
+          c.id === editingClient.id
+            ? { ...c, client_designation: updatedDesignation, experience: updatedExperience }
+            : c
+        )
+      )
+      setEditingClient(null)
+    }
+  }
  
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -379,12 +427,32 @@ export default function ClientsList({
  
                   {/* Client Designation */}
                   <TableCell className="text-center">
-                    <div className="text-slate-900">{c.client_designation ?? "—"}</div>
+                    <div className="flex items-center justify-center gap-1 group">
+                      <span className="text-slate-900">{c.client_designation ?? "—"}</span>
+                      <button
+                        onClick={() => handleOpenEdit(c)}
+                        className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-slate-100"
+                        title="Edit client domain"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
  
                   {/* Experience */}
                   <TableCell className="text-center">
-                    <div className="text-slate-900">{c.experience ?? "—"}</div>
+                    <div className="flex items-center justify-center gap-1 group">
+                      <span className="text-slate-900">
+                        {c.experience !== null && c.experience !== undefined ? `${c.experience} years` : "—"}
+                      </span>
+                      <button
+                        onClick={() => handleOpenEdit(c)}
+                        className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-slate-100"
+                        title="Edit experience"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
  
                   {/* Visa Type */}
@@ -442,6 +510,79 @@ export default function ClientsList({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Edit Client Domain & Experience Dialog */}
+      <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">Edit Client Domain & Experience</DialogTitle>
+          </DialogHeader>
+          {editingClient && (
+            <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
+              <div>
+                <Label className="text-slate-500 text-xs">Client Name</Label>
+                <div className="text-sm font-semibold text-slate-800 bg-slate-50 p-2 rounded-md border mt-1">
+                  {editingClient.name || "—"}
+                </div>
+              </div>
+              <div>
+                <Label className="text-slate-500 text-xs">Client Email</Label>
+                <div className="text-sm font-semibold text-slate-800 bg-slate-50 p-2 rounded-md border mt-1">
+                  {editingClient.email || "—"}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-designation" className="text-sm font-medium text-slate-700">
+                  Client Domain / Designation
+                </Label>
+                <Input
+                  id="edit-designation"
+                  value={editDesignation}
+                  onChange={(e) => setEditDesignation(e.target.value)}
+                  placeholder="e.g., Software Engineer"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-experience" className="text-sm font-medium text-slate-700">
+                  Experience (years)
+                </Label>
+                <Input
+                  id="edit-experience"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  value={editExperience === "" ? "" : String(editExperience)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEditExperience(v === "" ? "" : Number(v))
+                  }}
+                  placeholder="e.g., 5"
+                  className="w-full"
+                />
+              </div>
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingClient(null)}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
