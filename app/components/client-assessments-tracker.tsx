@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Calendar, Search, Building2, Eye, FileText, ArrowUpDown } from "lucide-react"
+import { Calendar, Search, Building2, Eye, FileText, ArrowUpDown, Loader2 } from "lucide-react"
 import Link from "next/link"
 
 interface ClientAssessmentsTrackerProps {
@@ -25,6 +25,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   const [assessments, setAssessments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [applicationDaysMap, setApplicationDaysMap] = useState<Map<string, number>>(new Map())
+  const [loadingDays, setLoadingDays] = useState(false)
 
   // Compute base path dynamic based on user role
   const basePath = useMemo(() => {
@@ -84,6 +85,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   useEffect(() => {
     const fetchApplicationDays = async () => {
       if (!clients || clients.length === 0) return
+      setLoadingDays(true)
       try {
         const clientIds = clients.map(c => c.id)
         const response = await fetch("/api/client-onboarding-stats", {
@@ -108,6 +110,8 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
         }
       } catch (err) {
         console.error("Error fetching application days count:", err)
+      } finally {
+        setLoadingDays(false)
       }
     }
     fetchApplicationDays()
@@ -683,7 +687,13 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                   <TableCell className="text-xs font-bold text-center text-blue-600">{client.testsCount}</TableCell>
                                   <TableCell className="text-xs font-bold text-center text-amber-600">{client.screeningCount}</TableCell>
                                   <TableCell className="text-xs font-black text-center text-indigo-700 bg-indigo-50/30">{client.totalAssessmentsCount}</TableCell>
-                                  <TableCell className="text-xs font-bold text-center text-indigo-600 bg-slate-50/50">{applicationDaysMap.get(client.id) || 0}</TableCell>
+                                  <TableCell className="text-xs font-bold text-center text-indigo-600 bg-slate-50/50">
+                                    {loadingDays ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mx-auto text-indigo-500" />
+                                    ) : (
+                                      applicationDaysMap.get(client.id) ?? 0
+                                    )}
+                                  </TableCell>
                                   <TableCell className="text-xs text-slate-600">
                                     {client.companiesList.length > 0 ? (
                                       <div className="flex flex-wrap gap-1">

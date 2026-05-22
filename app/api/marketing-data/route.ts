@@ -182,7 +182,7 @@ export async function GET(req: Request) {
         const freshSales: any[] = [];
 
         if (monthCandidates.length > 0) {
-            const uniqueLeadIds = Array.from(new Set(monthCandidates.map(s => s.lead_id)));
+            const uniqueLeadIds = Array.from(new Set(monthCandidates.map((s: any) => s.lead_id)));
 
             // Historical Audit: Check for ANY prior sales for these lead_ids
             const { data: historicalData } = await supabaseCRM.from("sales_closure")
