@@ -49,6 +49,9 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   // UI Tabs
   const [activeTab, setActiveTab] = useState<"summary" | "comparison" | "logs">("summary")
 
+  // Cohort comparison bucket filter
+  const [selectedCohort, setSelectedCohort] = useState<string>("all")
+
   // Dialog for Unique Companies
   const [showUniqueCompaniesDialog, setShowUniqueCompaniesDialog] = useState(false)
   const [modalCompanySearch, setModalCompanySearch] = useState("")
@@ -304,6 +307,13 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       .filter(g => g.clients.length > 0)
       .sort((a, b) => b.clients.length - a.clients.length)
   }, [clients, filteredAssessments])
+
+  // Sorted unique bucket names for dropdown filter in ascending order
+  const sortedBucketNames = useMemo(() => {
+    const names = cohorts.map(cohort => `${cohort.designation} (${cohort.experience})`)
+    const uniqueNames = Array.from(new Set(names))
+    return uniqueNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
+  }, [cohorts])
 
   // Quick Filter Handler
   const handleQuickFilter = (type: "today" | "yesterday" | "last7" | "last30" | "thismonth" | "all") => {
@@ -611,13 +621,34 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       {activeTab === "comparison" && (
         <div className="space-y-6">
           <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold text-slate-700">
-                Cohort Comparison Mode (Domain & Experience Alignment)
-              </CardTitle>
-              <p className="text-xs text-slate-500">
-                Compare clients who have the same designation (domain) and experience level. This helps you identify why some clients are succeeding (e.g. Completed with job offers) while others with similar profiles are not.
-              </p>
+            <CardHeader className="pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-1">
+                <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <span>Cohort Comparison Mode (Domain & Experience Alignment)</span>
+                  <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold text-xs whitespace-nowrap">
+                    {cohorts.length} Total Buckets
+                  </Badge>
+                </CardTitle>
+                <p className="text-xs text-slate-500">
+                  Compare clients who have the same designation (domain) and experience level. This helps you identify why some clients are succeeding (e.g. Completed with job offers) while others with similar profiles are not.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 w-full md:w-auto min-w-[260px]">
+                <Label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Filter by Bucket:</Label>
+                <Select value={selectedCohort} onValueChange={setSelectedCohort}>
+                  <SelectTrigger className="h-9 text-xs w-full bg-white border-slate-200">
+                    <SelectValue placeholder="All Buckets" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="all">All Buckets</SelectItem>
+                    {sortedBucketNames.map((bucket) => (
+                      <SelectItem key={bucket} value={bucket}>
+                        {bucket}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
               {cohorts.length === 0 ? (
@@ -626,8 +657,10 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {cohorts.map((cohort, cIdx) => {
-                    // Only display cohorts that have clients
+                  {cohorts
+                    .filter(cohort => selectedCohort === "all" || `${cohort.designation} (${cohort.experience})` === selectedCohort)
+                    .map((cohort, cIdx) => {
+                      // Only display cohorts that have clients
                     if (cohort.clients.length === 0) return null
                     return (
                       <div key={cIdx} className="border border-slate-200 rounded-lg overflow-hidden">
