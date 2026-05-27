@@ -21,9 +21,16 @@ export default function Sidebar({ basePath }: SidebarProps) {
     { href: `${basePath}/tech`, label: "Tech Dashboard", icon: TrendingUp },
     { href: `${basePath}/accounts`, label: "Accounts Dashboard", icon: TrendingUp },
     { href: `${basePath}/clients`, label: "Clients Information", icon: Users },
+    { href: `${basePath}/reports`, label: "Performance Reports", icon: BarChart2 },
+    { href: `${basePath}/assessments`, label: "Assessment Analytics", icon: BarChart2 },
   ].filter(link => {
     if (basePath === "/team-lead-dashboard") {
-      return link.label === "CA Dashboard" || link.label === "Clients Information"
+      return (
+        link.label === "CA Dashboard" ||
+        link.label === "Clients Information" ||
+        link.label === "Performance Reports" ||
+        link.label === "Assessment Analytics"
+      )
     }
     return true
   })

@@ -179,6 +179,32 @@ export async function GET(req: Request) {
         // Process CRM fresh sales — logic removed as per user request
         const freshSales: any[] = [];
 
+        if (monthCandidates.length > 0) {
+            const uniqueLeadIds = Array.from(new Set(monthCandidates.map((s: any) => s.lead_id)));
+
+            // Historical Audit: Check for ANY prior sales for these lead_ids
+            const { data: historicalData } = await supabaseCRM.from("sales_closure")
+                .select("lead_id")
+                .in("lead_id", uniqueLeadIds)
+                .lt("closed_at", startISO);
+
+            const leadsWithPriorHistory = new Set<string>();
+            if (historicalData) {
+                historicalData.forEach(h => leadsWithPriorHistory.add(h.lead_id));
+            }
+
+            const processedInMonth = new Set();
+            // Must be the first time in THIS month AND have no history PRIOR to this month
+            monthCandidates.forEach((sale: any) => {
+                if (!leadsWithPriorHistory.has(sale.lead_id) && !processedInMonth.has(sale.lead_id)) {
+                    freshSales.push(sale);
+                    processedInMonth.add(sale.lead_id);
+                }
+            });
+        }
+
+        freshSales.sort((a: any, b: any) => new Date(b.closed_at).getTime() - new Date(a.closed_at).getTime());
+
         // Process Job Board — deduplicate by jb_id
         const jbRaw = jbResult.data || [];
         const uniqueJb = new Map<string, any>();

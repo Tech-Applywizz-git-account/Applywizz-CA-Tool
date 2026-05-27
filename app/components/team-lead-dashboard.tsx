@@ -50,17 +50,102 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
   // Add this right after fetchClients()
   const handleToggleActive = async (clientId: string, currentIsActive: boolean) => {
+    // First fetch applywizz_id and email if available
+    const { data: currentClient, error: fetchError } = await supabase
+      .from("clients")
+      .select("id, is_active, applywizz_id, email")
+      .eq("id", clientId)
+      .single();
+
+    if (fetchError) {
+      alert("Failed to fetch client details: " + fetchError.message);
+      return;
+    }
+
+    const newIsActive = !currentIsActive;
+
+    // Call Applywizz external API first
+    let applywizzUpdated = false;
+    let applywizzErrorMsg = "";
+
+    try {
+      if (currentClient.email) {
+        const newStatus = newIsActive ? "In Progress" : "Paused";
+        const apiEmail = process.env.NEXT_PUBLIC_APPLYWIZZ_API_EMAIL;
+        const apiPassword = process.env.NEXT_PUBLIC_APPLYWIZZ_API_PASSWORD;
+        const authHeader = 'Basic ' + btoa(`${apiEmail}:${apiPassword}`);
+        let baseUrl = process.env.NEXT_PUBLIC_APPLYWIZZ_API_URL;
+        
+        if (!baseUrl) {
+          applywizzErrorMsg = "NEXT_PUBLIC_APPLYWIZZ_API_URL environment variable is not defined in your deployment settings.";
+        } else {
+          // Normalize by removing trailing slash if present
+          if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.slice(0, -1);
+          }
+          // 1. Search for the lead by email to get the internal ID
+          const searchRes = await fetch(`${baseUrl}/api/v1/leads/?search=${encodeURIComponent(currentClient.email)}`, {
+            headers: { "Authorization": authHeader },
+          });
+          
+          if (searchRes.ok) {
+            const contentType = searchRes.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+              applywizzErrorMsg = `Applywizz API returned non-JSON response (${contentType || 'unknown'}). Please check if NEXT_PUBLIC_APPLYWIZZ_API_URL is configured correctly in your environment variables.`;
+            } else {
+              const searchData = await searchRes.json();
+              if (searchData.results && searchData.results.length > 0) {
+                const internalId = searchData.results[0].id;
+                
+                // 2. Update the status using the internal ID
+                const res = await fetch(`${baseUrl}/api/v1/leads/${internalId}/`, {
+                  method: "PATCH",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": authHeader,
+                  },
+                  body: JSON.stringify({ status: newStatus }),
+                });
+                
+                if (res.ok) {
+                  applywizzUpdated = true;
+                } else {
+                  applywizzErrorMsg = `Failed to update status on Applywizz backend: ${await res.text()}`;
+                }
+              } else {
+                applywizzErrorMsg = `Lead not found on Applywizz backend for email: ${currentClient.email}`;
+              }
+            }
+          } else {
+            applywizzErrorMsg = `Failed to search lead on Applywizz backend: ${await searchRes.text()}`;
+          }
+        }
+      } else {
+        applywizzErrorMsg = "Client has no email, cannot sync with Applywizz.";
+      }
+    } catch (err: any) {
+      applywizzErrorMsg = `Error connecting to Applywizz: ${err.message || err}`;
+    }
+
+    if (!applywizzUpdated) {
+      alert(`Error updating Applywizz status: ${applywizzErrorMsg}. Status update aborted.`);
+      return;
+    }
+
+    // Now update in Supabase (Task Management database)
     const { data, error } = await supabase
       .from("clients")
-      .update({ is_active: !currentIsActive })
+      .update({ is_active: newIsActive })
       .eq("id", clientId)
       .select()
       .single();
 
     if (error) {
-      console.error("Failed to toggle active state:", error.message);
+      alert("Failed to update status in Task Management database: " + error.message);
       return;
     }
+
+    alert(`Successfully updated status to ${newIsActive ? 'Active' : 'Inactive'} in both Task Management and CA Management!`);
 
     // Optimistically update UI
     setClients(prev =>

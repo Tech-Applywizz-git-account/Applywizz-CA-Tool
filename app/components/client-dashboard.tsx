@@ -102,6 +102,8 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
     return { ...range, label: getMonthLabel(monthOffset) }
   }, [dateRange, monthOffset])
 
+  const [onboardingDate, setOnboardingDate] = useState<string | null>(null)
+
   // Fetch client details
   useEffect(() => {
     const fetchClient = async () => {
@@ -122,6 +124,30 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
             .eq("id", data.assigned_ca_id)
             .single()
           setAssignedCA(caData)
+        }
+
+        // Fetch oldest date_assigned from work_history_profiles for Client Onboarding Date via API
+        try {
+          const statsResponse = await fetch("/api/client-onboarding-stats", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ clientIds: [clientId] }),
+          })
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json()
+            if (statsData.onboardingDates && statsData.onboardingDates[clientId]) {
+              setOnboardingDate(statsData.onboardingDates[clientId])
+            } else {
+              setOnboardingDate(null)
+            }
+          } else {
+            setOnboardingDate(null)
+          }
+        } catch (err) {
+          console.error("Error fetching onboarding date:", err)
+          setOnboardingDate(null)
         }
       }
       setLoading(false)
@@ -385,6 +411,14 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
                 >
                   {client.status || "Not Started"}
                 </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Client Onboarding Date</p>
+                <p className="text-sm text-slate-700 font-semibold">
+                  {onboardingDate 
+                    ? new Date(onboardingDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) 
+                    : "—"}
+                </p>
               </div>
             </div>
           </CardContent>
