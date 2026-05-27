@@ -77,6 +77,8 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   const [appliedDate, setAppliedDate] = useState("")
   const [assessmentReceivedDate, setAssessmentReceivedDate] = useState("")
   const [emailUrl, setEmailUrl] = useState("")
+  const [roundsCount, setRoundsCount] = useState<number>(0)
+  const [rounds, setRounds] = useState<{ type: string; file: File | null }[]>([])
   const [trackingMode, setTrackingMode] = useState<"daily" | "monthly">("daily")
   const today = new Date().toISOString().split("T")[0]
   const [dateFrom, setDateFrom] = useState(today)
@@ -607,9 +609,8 @@ const { data, error } = await supabase
     alert("Status updated successfully!");
   };
 
-  const handleActionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!actionClient) return;
+  const isSubmitDisabled = useMemo(() => {
+    if (isSubmittingAction) return true;
     if (
       !actionEmail ||
       !assessmentType ||
@@ -622,6 +623,32 @@ const { data, error } = await supabase
       !screenshotFile ||
       !emailUrl
     ) {
+      return true;
+    }
+    if (assessmentType === "offer_letter") {
+      if (rounds.length !== roundsCount) return true;
+    }
+    return false;
+  }, [
+    isSubmittingAction,
+    actionEmail,
+    assessmentType,
+    companyName,
+    jobRole,
+    appliedDate,
+    emailSubject,
+    emailBody,
+    assessmentReceivedDate,
+    screenshotFile,
+    emailUrl,
+    rounds,
+    roundsCount
+  ]);
+
+  const handleActionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!actionClient) return;
+    if (isSubmitDisabled) {
       alert("Please fill all the required fields.");
       return;
     }
@@ -650,7 +677,7 @@ const { data, error } = await supabase
       }
 
       // Insert record into client_assessments table
-      const { error: insertError } = await supabase
+      const { data: offerData, error: insertError } = await supabase
         .from("client_assessments")
         .insert({
           client_id: actionClient.id,
@@ -668,10 +695,64 @@ const { data, error } = await supabase
           created_by: user.id,
           ca_name: user.name,
           ca_email: user.email
-        });
+        })
+        .select("id")
+        .single();
 
       if (insertError) {
         throw new Error(`Failed to save action record: ${insertError.message}`);
+      }
+
+      // If assessmentType is offer_letter, insert rounds mapping back to parent
+      if (assessmentType === "offer_letter" && roundsCount > 0 && offerData) {
+        const parentId = offerData.id;
+        for (let i = 0; i < rounds.length; i++) {
+          const round = rounds[i];
+          let roundScreenshotUrl = "";
+          if (round.file) {
+            const rFileExt = round.file.name.split(".").pop();
+            const rFileName = `${actionClient.id}-round-${i + 1}-${Date.now()}.${rFileExt}`;
+            
+            const { error: rUploadError } = await supabase.storage
+              .from("assessment-screenshots")
+              .upload(rFileName, round.file);
+
+            if (rUploadError) {
+              throw new Error(`Failed to upload round ${i + 1} screenshot: ${rUploadError.message}`);
+            }
+
+            const { data: rPublicUrlData } = supabase.storage
+              .from("assessment-screenshots")
+              .getPublicUrl(rFileName);
+
+            roundScreenshotUrl = rPublicUrlData.publicUrl;
+          }
+
+          const { error: rInsertError } = await supabase
+            .from("client_assessments")
+            .insert({
+              client_id: actionClient.id,
+              applywizz_id: actionClient.applywizz_id || null,
+              client_email: actionEmail,
+              assessment_type: round.type || "assessment",
+              email_subject: `Round ${i + 1}${round.type ? ` (${round.type})` : ""}: ${companyName} - ${jobRole}`,
+              email_body: `Assessment record for Round ${i + 1} of selection process.`,
+              screenshot_url: roundScreenshotUrl || null,
+              company_name: companyName || null,
+              job_role: jobRole || null,
+              applied_date: appliedDate || null,
+              assessment_received_date: assessmentReceivedDate || null,
+              email_url: emailUrl || null,
+              created_by: user.id,
+              ca_name: user.name,
+              ca_email: user.email,
+              parent_id: parentId
+            });
+
+          if (rInsertError) {
+            throw new Error(`Failed to save round ${i + 1} record: ${rInsertError.message}`);
+          }
+        }
       }
 
       alert("Client action recorded successfully!");
@@ -686,6 +767,8 @@ const { data, error } = await supabase
       setAppliedDate("");
       setAssessmentReceivedDate("");
       setEmailUrl("");
+      setRoundsCount(0);
+      setRounds([]);
     } catch (err: any) {
       alert(err.message || "An unexpected error occurred.");
       console.error(err);
@@ -1176,10 +1259,11 @@ const { data, error } = await supabase
                               setEmailBody("")
                               setScreenshotFile(null)
                               setEmailUrl("")
+                              setRoundsCount(0)
+                              setRounds([])
                               setActionDialogOpen(true)
                             }}
-                            disabled={client.is_active === false}
-                            title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : "Manage Assessments/Interviews"}
+                            title="Manage Assessments/Interviews/Offer Letters"
                           >
                             Action
                           </Button>
@@ -1353,6 +1437,7 @@ const { data, error } = await supabase
                     <SelectItem value="interview">Interview</SelectItem>
                     <SelectItem value="assessment">Assessment</SelectItem>
                     <SelectItem value="screening_call">Screening call</SelectItem>
+                    <SelectItem value="offer_letter">Offer letter</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1406,7 +1491,7 @@ const { data, error } = await supabase
                     </div>
                     <div>
                       <Label htmlFor="assessment-date" className="text-sm font-medium">
-                        Date of Assessment Received <span className="text-red-500">*</span>
+                        {assessmentType === "offer_letter" ? "Date of Offer Letter Received" : "Date of Assessment Received"} <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="assessment-date"
@@ -1419,16 +1504,95 @@ const { data, error } = await supabase
                     </div>
                   </div>
 
+                  {assessmentType === "offer_letter" && (
+                    <div className="border border-indigo-100 rounded-md p-4 bg-slate-50 space-y-4">
+                      <div>
+                        <Label htmlFor="num-rounds" className="text-sm font-medium text-slate-800">
+                          How many rounds to achieve the offer letter?
+                        </Label>
+                        <Input
+                          id="num-rounds"
+                          type="number"
+                          min={1}
+                          value={roundsCount || ""}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0)
+                            setRoundsCount(val)
+                            setRounds((prev) => {
+                              const next = [...prev]
+                              if (val > prev.length) {
+                                for (let i = prev.length; i < val; i++) {
+                                  next.push({ type: "", file: null })
+                                }
+                              } else {
+                                next.splice(val)
+                              }
+                              return next
+                            })
+                          }}
+                          placeholder="e.g. 3"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      {rounds.map((round, idx) => (
+                        <div key={idx} className="p-3 border border-slate-200 rounded-md bg-white space-y-3">
+                          <h4 className="text-xs font-bold text-indigo-700">Round {idx + 1}</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs font-medium">Round Assessment Type</Label>
+                              <Select
+                                value={round.type}
+                                onValueChange={(val) => {
+                                  setRounds((prev) => {
+                                    const next = [...prev]
+                                    next[idx].type = val
+                                    return next
+                                  })
+                                }}
+                              >
+                                <SelectTrigger className="w-full mt-1">
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="interview">Interview</SelectItem>
+                                  <SelectItem value="assessment">Assessment</SelectItem>
+                                  <SelectItem value="screening_call">Screening call</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium">Upload Screenshot</Label>
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null
+                                  setRounds((prev) => {
+                                    const next = [...prev]
+                                    next[idx].file = file
+                                    return next
+                                  })
+                                }}
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="email-subject" className="text-sm font-medium">
-                      Email Subject <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email Subject" : "Email Subject"} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="email-subject"
                       type="text"
                       value={emailSubject}
                       onChange={(e) => setEmailSubject(e.target.value)}
-                      placeholder="Enter email subject"
+                      placeholder={assessmentType === "offer_letter" ? "Enter offer email subject" : "Enter email subject"}
                       className="mt-1"
                       required
                     />
@@ -1436,13 +1600,13 @@ const { data, error } = await supabase
 
                   <div>
                     <Label htmlFor="email-body" className="text-sm font-medium">
-                      Email Body <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email Body" : "Email Body"} <span className="text-red-500">*</span>
                     </Label>
                     <Textarea
                       id="email-body"
                       value={emailBody}
                       onChange={(e) => setEmailBody(e.target.value)}
-                      placeholder="Enter email body details..."
+                      placeholder={assessmentType === "offer_letter" ? "Enter offer email body details..." : "Enter email body details..."}
                       className="mt-1"
                       rows={4}
                       required
@@ -1451,7 +1615,7 @@ const { data, error } = await supabase
 
                   <div>
                     <Label htmlFor="screenshot" className="text-sm font-medium">
-                      Screenshot <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Letter Screenshot" : "Screenshot"} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="screenshot"
@@ -1465,14 +1629,14 @@ const { data, error } = await supabase
 
                   <div>
                     <Label htmlFor="email-url" className="text-sm font-medium">
-                      Email URL <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email URL" : "Email URL"} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="email-url"
                       type="url"
                       value={emailUrl}
                       onChange={(e) => setEmailUrl(e.target.value)}
-                      placeholder="Enter email URL"
+                      placeholder={assessmentType === "offer_letter" ? "Enter offer email URL" : "Enter email URL"}
                       className="mt-1"
                       required
                     />
@@ -1482,19 +1646,7 @@ const { data, error } = await supabase
 
               <Button
                 type="submit"
-                disabled={
-                  isSubmittingAction ||
-                  !actionEmail ||
-                  !assessmentType ||
-                  !companyName ||
-                  !jobRole ||
-                  !appliedDate ||
-                  !emailSubject ||
-                  !emailBody ||
-                  !assessmentReceivedDate ||
-                  !screenshotFile ||
-                  !emailUrl
-                }
+                disabled={isSubmitDisabled}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-4"
               >
                 {isSubmittingAction ? "Submitting..." : "Submit Action"}
