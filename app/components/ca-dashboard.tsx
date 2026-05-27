@@ -613,6 +613,9 @@ const { data, error } = await supabase
     if (
       !actionEmail ||
       !assessmentType ||
+      !companyName ||
+      !jobRole ||
+      !appliedDate ||
       !emailSubject ||
       !emailBody ||
       !assessmentReceivedDate ||
@@ -1359,7 +1362,7 @@ const { data, error } = await supabase
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="company-name" className="text-sm font-medium">
-                        Company Name
+                        Company Name <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="company-name"
@@ -1368,11 +1371,12 @@ const { data, error } = await supabase
                         onChange={(e) => setCompanyName(e.target.value)}
                         placeholder="e.g. Google"
                         className="mt-1"
+                        required
                       />
                     </div>
                     <div>
                       <Label htmlFor="job-role" className="text-sm font-medium">
-                        Job Role
+                        Job Role <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="job-role"
@@ -1381,6 +1385,7 @@ const { data, error } = await supabase
                         onChange={(e) => setJobRole(e.target.value)}
                         placeholder="e.g. Software Engineer"
                         className="mt-1"
+                        required
                       />
                     </div>
                   </div>
@@ -1388,7 +1393,7 @@ const { data, error } = await supabase
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="applied-date" className="text-sm font-medium">
-                        Applied Date
+                        Applied Date <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="applied-date"
@@ -1396,6 +1401,7 @@ const { data, error } = await supabase
                         value={appliedDate}
                         onChange={(e) => setAppliedDate(e.target.value)}
                         className="mt-1"
+                        required
                       />
                     </div>
                     <div>
@@ -1480,6 +1486,9 @@ const { data, error } = await supabase
                   isSubmittingAction ||
                   !actionEmail ||
                   !assessmentType ||
+                  !companyName ||
+                  !jobRole ||
+                  !appliedDate ||
                   !emailSubject ||
                   !emailBody ||
                   !assessmentReceivedDate ||

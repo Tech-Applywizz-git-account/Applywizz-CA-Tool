@@ -17,13 +17,14 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { MarketingDashboard } from "./marketing-dashboard"
+import { AssessmentAnalyticsPage } from "./assessment-analytics-page"
 
 interface MarketingHeadDashboardProps {
   user: any;
   onLogout: () => void;
 }
 
-type TabType = "overview" | "tracker" | "roster" | "rules";
+type TabType = "overview" | "tracker" | "roster" | "rules" | "invites";
 type TrackerTabType = "jobboard" | "skillpassport" | "influencer";
 
 
@@ -327,6 +328,7 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
     { id: "tracker", label: "Marketing Tracker", icon: Database },
     { id: "roster", label: "Marketers", icon: Users },
     { id: "rules", label: "Financial & Rate Policies", icon: Scale },
+    { id: "invites", label: "Approved Invites", icon: ShieldCheck },
   ] as const
 
   // --- UI Components ---
@@ -1414,6 +1416,12 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+
+        {activeTab === "invites" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 md:p-6">
+            <AssessmentAnalyticsPage scope="executive" />
           </div>
         )}
       </div>

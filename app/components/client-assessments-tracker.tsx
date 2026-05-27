@@ -45,16 +45,31 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
 
   // Selected Image for Preview Dialog
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  
+
+  // UI Tabs
+  const isMarketing = useMemo(() => {
+    const role = user?.role?.toLowerCase() || ""
+    return role.includes("marketing")
+  }, [user])
+
   // UI Tabs
   const [activeTab, setActiveTab] = useState<"summary" | "comparison" | "logs">("summary")
 
-  // Cohort comparison bucket filter
-  const [selectedCohort, setSelectedCohort] = useState<string>("all")
+  // Force active tab to "logs" if marketing
+  useEffect(() => {
+    if (isMarketing) {
+      setActiveTab("logs")
+    }
+  }, [isMarketing])
+
+  // Batch comparison filters
+  const [selectedDomain, setSelectedDomain] = useState<string>("all")
+  const [experienceFilter, setExperienceFilter] = useState<string>("all")
 
   // Dialog for Unique Companies
   const [showUniqueCompaniesDialog, setShowUniqueCompaniesDialog] = useState(false)
   const [modalCompanySearch, setModalCompanySearch] = useState("")
+  const [approvingIds, setApprovingIds] = useState<Record<string, boolean>>({})
 
   // Reset modal search on close
   useEffect(() => {
@@ -84,6 +99,56 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
     }
     fetchAssessments()
   }, [])
+
+  const handleApprove = async (assessmentId: string) => {
+    setApprovingIds(prev => ({ ...prev, [assessmentId]: true }))
+    try {
+      const { error } = await supabase
+        .from("client_assessments")
+        .update({ is_approved: true })
+        .eq("id", assessmentId)
+
+      if (error) throw error
+
+      setAssessments(prev =>
+        prev.map(item => (item.id === assessmentId ? { ...item, is_approved: true } : item))
+      )
+    } catch (err) {
+      console.error("Error approving assessment:", err)
+      alert("Failed to approve invitation. Please try again.")
+    } finally {
+      setApprovingIds(prev => {
+        const updated = { ...prev }
+        delete updated[assessmentId]
+        return updated
+      })
+    }
+  }
+
+  const handleReject = async (assessmentId: string) => {
+    setApprovingIds(prev => ({ ...prev, [assessmentId]: true }))
+    try {
+      const { error } = await supabase
+        .from("client_assessments")
+        .update({ is_approved: false })
+        .eq("id", assessmentId)
+
+      if (error) throw error
+
+      setAssessments(prev =>
+        prev.map(item => (item.id === assessmentId ? { ...item, is_approved: false } : item))
+      )
+    } catch (err) {
+      console.error("Error rejecting assessment:", err)
+      alert("Failed to reject invitation. Please try again.")
+    } finally {
+      setApprovingIds(prev => {
+        const updated = { ...prev }
+        delete updated[assessmentId]
+        return updated
+      })
+    }
+  }
 
   useEffect(() => {
     const fetchApplicationDays = async () => {
@@ -152,9 +217,12 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
         if (!clientName.includes(query) && !clientEmail.includes(query)) return false
       }
 
+      // 7. Marketing filter (only approved invites)
+      if (isMarketing && item.is_approved !== true) return false
+
       return true
     })
-  }, [assessments, inScopeClientIds, dateFrom, dateTo, assessmentType, companySearch, selectedCA, clientSearch, clientsMap])
+  }, [assessments, inScopeClientIds, dateFrom, dateTo, assessmentType, companySearch, selectedCA, clientSearch, clientsMap, isMarketing])
 
   // Stats computed from assessments filtered by all criteria EXCEPT assessmentType
   const statsAssessments = useMemo(() => {
@@ -181,9 +249,12 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
         if (!clientName.includes(query) && !clientEmail.includes(query)) return false
       }
 
+      // 6. Marketing filter (only approved invites)
+      if (isMarketing && item.is_approved !== true) return false
+
       return true
     })
-  }, [assessments, inScopeClientIds, dateFrom, dateTo, companySearch, selectedCA, clientSearch, clientsMap])
+  }, [assessments, inScopeClientIds, dateFrom, dateTo, companySearch, selectedCA, clientSearch, clientsMap, isMarketing])
 
   const stats = useMemo(() => {
     let interviews = 0
@@ -195,7 +266,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       if (item.assessment_type === "interview") interviews++
       else if (item.assessment_type === "assessment") tests++
       else if (item.assessment_type === "screening_call") screeningCalls++
-      
+
       if (item.company_name) {
         uniqueCompanies.add(item.company_name.trim().toLowerCase())
       }
@@ -252,8 +323,8 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       if (item.assessment_type === "interview") counts[key].interviews++
       else if (item.assessment_type === "assessment") counts[key].tests++
       else if (item.assessment_type === "screening_call") counts[key].screening++
-      // Keep reference to exact name representation
-      ;(counts[key] as any).displayName = name
+        // Keep reference to exact name representation
+        ; (counts[key] as any).displayName = name
     })
 
     return Object.values(counts)
@@ -264,24 +335,23 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   // Today's assessments (always based on received date = today, ignoring active date filters)
   const todaysAssessments = useMemo(() => {
     return assessments.filter(item => {
+      if (isMarketing && item.is_approved !== true) return false
       return inScopeClientIds.has(item.client_id) && item.assessment_received_date === todayStr
     })
-  }, [assessments, inScopeClientIds, todayStr])
+  }, [assessments, inScopeClientIds, todayStr, isMarketing])
 
-  // Cohort Analysis: Group clients by client_designation (domain) & experience
+  // Batch Analysis: Group clients by client_designation (domain)
   const cohorts = useMemo(() => {
     // Group all in-scope clients
-    const groups: Record<string, { designation: string; experience: string; clients: any[] }> = {}
-    
+    const groups: Record<string, { designation: string; clients: any[] }> = {}
+
     clients.forEach(c => {
       const desig = (c.client_designation || "Not Specified").trim()
-      const exp = c.experience !== null && c.experience !== undefined ? `${c.experience} Years` : "Not Specified"
-      const key = `${desig.toLowerCase()}_${exp.toLowerCase()}`
+      const key = desig.toLowerCase()
 
       if (!groups[key]) {
         groups[key] = {
           designation: desig,
-          experience: exp,
           clients: []
         }
       }
@@ -308,9 +378,34 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       .sort((a, b) => b.clients.length - a.clients.length)
   }, [clients, filteredAssessments])
 
-  // Sorted unique bucket names for dropdown filter in ascending order
-  const sortedBucketNames = useMemo(() => {
-    const names = cohorts.map(cohort => `${cohort.designation} (${cohort.experience})`)
+  // Filter cohorts and their clients based on selectedDomain and experienceFilter
+  const filteredCohorts = useMemo(() => {
+    return cohorts
+      .map(cohort => {
+        // Filter clients within this cohort
+        const filteredClients = cohort.clients.filter(client => {
+          if (experienceFilter === "all") return true;
+          const exp = client.experience;
+          if (exp === null || exp === undefined || exp === "") return false;
+          const expVal = Number(exp);
+          if (isNaN(expVal)) return false;
+          if (experienceFilter === "beginner") return expVal >= 0 && expVal <= 3;
+          if (experienceFilter === "intermediate") return expVal > 3 && expVal <= 6;
+          if (experienceFilter === "senior") return expVal > 6;
+          return true;
+        });
+        return {
+          ...cohort,
+          clients: filteredClients
+        };
+      })
+      .filter(cohort => cohort.clients.length > 0) // only cohorts that still have clients
+      .filter(cohort => selectedDomain === "all" || cohort.designation === selectedDomain);
+  }, [cohorts, selectedDomain, experienceFilter]);
+
+  // Sorted unique domain names for dropdown filter in ascending order
+  const sortedDomains = useMemo(() => {
+    const names = cohorts.map(cohort => cohort.designation)
     const uniqueNames = Array.from(new Set(names))
     return uniqueNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
   }, [cohorts])
@@ -434,45 +529,43 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       </Card>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab("summary")}
-          className={`py-2.5 px-4 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-            activeTab === "summary" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Overview & Top Companies
-        </button>
-        <button
-          onClick={() => setActiveTab("comparison")}
-          className={`py-2.5 px-4 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-            activeTab === "comparison" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Cohort Comparison (Domain & Exp)
-        </button>
-        <button
-          onClick={() => setActiveTab("logs")}
-          className={`py-2.5 px-4 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-            activeTab === "logs" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Detailed Activity Logs ({filteredAssessments.length})
-        </button>
-      </div>
+      {!isMarketing && (
+        <div className="flex border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab("summary")}
+            className={`py-2.5 px-4 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "summary" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+          >
+            Overview & Top Companies
+          </button>
+          <button
+            onClick={() => setActiveTab("comparison")}
+            className={`py-2.5 px-4 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "comparison" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+          >
+            Batch Comparison (Domain Wise)
+          </button>
+          <button
+            onClick={() => setActiveTab("logs")}
+            className={`py-2.5 px-4 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "logs" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+          >
+            Detailed Activity Logs ({filteredAssessments.length})
+          </button>
+        </div>
+      )}
 
       {/* SUMMARY TAB */}
-      {activeTab === "summary" && (
+      {activeTab === "summary" && !isMarketing && (
         <div className="space-y-6">
           {/* Key Metrics Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <Card
               onClick={() => setAssessmentType("all")}
-              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
-                assessmentType === "all"
-                  ? "bg-gradient-to-br from-indigo-100 to-indigo-200 border-indigo-400 ring-2 ring-indigo-600 ring-offset-2 scale-[1.02] shadow-sm"
-                  : "bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:border-indigo-300"
-              }`}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${assessmentType === "all"
+                ? "bg-gradient-to-br from-indigo-100 to-indigo-200 border-indigo-400 ring-2 ring-indigo-600 ring-offset-2 scale-[1.02] shadow-sm"
+                : "bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 hover:border-indigo-300"
+                }`}
             >
               <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-indigo-700">{stats.total}</span>
@@ -482,11 +575,10 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
 
             <Card
               onClick={() => setAssessmentType("interview")}
-              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
-                assessmentType === "interview"
-                  ? "bg-gradient-to-br from-emerald-100 to-emerald-200 border-emerald-400 ring-2 ring-emerald-600 ring-offset-2 scale-[1.02] shadow-sm"
-                  : "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:border-emerald-300"
-              }`}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${assessmentType === "interview"
+                ? "bg-gradient-to-br from-emerald-100 to-emerald-200 border-emerald-400 ring-2 ring-emerald-600 ring-offset-2 scale-[1.02] shadow-sm"
+                : "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 hover:border-emerald-300"
+                }`}
             >
               <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-emerald-700">{stats.interviews}</span>
@@ -496,11 +588,10 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
 
             <Card
               onClick={() => setAssessmentType("assessment")}
-              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
-                assessmentType === "assessment"
-                  ? "bg-gradient-to-br from-blue-100 to-blue-200 border-blue-400 ring-2 ring-blue-600 ring-offset-2 scale-[1.02] shadow-sm"
-                  : "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:border-blue-300"
-              }`}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${assessmentType === "assessment"
+                ? "bg-gradient-to-br from-blue-100 to-blue-200 border-blue-400 ring-2 ring-blue-600 ring-offset-2 scale-[1.02] shadow-sm"
+                : "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:border-blue-300"
+                }`}
             >
               <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-blue-700">{stats.tests}</span>
@@ -510,11 +601,10 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
 
             <Card
               onClick={() => setAssessmentType("screening_call")}
-              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${
-                assessmentType === "screening_call"
-                  ? "bg-gradient-to-br from-amber-100 to-amber-200 border-amber-400 ring-2 ring-amber-600 ring-offset-2 scale-[1.02] shadow-sm"
-                  : "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:border-amber-300"
-              }`}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${assessmentType === "screening_call"
+                ? "bg-gradient-to-br from-amber-100 to-amber-200 border-amber-400 ring-2 ring-amber-600 ring-offset-2 scale-[1.02] shadow-sm"
+                : "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:border-amber-300"
+                }`}
             >
               <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-amber-700">{stats.screeningCalls}</span>
@@ -618,61 +708,70 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       )}
 
       {/* COHORT COMPARISON TAB */}
-      {activeTab === "comparison" && (
+      {activeTab === "comparison" && !isMarketing && (
         <div className="space-y-6">
           <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <CardHeader className="pb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="space-y-1">
                 <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <span>Cohort Comparison Mode (Domain & Experience Alignment)</span>
+                  <span>Batch Comparison Mode (Domain Alignment)</span>
                   <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold text-xs whitespace-nowrap">
-                    {cohorts.length} Total Buckets
+                    {filteredCohorts.length} Active Domains
                   </Badge>
                 </CardTitle>
                 <p className="text-xs text-slate-500">
-                  Compare clients who have the same designation (domain) and experience level. This helps you identify why some clients are succeeding (e.g. Completed with job offers) while others with similar profiles are not.
+                  Compare clients who have the same designation (domain) and filter by experience level. This helps you identify why some clients are succeeding (e.g. Completed with job offers) while others with similar profiles are not.
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0 w-full md:w-auto min-w-[260px]">
-                <Label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Filter by Bucket:</Label>
-                <Select value={selectedCohort} onValueChange={setSelectedCohort}>
-                  <SelectTrigger className="h-9 text-xs w-full bg-white border-slate-200">
-                    <SelectValue placeholder="All Buckets" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    <SelectItem value="all">All Buckets</SelectItem>
-                    {sortedBucketNames.map((bucket) => (
-                      <SelectItem key={bucket} value={bucket}>
-                        {bucket}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 shrink-0 w-full lg:w-auto">
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto min-w-[200px]">
+                  <Label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Filter by Domain:</Label>
+                  <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                    <SelectTrigger className="h-9 text-xs w-full bg-white border-slate-200">
+                      <SelectValue placeholder="All Domains" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value="all">All Domains</SelectItem>
+                      {sortedDomains.map((domain) => (
+                        <SelectItem key={domain} value={domain}>
+                          {domain}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto min-w-[200px]">
+                  <Label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Filter by Experience:</Label>
+                  <Select value={experienceFilter} onValueChange={setExperienceFilter}>
+                    <SelectTrigger className="h-9 text-xs w-full bg-white border-slate-200">
+                      <SelectValue placeholder="All Experiences" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Experiences</SelectItem>
+                      <SelectItem value="beginner">(0-3 Beginner)</SelectItem>
+                      <SelectItem value="intermediate">(3-6 Intermediate)</SelectItem>
+                      <SelectItem value="senior">(6+ Senior)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {cohorts.length === 0 ? (
+              {filteredCohorts.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-xs">
                   No clients available to compare.
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {cohorts
-                    .filter(cohort => selectedCohort === "all" || `${cohort.designation} (${cohort.experience})` === selectedCohort)
-                    .map((cohort, cIdx) => {
-                      // Only display cohorts that have clients
-                    if (cohort.clients.length === 0) return null
+                  {filteredCohorts.map((cohort, cIdx) => {
                     return (
                       <div key={cIdx} className="border border-slate-200 rounded-lg overflow-hidden">
                         <div className="bg-slate-100 px-4 py-3 flex justify-between items-center border-b">
                           <div>
                             <span className="font-bold text-slate-800 text-sm">{cohort.designation}</span>
-                            <Badge variant="secondary" className="ml-2.5 bg-indigo-50 text-indigo-700 border-indigo-200">
-                              {cohort.experience} Experience
-                            </Badge>
                           </div>
                           <Badge variant="outline" className="bg-white">
-                            {cohort.clients.length} Client{cohort.clients.length !== 1 ? "s" : ""} in Cohort
+                            {cohort.clients.length} Client{cohort.clients.length !== 1 ? "s" : ""} in Batch
                           </Badge>
                         </div>
                         <div className="overflow-x-auto">
@@ -691,57 +790,63 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {cohort.clients.map((client: any, clIdx: number) => (
-                                <TableRow key={clIdx} className="hover:bg-slate-50/50">
-                                  <TableCell className="font-medium text-slate-800 text-xs">
-                                    <Link href={`${basePath}/client/${client.id}`} className="text-blue-600 hover:text-blue-800 hover:underline font-semibold block">
-                                      {client.name}
-                                    </Link>
-                                    <Link href={`${basePath}/client/${client.id}`} className="text-[10px] text-blue-500 hover:text-blue-700 hover:underline block mt-0.5">
-                                      {client.email}
-                                    </Link>
-                                  </TableCell>
-                                  <TableCell className="text-xs text-slate-700">
-                                    {client.assigned_ca_name || "Not Assigned"}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-center">
-                                    <Badge
-                                      className={
-                                        client.status === "Completed" ? "bg-green-500 text-white"
-                                        : client.status === "Started" ? "bg-orange-500 text-white"
-                                        : client.status === "Paused" ? "bg-white text-black border border-slate-300"
-                                        : "bg-red-500 text-white"
-                                      }
-                                    >
-                                      {client.status || "Not Started"}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-xs font-bold text-center text-emerald-600">{client.interviewsCount}</TableCell>
-                                  <TableCell className="text-xs font-bold text-center text-blue-600">{client.testsCount}</TableCell>
-                                  <TableCell className="text-xs font-bold text-center text-amber-600">{client.screeningCount}</TableCell>
-                                  <TableCell className="text-xs font-black text-center text-indigo-700 bg-indigo-50/30">{client.totalAssessmentsCount}</TableCell>
-                                  <TableCell className="text-xs font-bold text-center text-indigo-600 bg-slate-50/50">
-                                    {loadingDays ? (
-                                      <Loader2 className="h-4 w-4 animate-spin mx-auto text-indigo-500" />
-                                    ) : (
-                                      applicationDaysMap.get(client.id) ?? 0
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-slate-600">
-                                    {client.companiesList.length > 0 ? (
-                                      <div className="flex flex-wrap gap-1">
-                                        {client.companiesList.map((comp: string, compIdx: number) => (
-                                          <Badge key={compIdx} variant="outline" className="text-[10px] py-0">
-                                            {comp}
-                                          </Badge>
-                                        ))}
+                              {cohort.clients
+                                .slice()
+                                .sort((a, b) => (a.is_active === b.is_active) ? 0 : a.is_active ? -1 : 1)
+                                .map((client: any, clIdx: number) => (
+                                  <TableRow key={clIdx} className="hover:bg-slate-50/50">
+                                    <TableCell className="font-medium text-slate-800 text-xs">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <Link href={`${basePath}/client/${client.id}`} className="text-blue-600 hover:text-blue-800 hover:underline font-semibold">
+                                          {client.name}
+                                        </Link>
+                                        <Badge variant="outline" className="text-[9px] px-1 py-0 bg-slate-50 text-slate-600 font-medium">
+                                          {client.experience !== null && client.experience !== undefined ? `${client.experience} Yrs` : "N/A"}
+                                        </Badge>
                                       </div>
-                                    ) : (
-                                      <span className="text-slate-400 italic text-[10px]">No invites recorded yet</span>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                                      <Link href={`${basePath}/client/${client.id}`} className="text-[10px] text-blue-500 hover:text-blue-700 hover:underline block mt-0.5">
+                                        {client.email}
+                                      </Link>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-slate-700">
+                                      {client.assigned_ca_name || "Not Assigned"}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-center">
+                                      <div className="inline-flex flex-col items-center gap-1">
+                                        <Badge
+                                          variant="outline"
+                                          className={client.is_active === false ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                        >
+                                          {client.is_active === false ? "Inactive" : "Active"}
+                                        </Badge>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs font-bold text-center text-emerald-600">{client.interviewsCount}</TableCell>
+                                    <TableCell className="text-xs font-bold text-center text-blue-600">{client.testsCount}</TableCell>
+                                    <TableCell className="text-xs font-bold text-center text-amber-600">{client.screeningCount}</TableCell>
+                                    <TableCell className="text-xs font-black text-center text-indigo-700 bg-indigo-50/30">{client.totalAssessmentsCount}</TableCell>
+                                    <TableCell className="text-xs font-bold text-center text-indigo-600 bg-slate-50/50">
+                                      {loadingDays ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto text-indigo-500" />
+                                      ) : (
+                                        applicationDaysMap.get(client.id) ?? 0
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-slate-600">
+                                      {client.companiesList.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {client.companiesList.map((comp: string, compIdx: number) => (
+                                            <Badge key={compIdx} variant="outline" className="text-[10px] py-0">
+                                              {comp}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-400 italic text-[10px]">No invites recorded yet</span>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
                             </TableBody>
                           </Table>
                         </div>
@@ -768,14 +873,15 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                     <TableHead className="text-xs font-semibold text-slate-600">Type</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600">Company & Job Role</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600">Email Subject</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600">Logged By</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600">CA</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600 text-center">Proof</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 text-center">Approve Invite</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAssessments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12 text-slate-500 text-xs">
+                      <TableCell colSpan={8} className="text-center py-12 text-slate-500 text-xs">
                         No activity records found matching the current filter options.
                       </TableCell>
                     </TableRow>
@@ -844,7 +950,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                               ) : (
                                 <span className="text-slate-400 text-[10px]">No Pic</span>
                               )}
-                              
+
                               {a.email_url && (
                                 <a href={a.email_url} target="_blank" rel="noreferrer" title="Open email link">
                                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
@@ -853,6 +959,42 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                 </a>
                               )}
                             </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-center">
+                            {a.is_approved === true ? (
+                              <div className="inline-flex items-center justify-center border-2 border-emerald-600 text-emerald-600 font-extrabold uppercase px-2 py-0.5 rounded text-[10px] tracking-widest rotate-[-8deg] font-sans select-none bg-emerald-50/50 shadow-sm my-1">
+                                APPROVED
+                              </div>
+                            ) : a.is_approved === false ? (
+                              <div className="inline-flex items-center justify-center border-2 border-red-600 text-red-600 font-extrabold uppercase px-2 py-0.5 rounded text-[10px] tracking-widest rotate-[-8deg] font-sans select-none bg-red-50/50 shadow-sm my-1">
+                                REJECTED
+                              </div>
+                            ) : scope === "team-lead" ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApprove(a.id)}
+                                  disabled={approvingIds[a.id]}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1 px-2.5 h-8 rounded shadow-sm transition-all"
+                                >
+                                  {approvingIds[a.id] ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : "Approve"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleReject(a.id)}
+                                  disabled={approvingIds[a.id]}
+                                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-2.5 h-8 rounded shadow-sm transition-all"
+                                >
+                                  {approvingIds[a.id] ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : "Reject"}
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Pending</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       )
