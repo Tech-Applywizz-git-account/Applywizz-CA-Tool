@@ -11,7 +11,8 @@ import {
   DollarSign, FileText, Users, User, TrendingUp, Calendar, Gift,
   ChevronLeft, ChevronRight, Eye, EyeOff, Target, LockOpen, CheckCircle2,
   AlertCircle, Flame, BarChart3, Receipt, LayoutDashboard, Menu, X,
-  Activity, Crosshair, Zap, Award, ArrowUpRight, ArrowDownRight, Search, LogOut
+  Activity, Crosshair, Zap, Award, ArrowUpRight, ArrowDownRight, Search, LogOut,
+  ClipboardList
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { supabase } from "@/lib/supabaseClient"
@@ -23,6 +24,7 @@ import {
 // Lazy-load the heavy Expected Revenue Panel — it's only needed when tracker tab is active
 const ExpectedRevenuePanel = lazy(() => import("./expected-revenue-panel").then(m => ({ default: m.ExpectedRevenuePanel })));
 import { SalesSubmissionForm } from "./sales-submission-form";
+import { SubmissionFormsPanel } from "./submission-forms-panel";
 
 // Default slabs as fallback
 const defaultBDASlab = [
@@ -56,7 +58,7 @@ interface BDADashboardProps {
   viewerMode?: boolean;
 }
 
-type SidebarTab = "tracker" | "incentive" | "bonuses" | "sales" | "analytics" | "submission-form";
+type SidebarTab = "tracker" | "incentive" | "submitted-forms" | "bonuses" | "sales" | "analytics" | "submission-form";
 
 const getNextSlab = (role: string, currentRevenue: number, bdtTarget: number, slabMap: Record<string, any[]>) => {
   const currentSlab = slabMap[role] || [];
@@ -330,6 +332,13 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
       icon: FileText,
       color: "text-rose-500",
       gradient: "from-rose-500 to-pink-500",
+    },
+    {
+      id: "submitted-forms" as SidebarTab,
+      label: "Submitted Forms",
+      icon: ClipboardList,
+      color: "text-pink-500",
+      gradient: "from-pink-500 to-rose-500",
     },
   ];
 
@@ -790,9 +799,9 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                   }}
                   disabled={isFuture && !isActive}
                   className={`h-12 w-12 shrink-0 rounded-2xl border flex flex-col items-center justify-center transition-all relative ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 scale-105 z-10' :
-                    isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-400/20' :
-                      isFuture ? 'bg-slate-50/50 border-dashed border-slate-200 text-slate-300 opacity-60' :
-                        'bg-white/80 border-emerald-100 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30'
+                      isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-400/20' :
+                        isFuture ? 'bg-slate-50/50 border-dashed border-slate-200 text-slate-300 opacity-60' :
+                          'bg-white/80 border-emerald-100 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30'
                     }`}
                 >
                   <span className={`text-[9px] font-black uppercase leading-none opacity-60 mb-0.5 ${isActive ? 'text-white' : ''}`}>
@@ -1486,25 +1495,30 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
               </Badge>
             </div>
 
-            {/* Right: logout */}
-            {!viewerMode && (
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:flex border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-semibold shadow-sm"
-                  onClick={() => window.open(process.env.NEXT_PUBLIC_SEND_INVOICE_LINK || "#", "_blank")}
-                >
-                  Send Invoice
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:flex border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold shadow-sm"
-                  onClick={() => window.open(process.env.NEXT_PUBLIC_REFERRAL_FORM_LINK || "#", "_blank")}
-                >
-                  Referral Form
-                </Button>
+            {/* Right: logout / Viewing Mode & Actions */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:flex border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-semibold shadow-sm"
+                onClick={() => window.open(process.env.NEXT_PUBLIC_SEND_INVOICE_LINK || "#", "_blank")}
+              >
+                Send Invoice
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:flex border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold shadow-sm"
+                onClick={() => window.open(process.env.NEXT_PUBLIC_REFERRAL_FORM_LINK || "#", "_blank")}
+              >
+                Referral Form
+              </Button>
+
+              {viewerMode ? (
+                <Badge variant="outline" className="h-9 px-4 rounded-xl border-amber-200 bg-amber-50 text-amber-700 font-bold border-2 flex items-center">
+                  <Eye className="h-4 w-4 mr-2" /> Viewing Mode
+                </Badge>
+              ) : (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-9 w-9 rounded-full hover:bg-slate-100 p-0 shadow-sm border border-slate-200">
@@ -1525,8 +1539,8 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
@@ -1560,6 +1574,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                 const activeGradients: Record<SidebarTab, string> = {
                   tracker: 'linear-gradient(135deg, #f97316, #f59e0b)',
                   incentive: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  "submitted-forms": 'linear-gradient(135deg, #ec4899, #f43f5e)',
                   bonuses: 'linear-gradient(135deg, #10b981, #14b8a6)',
                   sales: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
                   analytics: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
@@ -1614,11 +1629,12 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
           <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-auto">
             {/* Page title bar with gradient */}
             <div className={`mb-6 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden ${activeTab === 'tracker' ? 'bg-gradient-to-r from-orange-500 to-amber-500' :
-              activeTab === 'incentive' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' :
-                activeTab === 'bonuses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' :
-                  activeTab === 'analytics' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
-                    activeTab === 'submission-form' ? 'bg-gradient-to-r from-rose-500 to-pink-600' :
-                      'bg-gradient-to-r from-blue-500 to-cyan-600'
+                activeTab === 'incentive' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' :
+                  activeTab === 'submitted-forms' ? 'bg-gradient-to-r from-pink-500 to-rose-500' :
+                    activeTab === 'bonuses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' :
+                      activeTab === 'analytics' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
+                        activeTab === 'submission-form' ? 'bg-gradient-to-r from-rose-500 to-pink-600' :
+                          'bg-gradient-to-r from-blue-500 to-cyan-600'
               }`}>
               <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -translate-y-10 translate-x-10" />
               <div className="absolute bottom-0 left-20 w-24 h-24 rounded-full bg-white/5 translate-y-8" />
@@ -1628,10 +1644,11 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                 <h1 className="text-2xl font-black tracking-tight">
                   {activeTab === 'tracker' ? '🔥 Expected Revenue Tracker' :
                     activeTab === 'incentive' ? '📈 Incentive Achieved' :
-                      activeTab === 'bonuses' ? '🎁 Daily Bonuses' :
-                        activeTab === 'analytics' ? '📊 Performance & Analytics' :
-                          activeTab === 'submission-form' ? '📝 Sales Success Submission' :
-                            '🧾 Sales Records'}
+                      activeTab === 'submitted-forms' ? '📋 Submitted Forms' :
+                        activeTab === 'bonuses' ? '🎁 Daily Bonuses' :
+                          activeTab === 'analytics' ? '📊 Performance & Analytics' :
+                            activeTab === 'submission-form' ? '📝 Sales Success Submission' :
+                              '🧾 Sales Records'}
                 </h1>
                 <p className="text-white/70 text-sm mt-1 font-medium">
                   Welcome back, <strong className="text-white">{user.name}</strong>
@@ -1648,7 +1665,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
             )}
 
             {/* Loading state */}
-            {loading && activeTab !== 'tracker' ? (
+            {loading && activeTab !== 'tracker' && activeTab !== 'submitted-forms' ? (
               <div className="flex flex-col items-center justify-center py-24">
                 <div className="w-14 h-14 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin mb-5" />
                 <p className="text-slate-500 font-semibold">Loading your data...</p>
@@ -1672,6 +1689,23 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                   </Suspense>
                 )}
                 {activeTab === 'incentive' && IncentivePanel()}
+                {activeTab === 'submitted-forms' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg shadow-pink-500/20">
+                            <ClipboardList className="h-5 w-5 text-white" />
+                          </div>
+                          Sales Success Submissions
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-1 ml-12">Your submitted form records for {getMonthName()}</p>
+                      </div>
+                      <MonthBar />
+                    </div>
+                    <SubmissionFormsPanel repEmail={user.email} monthOffset={monthOffset} hideHeader={true} viewerMode={viewerMode} />
+                  </div>
+                )}
                 {activeTab === 'bonuses' && BonusPanel()}
                 {activeTab === 'sales' && SalesPanel()}
                 {activeTab === 'analytics' && <AnalyticsPanel />}

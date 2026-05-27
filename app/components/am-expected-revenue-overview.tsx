@@ -1,6 +1,4 @@
 "use client"
-// Triggering rebuild to fix cache corruption issues
-
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,10 +16,9 @@ import {
 import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 
-interface ExpectedRevenueOverviewProps {
+interface AMExpectedRevenueOverviewProps {
   monthName: string;
   targetDate: Date;
-  basePath?: string;
 }
 
 interface EntryGroup {
@@ -41,13 +38,13 @@ interface EntryGroup {
   isMissedSubmission?: boolean;
 }
 
-export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cro-dashboard" }: ExpectedRevenueOverviewProps) {
+export function AMExpectedRevenueOverview({ monthName, targetDate }: AMExpectedRevenueOverviewProps) {
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [editHistoryEntry, setEditHistoryEntry] = useState<any>(null);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
-  const [allSalesReps, setAllSalesReps] = useState<any[]>([]);
+  const [allAMs, setAllAMs] = useState<any[]>([]);
   const isFirstLoad = useRef(true);
 
   // Filters
@@ -66,7 +63,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
   const getISTDate = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
   const getISTDateStr = () => {
     const ist = getISTDate();
-    const hours = ist.getHours();
     return `${ist.getFullYear()}-${String(ist.getMonth() + 1).padStart(2, '0')}-${String(ist.getDate()).padStart(2, '0')}`;
   };
 
@@ -99,11 +95,11 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
     const { data } = await supabase
       .from("users")
       .select("id, email, name, isactive")
-      .in("role", ["BDT", "BDA", "SBDA", "BDT-P"])
+      .eq("role", "Accounts Associate")
       .eq("isactive", true);
 
     if (data) {
-      setAllSalesReps(data);
+      setAllAMs(data);
       const map: Record<string, string> = {};
       data.forEach(u => {
         if (u.email) map[u.email.toLowerCase()] = u.id;
@@ -115,13 +111,13 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
   const fetchEntries = useCallback(async () => {
     if (isFirstLoad.current) setLoading(true);
     try {
-      const res = await fetch(`/api/expected-revenue?mode=executive&month=${monthStr}`);
+      const res = await fetch(`/api/am-expected-revenue?mode=executive&month=${monthStr}`);
       const data = await res.json();
       if (data.success) {
         setEntries(data.entries || []);
       }
     } catch (e) {
-      console.error("Failed to fetch expected revenue overview:", e);
+      console.error("Failed to fetch AM expected revenue overview:", e);
     }
     setLoading(false);
     isFirstLoad.current = false;
@@ -135,9 +131,8 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
     return () => clearInterval(interval);
   }, [fetchEntries, fetchUsers]);
 
-  const activeRepEmails = useMemo(() => new Set(allSalesReps.map(r => r.email?.toLowerCase()).filter(Boolean)), [allSalesReps]);
+  const activeRepEmails = useMemo(() => new Set(allAMs.map(r => r.email?.toLowerCase()).filter(Boolean)), [allAMs]);
 
-  // Shift April 9 (8 PM - 8 PM) is displayed as "April 10"
   const filteredEntries = !selectedDayStr
     ? []
     : entries.filter((e) => {
@@ -150,7 +145,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
       return completionStr === selectedDayStr;
     });
 
-  // De-duplicate by lowercased email + shift_date to prevent doubling from casing mismatches in DB
   const dedupedEntries = useMemo(() => {
     const map = new Map<string, any>();
     filteredEntries.forEach(e => {
@@ -160,7 +154,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
         map.set(key, e);
       } else {
         const existing = map.get(key);
-        // Preference: has_revenue > verified > submitted_at
         if (!existing.has_revenue && e.has_revenue) map.set(key, e);
         else if (existing.has_revenue === e.has_revenue && !existing.verified && e.verified) map.set(key, e);
         else if (existing.has_revenue === e.has_revenue && existing.verified === e.verified && (!existing.submitted_at && e.submitted_at)) map.set(key, e);
@@ -214,8 +207,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
 
   const isShiftDeadlinePassed = () => {
     if (!selectedDayStr) return false;
-    // If absolutely zero reps have filled the form for this date, assume the shift hasn't started, or it's a holiday/weekend.
-    // This prevents filling the screen with red rows on inactive days.
     if (filteredEntries.length === 0) return false;
 
     const [y, m, d] = selectedDayStr.split("-").map(Number);
@@ -225,17 +216,13 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
   };
 
   if (isShiftDeadlinePassed()) {
-    // 1. API Stubs: Reps who made sales but never submitted the form
     grouped.forEach(g => {
       const entry = g.entries[0];
-      // A true API stub has no explicit submitted_at AND no predicted revenue.
-      // (Historic human submissions with predictions will have has_revenue = true)
       const isStub = !entry?.submitted_at && entry?.has_revenue === false;
       if (isStub) g.isMissedSubmission = true;
     });
 
-    // 2. Completely missing reps
-    allSalesReps.forEach(rep => {
+    allAMs.forEach(rep => {
       const lowerEmail = rep.email?.toLowerCase();
       if (lowerEmail && !emailMap.has(lowerEmail)) {
         grouped.push({
@@ -321,8 +308,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
   const globalAchievedAWLs = dedupedEntries.reduce((sum, e) => sum + (e.matched_awl_ids?.length || 0), 0);
   const globalAccuracy = globalSubmittedAWLs > 0 ? Math.round((globalAchievedAWLs / globalSubmittedAWLs) * 100) : 0;
 
-  const topPerformer = grouped.length > 0 ? grouped.reduce((best, g) => g.totalStreaks > best.totalStreaks ? g : best, grouped[0]) : null;
-
   return (
     <Card className="border-0 shadow-xl overflow-hidden ring-1 ring-slate-200/50 hover:ring-orange-300 transition-all duration-500">
       <div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-400"></div>
@@ -339,7 +324,7 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
             </div>
             <div>
               <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
-                Expected Revenue Tracker
+                AM Expected Renewal Tracker
                 <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30 font-bold uppercase tracking-widest text-[10px]">Real-time Audit</Badge>
               </CardTitle>
               <p className="text-sm mt-1.5 font-medium max-w-lg leading-relaxed text-orange-100/80">
@@ -348,7 +333,7 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2" onClick={e => e.stopPropagation()}>
+          <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-1.5 rounded-xl border border-white/10">
               <Button variant="ghost" size="icon" onClick={() => changeDay(-1)} className="h-8 w-8 text-white hover:bg-white/20"><ChevronLeft className="h-4 w-4" /></Button>
               <div className="flex flex-col items-center min-w-[120px]">
@@ -381,7 +366,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
             </div>
           ) : (
             <>
-              {/* Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 p-5 bg-slate-50/50 border-b border-slate-100">
                 <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-indigo-50 border border-indigo-100 shadow-sm">
                   <span className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Business Day</span>
@@ -389,11 +373,11 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
                   <p className="text-[8px] text-indigo-300 font-bold uppercase mt-0.5">8PM (Prev) - 8PM (Today)</p>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Achieved / Submitted Reps</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Achieved / Submitted AMs</p>
                   <p className="text-2xl font-black text-indigo-600">{achievedRepsCount} / {submittedRepsCount}</p>
                 </div>
                 <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-3 rounded-xl border border-indigo-100 shadow-sm text-center">
-                  <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest leading-tight">Actual Total Sales</p>
+                  <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest leading-tight">Actual Total Renewals</p>
                   <p className="text-2xl font-black text-indigo-700">{totalActualSalesGlobal}</p>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
@@ -418,8 +402,7 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
                 </div>
               </div>
 
-              {/* Filters */}
-              <div className="flex flex-wrap items-center gap-3 p-4 border-b border-slate-100 bg-white" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-wrap items-center gap-3 p-4 border-b border-slate-100 bg-white">
                 <div className="relative flex-1 min-w-[200px] max-w-[300px]">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                   <Input placeholder="Search by name or email..." value={searchFilter} onChange={(e) => setSearchFilter(e.target.value)} className="pl-9 bg-white h-9 text-sm" />
@@ -436,17 +419,16 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
                     <SelectItem value="NoRevenue">📭 No Revenue</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-xs text-slate-400 font-medium ml-auto">{displayGroups.length} of {grouped.length} reps</span>
+                <span className="text-xs text-slate-400 font-medium ml-auto">{displayGroups.length} of {grouped.length} AMs</span>
               </div>
 
-              {/* Rep Table */}
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50/80">
                       <TableHead className="w-12 text-slate-400 font-bold">#</TableHead>
                       <TableHead className="font-bold cursor-pointer hover:bg-slate-100" onClick={() => requestSort('submittedAt')}>
-                        <div className="flex items-center gap-1">Sales Rep <div className="text-[10px] text-slate-300">↕</div></div>
+                        <div className="flex items-center gap-1">Account Manager <div className="text-[10px] text-slate-300">↕</div></div>
                       </TableHead>
                       <TableHead className="text-center font-bold cursor-pointer hover:bg-slate-100" onClick={() => requestSort('totalSubmitted')}>
                         <div className="flex items-center justify-center gap-1">Submitted <div className="text-[10px] text-slate-300">↕</div></div>
@@ -500,26 +482,13 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
                                 {g.totalStreaks >= 3 ? <Flame className="h-4 w-4" /> : g.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="flex flex-col">
-                                {g.id ? (
-                                  <Link
-                                    href={basePath === "/sales-head-dashboard" ? `/sales-head-dashboard/${g.id}` : `${basePath}/sales/${g.id}`}
-                                    className={`font-bold leading-none hover:underline transition-colors flex items-center gap-1 ${g.isMissedSubmission ? 'text-red-900 hover:text-red-600' : 'text-slate-900 hover:text-orange-500'}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {g.name}
-                                    <LayoutDashboard className="h-2 w-2 opacity-50" />
-                                  </Link>
-                                ) : (
-                                  <p className={`font-bold leading-none ${g.isMissedSubmission ? 'text-red-900' : 'text-slate-900'}`}>{g.name}</p>
-                                )}
+                                <p className={`font-bold leading-none ${g.isMissedSubmission ? 'text-red-900' : 'text-slate-900'}`}>{g.name}</p>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                                   <p className={`text-[10px] ${g.isMissedSubmission ? 'text-red-500' : 'text-slate-400'}`}>{g.email}</p>
-
                                   {g.submittedAt && !g.isMissedSubmission && (
                                     <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1 rounded flex items-center gap-1 shrink-0" title="Submitted at (IST)">
                                       <Clock className="w-2 h-2" />
                                       {(() => {
-                                        // submitted_at is stored as UTC ISO string — convert to IST for display
                                         const d = new Date(g.submittedAt);
                                         if (isNaN(d.getTime())) return '';
                                         return d.toLocaleTimeString('en-IN', {
@@ -541,20 +510,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
                               {g.totalActualSales}
                               {g.totalVerified > 0 && (
                                 <Badge className="bg-blue-100 text-blue-700 border-0 text-[8px] py-0 px-1 mt-0.5">{g.totalVerified} Matched</Badge>
-                              )}
-                              {g.lastSaleAt && (
-                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded flex items-center gap-1 mt-1 shrink-0" title="Last Sale (IST)">
-                                  <Clock className="w-2.5 h-2.5" />
-                                  {(() => {
-                                    // lastSaleAt is already IST — extract time directly from string
-                                    const match = String(g.lastSaleAt).match(/(\d{1,2}):(\d{2})/);
-                                    if (!match) return '';
-                                    const h = parseInt(match[1]), m = match[2];
-                                    const ampm = h >= 12 ? 'pm' : 'am';
-                                    const h12 = h % 12 || 12;
-                                    return `${h12}:${m} ${ampm}`;
-                                  })()}
-                                </span>
                               )}
                             </div>
                           </TableCell>
@@ -609,7 +564,6 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
           )}
         </div>
 
-
         {/* Rep Detail Dialog */}
         <Dialog open={!!selectedEntry} onOpenChange={() => setSelectedEntry(null)}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -617,7 +571,7 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
               <DialogTitle className="flex items-center gap-3 text-xl font-black text-slate-800">
                 <Users className="h-5 w-5 text-indigo-500" /> {selectedEntry?.name}'s Performance Detail
               </DialogTitle>
-              <DialogDescription>Detailed breakdown of predictions, streaks, and revenue for this representative.</DialogDescription>
+              <DialogDescription>Detailed breakdown of predictions, streaks, and revenue for this account manager.</DialogDescription>
             </DialogHeader>
 
             {selectedEntry && (
@@ -726,7 +680,7 @@ export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cr
                                   <div className="flex items-center gap-2 border-l border-slate-200 pl-2 ml-1">
                                     {revData && <span className="text-slate-500">${revData.revenue}</span>}
                                     <Badge className={`${isPredicted ? 'bg-emerald-100/50 text-emerald-700' : 'bg-white/50 text-blue-600'} border-0 text-[10px] px-1 py-0 font-bold`}>
-                                      {isPredicted ? 'Predicted' : 'Unpredicted Sale'}
+                                      {isPredicted ? 'Predicted' : 'Unpredicted Renewal'}
                                     </Badge>
                                   </div>
                                 </div>

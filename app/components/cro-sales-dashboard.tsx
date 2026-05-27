@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Eye, ArrowUpCircle, Download, Settings2, Save, Trash2, PlusCircle, Target, CheckCircle2, AlertCircle, ArrowRight, LockOpen, Flame, FileText, Trophy, Sparkles, DollarSign, ExternalLink } from "lucide-react"
+import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Eye, ArrowUpCircle, Download, Settings2, Save, Trash2, PlusCircle, Target, CheckCircle2, AlertCircle, ArrowRight, LockOpen, Flame, FileText, Trophy, Sparkles, DollarSign, ExternalLink, ClipboardList } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExpectedRevenueOverview } from "./expected-revenue-overview"
 import { GlobalAwlTracker } from "./global-awl-tracker"
 import { BoosterNightManager } from "./booster-night-manager"
+import { SubmissionFormsPanel } from "./submission-forms-panel"
 
 interface CROSalesDashboardProps {
   basePath: string;
@@ -818,7 +819,7 @@ export function CROSalesDashboard({ basePath, user, onLogout }: CROSalesDashboar
         </div>
 
         <Tabs defaultValue="expected" className="w-full mb-8">
-          <TabsList className="grid w-full grid-cols-4 h-14 bg-white border border-slate-200 shadow-sm mb-6 p-1.5 rounded-xl">
+          <TabsList className="grid w-full grid-cols-5 h-14 bg-white border border-slate-200 shadow-sm mb-6 p-1.5 rounded-xl">
             <TabsTrigger value="expected" className="rounded-lg font-bold transition-all data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:shadow-sm">
               <TrendingUp className="h-4 w-4 mr-2" /> Expected Revenue Track
             </TabsTrigger>
@@ -831,10 +832,13 @@ export function CROSalesDashboard({ basePath, user, onLogout }: CROSalesDashboar
             <TabsTrigger value="booster" className="rounded-lg font-bold transition-all data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700 data-[state=active]:shadow-sm">
               <Flame className="h-4 w-4 mr-2" /> Incentive Accelerator
             </TabsTrigger>
+            <TabsTrigger value="submitted-forms" className="rounded-lg font-bold transition-all data-[state=active]:bg-pink-50 data-[state=active]:text-pink-700 data-[state=active]:shadow-sm">
+              <ClipboardList className="h-4 w-4 mr-2" /> Submitted Forms
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="expected" className="mt-0 ring-offset-slate-50 focus-visible:ring-0">
-            <ExpectedRevenueOverview monthName={targetMonthName} targetDate={targetDate} />
+            <ExpectedRevenueOverview monthName={targetMonthName} targetDate={targetDate} basePath={basePath} />
           </TabsContent>
 
           <TabsContent value="global" className="mt-0 ring-offset-slate-50 focus-visible:ring-0">
@@ -1044,6 +1048,10 @@ export function CROSalesDashboard({ basePath, user, onLogout }: CROSalesDashboar
               userEmail={user.email || ""}
               onCycleChange={() => handleRecalculate(true)}
             />
+          </TabsContent>
+
+          <TabsContent value="submitted-forms" className="mt-0 ring-offset-slate-50 focus-visible:ring-0">
+            <SubmissionFormsPanel monthOffset={monthOffset} basePath={basePath} />
           </TabsContent>
         </Tabs>
 

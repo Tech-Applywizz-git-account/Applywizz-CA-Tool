@@ -11,16 +11,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import {
   Users, DollarSign, Calendar, Search, LogOut, LayoutDashboard, Target,
   Trophy, Eye, ChevronLeft, ChevronRight, FileText, Loader2, Crown, Activity,
-  Database, FileEdit, EyeOff, IndianRupee
+  Database, FileEdit, EyeOff, IndianRupee, ClipboardList
 } from "lucide-react"
 import Link from "next/link"
+import { ResumeCompletionPanel } from "./resume-completion-panel"
 
 interface ResumeHeadDashboardProps {
   user: any;
   onLogout: () => void;
 }
 
-type TabType = "overview" | "leaderboard" | "tracker" | "roster" | "rules";
+type TabType = "overview" | "leaderboard" | "tracker" | "roster" | "rules" | "submitted-forms";
 
 export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview")
@@ -216,6 +217,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "leaderboard", label: "Leaderboard", icon: Trophy },
     { id: "tracker", label: "Resume Tracker", icon: Database },
+    { id: "submitted-forms", label: "Submitted Forms", icon: ClipboardList },
     { id: "roster", label: "Resume Associates", icon: Users },
     { id: "rules", label: "Incentive Rules", icon: FileText },
   ] as const
@@ -915,6 +917,11 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                   </CardContent>
                 </Card>
               </div>
+            )}
+
+            {/* SUBMITTED FORMS */}
+            {activeTab === "submitted-forms" && (
+              <ResumeCompletionPanel monthOffset={monthOffset} />
             )}
 
           </>

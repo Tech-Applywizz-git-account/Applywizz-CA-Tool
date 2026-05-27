@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CROMarketingDashboard } from "../../components/cro-marketing-dashboard"
-import RoleShell from "../../components/RoleShell"
+import { CroTechDashboard } from "@/app/components/cro-tech-dashboard"
+import RoleShell from "@/app/components/RoleShell"
 
-export default function CEOMarketingPage() {
+export default function CPOTechPage() {
     const router = useRouter()
     const [user, setUser] = useState<any>(null)
 
@@ -26,8 +26,8 @@ export default function CEOMarketingPage() {
     if (!user) return null
 
     return (
-        <RoleShell basePath="/ceo-dashboard">
-            <CROMarketingDashboard basePath="/ceo-dashboard" user={user} onLogout={handleLogout} />
+        <RoleShell basePath="/cpo-dashboard">
+            <CroTechDashboard basePath="/cpo-dashboard" user={user} onLogout={handleLogout} />
         </RoleShell>
     )
 }

@@ -720,7 +720,7 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
             {overviewStatCards}
 
             {/* Expected Revenue Tracker */}
-            <ExpectedRevenueOverview monthName={monthName} targetDate={targetDate} />
+            <ExpectedRevenueOverview monthName={monthName} targetDate={targetDate} basePath="/sales-head-dashboard" />
           </div>
         )}
 
@@ -1416,7 +1416,7 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
 
         {/* SUBMISSION FORMS TAB */}
         {activeTab === "submission-forms" && (
-          <SubmissionFormsPanel />
+          <SubmissionFormsPanel monthOffset={monthOffset} basePath="/sales-head-dashboard" />
         )}
       </div>
     </div>

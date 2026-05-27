@@ -97,6 +97,12 @@ export default function LoginPage() {
       case "Technical Associate":
         router.push("/tech-dashboard")
         break
+      case "Accounts Associate":
+        router.push("/accounts-dashboard")
+        break
+      case "Accounts Managers Head":
+        router.push("/accounts-head-dashboard")
+        break
       default:
         alert("Unknown role. Cannot redirect.")
         localStorage.removeItem("loggedInUser")
