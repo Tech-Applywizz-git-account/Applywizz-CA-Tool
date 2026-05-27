@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Calendar, Search, Building2, Eye, FileText, ArrowUpDown, Loader2 } from "lucide-react"
+import { Calendar, Search, Building2, Eye, FileText, ArrowUpDown, Loader2, Pencil } from "lucide-react"
 import Link from "next/link"
 
 interface ClientAssessmentsTrackerProps {
@@ -61,6 +61,12 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       setActiveTab("logs")
     }
   }, [isMarketing])
+
+  // Edit states for Team Lead
+  const [editingAssessmentId, setEditingAssessmentId] = useState<string | null>(null)
+  const [editCompany, setEditCompany] = useState("")
+  const [editJobRole, setEditJobRole] = useState("")
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Batch comparison filters
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
@@ -122,6 +128,36 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
         delete updated[assessmentId]
         return updated
       })
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingAssessmentId) return
+    setSavingEdit(true)
+    try {
+      const { error } = await supabase
+        .from("client_assessments")
+        .update({
+          company_name: editCompany,
+          job_role: editJobRole
+        })
+        .eq("id", editingAssessmentId)
+
+      if (error) throw error
+
+      setAssessments(prev =>
+        prev.map(item =>
+          item.id === editingAssessmentId
+            ? { ...item, company_name: editCompany, job_role: editJobRole }
+            : item
+        )
+      )
+      setEditingAssessmentId(null)
+    } catch (err) {
+      console.error("Error saving edits:", err)
+      alert("Failed to update assessment details. Please try again.")
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -260,12 +296,14 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
     let interviews = 0
     let tests = 0
     let screeningCalls = 0
+    let offerLetters = 0
     const uniqueCompanies = new Set<string>()
 
     statsAssessments.forEach(item => {
       if (item.assessment_type === "interview") interviews++
       else if (item.assessment_type === "assessment") tests++
       else if (item.assessment_type === "screening_call") screeningCalls++
+      else if (item.assessment_type === "offer_letter") offerLetters++
 
       if (item.company_name) {
         uniqueCompanies.add(item.company_name.trim().toLowerCase())
@@ -276,6 +314,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       interviews,
       tests,
       screeningCalls,
+      offerLetters,
       total: statsAssessments.length,
       companiesCount: uniqueCompanies.size
     }
@@ -285,19 +324,20 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   const allCompaniesList = useMemo(() => {
     const counts: Record<
       string,
-      { total: number; interviews: number; tests: number; screening: number; displayName: string }
+      { total: number; interviews: number; tests: number; screening: number; offers: number; displayName: string }
     > = {}
     statsAssessments.forEach(item => {
       if (!item.company_name) return
       const name = item.company_name.trim()
       const key = name.toLowerCase()
       if (!counts[key]) {
-        counts[key] = { total: 0, interviews: 0, tests: 0, screening: 0, displayName: name }
+        counts[key] = { total: 0, interviews: 0, tests: 0, screening: 0, offers: 0, displayName: name }
       }
       counts[key].total++
       if (item.assessment_type === "interview") counts[key].interviews++
       else if (item.assessment_type === "assessment") counts[key].tests++
       else if (item.assessment_type === "screening_call") counts[key].screening++
+      else if (item.assessment_type === "offer_letter") counts[key].offers++
     })
 
     return Object.values(counts).sort((a, b) => b.total - a.total)
@@ -311,18 +351,19 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
 
   // Group by Top Companies
   const topCompanies = useMemo(() => {
-    const counts: Record<string, { total: number; interviews: number; tests: number; screening: number }> = {}
+    const counts: Record<string, { total: number; interviews: number; tests: number; screening: number; offers: number }> = {}
     filteredAssessments.forEach(item => {
       if (!item.company_name) return
       const name = item.company_name.trim()
       const key = name.toLowerCase()
       if (!counts[key]) {
-        counts[key] = { total: 0, interviews: 0, tests: 0, screening: 0 }
+        counts[key] = { total: 0, interviews: 0, tests: 0, screening: 0, offers: 0 }
       }
       counts[key].total++
       if (item.assessment_type === "interview") counts[key].interviews++
       else if (item.assessment_type === "assessment") counts[key].tests++
       else if (item.assessment_type === "screening_call") counts[key].screening++
+      else if (item.assessment_type === "offer_letter") counts[key].offers++
         // Keep reference to exact name representation
         ; (counts[key] as any).displayName = name
     })
@@ -361,12 +402,14 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       const interviews = clientAssessments.filter(a => a.assessment_type === "interview").length
       const tests = clientAssessments.filter(a => a.assessment_type === "assessment").length
       const screening = clientAssessments.filter(a => a.assessment_type === "screening_call").length
+      const offers = clientAssessments.filter(a => a.assessment_type === "offer_letter").length
 
       groups[key].clients.push({
         ...c,
         interviewsCount: interviews,
         testsCount: tests,
         screeningCount: screening,
+        offersCount: offers,
         totalAssessmentsCount: clientAssessments.length,
         companiesList: Array.from(new Set(clientAssessments.map(a => a.company_name).filter(Boolean)))
       })
@@ -489,6 +532,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                   <SelectItem value="screening_call">Screening Call</SelectItem>
                   <SelectItem value="assessment">Assessment</SelectItem>
                   <SelectItem value="interview">Interview</SelectItem>
+                  <SelectItem value="offer_letter">Offer Letter</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -559,7 +603,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       {activeTab === "summary" && !isMarketing && (
         <div className="space-y-6">
           {/* Key Metrics Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
             <Card
               onClick={() => setAssessmentType("all")}
               className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${assessmentType === "all"
@@ -613,8 +657,21 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
             </Card>
 
             <Card
+              onClick={() => setAssessmentType("offer_letter")}
+              className={`cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none ${assessmentType === "offer_letter"
+                ? "bg-gradient-to-br from-rose-100 to-rose-200 border-rose-400 ring-2 ring-rose-600 ring-offset-2 scale-[1.02] shadow-sm"
+                : "bg-gradient-to-br from-rose-50 to-rose-100 border-rose-200 hover:border-rose-300"
+                }`}
+            >
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
+                <span className="text-3xl font-black text-rose-700">{stats.offerLetters}</span>
+                <span className="text-xs font-bold text-rose-900 uppercase tracking-wide mt-1">Offer Letters</span>
+              </CardContent>
+            </Card>
+
+            <Card
               onClick={() => setShowUniqueCompaniesDialog(true)}
-              className="cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 hover:border-slate-300 col-span-2 lg:col-span-1"
+              className="cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-md flex flex-col items-center justify-center text-center select-none bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 hover:border-slate-300"
             >
               <CardContent className="p-4 flex flex-col items-center justify-center text-center w-full">
                 <span className="text-3xl font-black text-slate-700">{stats.companiesCount}</span>
@@ -784,6 +841,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Interviews</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Coding Tests</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Screen Calls</TableHead>
+                                <TableHead className="text-xs font-semibold text-slate-600 text-center">Offers</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">Total Invites</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600 text-center">application_days</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-600">Interviews Companies</TableHead>
@@ -824,6 +882,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                     <TableCell className="text-xs font-bold text-center text-emerald-600">{client.interviewsCount}</TableCell>
                                     <TableCell className="text-xs font-bold text-center text-blue-600">{client.testsCount}</TableCell>
                                     <TableCell className="text-xs font-bold text-center text-amber-600">{client.screeningCount}</TableCell>
+                                    <TableCell className="text-xs font-bold text-center text-rose-600">{client.offersCount}</TableCell>
                                     <TableCell className="text-xs font-black text-center text-indigo-700 bg-indigo-50/30">{client.totalAssessmentsCount}</TableCell>
                                     <TableCell className="text-xs font-bold text-center text-indigo-600 bg-slate-50/50">
                                       {loadingDays ? (
@@ -917,7 +976,9 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                   ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                                   : a.assessment_type === "assessment"
                                     ? "bg-blue-100 text-blue-800 border-blue-300"
-                                    : "bg-amber-100 text-amber-800 border-amber-300"
+                                    : a.assessment_type === "screening_call"
+                                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                                      : "bg-rose-100 text-rose-800 border-rose-300"
                               }
                               variant="outline"
                             >
@@ -925,8 +986,28 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs text-slate-800">
-                            <div className="font-bold">{a.company_name || "N/A"}</div>
-                            <div className="text-slate-500 text-[10px]">{a.job_role || "N/A"}</div>
+                            <div className="flex items-center gap-1.5 justify-between">
+                              <div>
+                                <div className="font-bold">{a.company_name || "N/A"}</div>
+                                <div className="text-slate-500 text-[10px]">{a.job_role || "N/A"}</div>
+                              </div>
+                              {scope === "team-lead" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-slate-100 shrink-0 ml-2"
+                                  disabled={a.is_approved === true}
+                                  onClick={() => {
+                                    setEditingAssessmentId(a.id)
+                                    setEditCompany(a.company_name || "")
+                                    setEditJobRole(a.job_role || "")
+                                  }}
+                                  title={a.is_approved === true ? "Approved invites cannot be edited" : "Edit details"}
+                                >
+                                  <Pencil className="h-3 w-3 text-indigo-600" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-slate-600 max-w-xs truncate" title={a.email_subject}>
                             {a.email_subject}
@@ -1022,6 +1103,49 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Assessment Dialog */}
+      <Dialog open={!!editingAssessmentId} onOpenChange={(open) => !open && setEditingAssessmentId(null)}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold text-slate-800">Edit Company & Job Role</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">Company Name</Label>
+              <Input
+                value={editCompany}
+                onChange={e => setEditCompany(e.target.value)}
+                placeholder="e.g. Google"
+                className="mt-1 h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">Job Role</Label>
+              <Input
+                value={editJobRole}
+                onChange={e => setEditJobRole(e.target.value)}
+                placeholder="e.g. Frontend Engineer"
+                className="mt-1 h-9 text-xs"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <Button size="sm" variant="outline" onClick={() => setEditingAssessmentId(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveEdit}
+              disabled={savingEdit}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {savingEdit ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Save Changes
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
