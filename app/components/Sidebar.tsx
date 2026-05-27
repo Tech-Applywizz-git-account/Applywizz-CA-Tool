@@ -5,7 +5,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils" // if you don’t have this, replace cn(...) with a template string
-import { LayoutDashboard, Users, TrendingUp } from "lucide-react"
+import { LayoutDashboard, Users, TrendingUp, BarChart2 } from "lucide-react"
 
 type SidebarProps = {
   basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"

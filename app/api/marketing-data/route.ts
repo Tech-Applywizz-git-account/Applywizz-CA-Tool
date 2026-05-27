@@ -178,6 +178,7 @@ export async function GET(req: Request) {
 
         // Process CRM fresh sales — logic removed as per user request
         const freshSales: any[] = [];
+        const monthCandidates: any[] = [];
 
         if (monthCandidates.length > 0) {
             const uniqueLeadIds = Array.from(new Set(monthCandidates.map((s: any) => s.lead_id)));
