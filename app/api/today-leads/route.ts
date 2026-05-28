@@ -1,8 +1,6 @@
 export const dynamic = "force-dynamic";
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseCRM = createClient(
@@ -10,15 +8,27 @@ const supabaseCRM = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY_CRM || 'placeholder'
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
-        // Get today's date in IST (Asia/Kolkata)
-        const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' } as const;
-        const formatter = new Intl.DateTimeFormat('en-CA', options);
-        const todayStr = formatter.format(new Date()); // returns "YYYY-MM-DD"
+        const { searchParams } = new URL(req.url);
+        const paramStartDate = searchParams.get("startDate");
+        const paramEndDate = searchParams.get("endDate");
 
-        const startOfDay = `${todayStr} 00:00:00`;
-        const endOfDay = `${todayStr} 23:59:59`;
+        let startOfDay: string;
+        let endOfDay: string;
+
+        if (paramStartDate && paramEndDate) {
+            startOfDay = `${paramStartDate} 00:00:00`;
+            endOfDay = `${paramEndDate} 23:59:59`;
+        } else {
+            // Get today's date in IST (Asia/Kolkata)
+            const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' } as const;
+            const formatter = new Intl.DateTimeFormat('en-CA', options);
+            const todayStr = formatter.format(new Date()); // returns "YYYY-MM-DD"
+
+            startOfDay = `${todayStr} 00:00:00`;
+            endOfDay = `${todayStr} 23:59:59`;
+        }
 
         const { data, error } = await supabaseCRM
             .from("leads")

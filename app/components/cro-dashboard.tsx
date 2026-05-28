@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { FileSpreadsheet, Plus } from "lucide-react"
 import { NewClientForm } from "./new-client-form"
@@ -44,6 +44,55 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [todayLeads, setTodayLeads] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<"dashboard" | "today-leads">("dashboard")
+  const [todayLeadsCount, setTodayLeadsCount] = useState(0)
+
+  // Leads date preset and filtering states
+  const [leadDatePreset, setLeadDatePreset] = useState<"today" | "yesterday" | "custom">("today")
+  const [leadStartDate, setLeadStartDate] = useState(new Date().toISOString().split("T")[0])
+  const [leadEndDate, setLeadEndDate] = useState(new Date().toISOString().split("T")[0])
+  const [leadSearchTerm, setLeadSearchTerm] = useState("")
+  const [leadStatusFilter, setLeadStatusFilter] = useState("all")
+  const [leadStageFilter, setLeadStageFilter] = useState("all")
+
+  // Dynamically compute unique statuses and stages from leads
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set<string>()
+    todayLeads.forEach(l => {
+      if (l.status) statuses.add(l.status)
+    })
+    return Array.from(statuses)
+  }, [todayLeads])
+
+  const uniqueStages = useMemo(() => {
+    const stages = new Set<string>()
+    todayLeads.forEach(l => {
+      if (l.current_stage) stages.add(l.current_stage)
+    })
+    return Array.from(stages)
+  }, [todayLeads])
+
+  // Filtered leads
+  const filteredTodayLeads = useMemo(() => {
+    return todayLeads.filter(lead => {
+      if (leadSearchTerm.trim()) {
+        const term = leadSearchTerm.toLowerCase()
+        const matchesSearch =
+          (lead.name && lead.name.toLowerCase().includes(term)) ||
+          (lead.email && lead.email.toLowerCase().includes(term)) ||
+          (lead.phone && lead.phone.toLowerCase().includes(term)) ||
+          (lead.city && lead.city.toLowerCase().includes(term)) ||
+          (lead.business_id && lead.business_id.toLowerCase().includes(term))
+        if (!matchesSearch) return false
+      }
+      if (leadStatusFilter !== "all" && lead.status !== leadStatusFilter) {
+        return false
+      }
+      if (leadStageFilter !== "all" && lead.current_stage !== leadStageFilter) {
+        return false
+      }
+      return true
+    })
+  }, [todayLeads, leadSearchTerm, leadStatusFilter, leadStageFilter])
 
   const [expandedCA, setExpandedCA] = useState<string | null>(null)
   const [caClients, setCaClients] = useState<Record<string, any[]>>({})
@@ -161,17 +210,55 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     fetchClients()
   }, [cas, dateFrom, dateTo])
 
-  const fetchTodayLeads = async () => {
+  const fetchTodayLeadsCount = useCallback(async () => {
     try {
-      const res = await fetch("/api/today-leads", { cache: 'no-store' });
-      const data = await res.json();
+      const todayStr = new Date().toISOString().split("T")[0]
+      const res = await fetch(`/api/today-leads?startDate=${todayStr}&endDate=${todayStr}`, { cache: 'no-store' })
+      const data = await res.json()
       if (data.success) {
-        setTodayLeads(data.leads || []);
+        setTodayLeadsCount(data.leads?.length || 0)
       }
     } catch (err) {
-      console.error("Error fetching today's leads:", err);
+      console.error("Error fetching today's leads count:", err)
     }
-  };
+  }, [])
+
+  const fetchTodayLeads = useCallback(async () => {
+    try {
+      let url = "/api/today-leads"
+      const params = new URLSearchParams()
+      if (leadDatePreset === "today") {
+        const todayStr = new Date().toISOString().split("T")[0]
+        params.append("startDate", todayStr)
+        params.append("endDate", todayStr)
+      } else if (leadDatePreset === "yesterday") {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yesterdayStr = yesterday.toISOString().split("T")[0]
+        params.append("startDate", yesterdayStr)
+        params.append("endDate", yesterdayStr)
+      } else if (leadDatePreset === "custom") {
+        params.append("startDate", leadStartDate)
+        params.append("endDate", leadEndDate)
+      }
+      url += `?${params.toString()}`
+
+      const res = await fetch(url, { cache: 'no-store' })
+      const data = await res.json()
+      if (data.success) {
+        setTodayLeads(data.leads || [])
+        if (leadDatePreset === "today") {
+          setTodayLeadsCount(data.leads?.length || 0)
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching leads:", err)
+    }
+  }, [leadDatePreset, leadStartDate, leadEndDate])
+
+  useEffect(() => {
+    fetchTodayLeads()
+  }, [fetchTodayLeads])
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -181,8 +268,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
       if (!error && data) setClients1(data)
     }
     fetchClients()
-    fetchTodayLeads()
-  }, [])
+    fetchTodayLeadsCount()
+  }, [fetchTodayLeadsCount])
 
   useEffect(() => {
     const fetchCAs = async () => {
@@ -1176,7 +1263,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
 
           <Card className="cursor-pointer hover:shadow-md transition bg-indigo-50/10 border-indigo-100" onClick={() => setActiveTab("today-leads")}>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-indigo-600">{todayLeads.length}</div>
+              <div className="text-2xl font-bold text-indigo-600">{todayLeadsCount}</div>
               <div className="text-sm text-slate-600">Leads Today</div>
             </CardContent>
           </Card>
@@ -1187,8 +1274,8 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`pb-3 text-sm font-bold transition-all border-b-2 ${activeTab === "dashboard"
-                ? "border-indigo-600 text-indigo-600 font-extrabold"
-                : "border-transparent text-slate-500 hover:text-slate-750"
+              ? "border-indigo-600 text-indigo-600 font-extrabold"
+              : "border-transparent text-slate-500 hover:text-slate-750"
               }`}
           >
             📊 Dashboard Overview
@@ -1196,11 +1283,11 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
           <button
             onClick={() => setActiveTab("today-leads")}
             className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeTab === "today-leads"
-                ? "border-indigo-600 text-indigo-600 font-extrabold"
-                : "border-transparent text-slate-500 hover:text-slate-750"
+              ? "border-indigo-600 text-indigo-600 font-extrabold"
+              : "border-transparent text-slate-500 hover:text-slate-750"
               }`}
           >
-            📋 Today's Leads
+            📋 No. of Leads
             <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-none font-bold text-[10px] px-1.5 py-0.5">
               {todayLeads.length}
             </Badge>
@@ -1704,15 +1791,113 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
         <Card className="mb-6">
           <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
             <CardTitle className="text-lg font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              📋 Today's Leads ({todayLeads.length})
+              📋 No. of Leads ({filteredTodayLeads.length})
             </CardTitle>
             <Button variant="outline" size="sm" onClick={fetchTodayLeads} className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-semibold shadow-sm">
               🔄 Refresh Leads
             </Button>
           </CardHeader>
           <CardContent className="pt-6">
-            {todayLeads.length === 0 ? (
-              <p className="text-center text-slate-500 font-medium py-12">No leads received today.</p>
+            {/* Lead Filters Panel */}
+            <div className="bg-slate-50 p-4 rounded-xl mb-6 border border-slate-100 flex flex-wrap gap-4 items-end">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Date Preset</span>
+                <Select value={leadDatePreset} onValueChange={(val: any) => setLeadDatePreset(val)}>
+                  <SelectTrigger className="w-40 h-9 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="custom">Custom Date Range</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {leadDatePreset === "custom" && (
+                <>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Start Date</span>
+                    <Input
+                      type="date"
+                      value={leadStartDate}
+                      onChange={(e) => setLeadStartDate(e.target.value)}
+                      className="w-40 h-9 text-xs bg-white border-slate-200"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">End Date</span>
+                    <Input
+                      type="date"
+                      value={leadEndDate}
+                      onChange={(e) => setLeadEndDate(e.target.value)}
+                      className="w-40 h-9 text-xs bg-white border-slate-200"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex flex-col flex-1 min-w-[200px]">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Search Leads</span>
+                <Input
+                  placeholder="Search by name, email, phone, city, id..."
+                  value={leadSearchTerm}
+                  onChange={(e) => setLeadSearchTerm(e.target.value)}
+                  className="h-9 text-xs bg-white border-slate-200"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</span>
+                <Select value={leadStatusFilter} onValueChange={setLeadStatusFilter}>
+                  <SelectTrigger className="w-36 h-9 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {uniqueStatuses.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Stage</span>
+                <Select value={leadStageFilter} onValueChange={setLeadStageFilter}>
+                  <SelectTrigger className="w-36 h-9 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Stages</SelectItem>
+                    {uniqueStages.map((sg) => (
+                      <SelectItem key={sg} value={sg}>
+                        {sg}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setLeadSearchTerm("")
+                  setLeadStatusFilter("all")
+                  setLeadStageFilter("all")
+                  setLeadDatePreset("today")
+                }}
+                className="h-9 text-xs font-semibold text-slate-500 hover:text-slate-700"
+              >
+                Reset Filters
+              </Button>
+            </div>
+
+            {filteredTodayLeads.length === 0 ? (
+              <p className="text-center text-slate-500 font-medium py-12">No leads match the active filters.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -1727,7 +1912,7 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {todayLeads.map((lead) => (
+                    {filteredTodayLeads.map((lead) => (
                       <TableRow key={lead.id}>
                         <TableCell>
                           <div className="font-bold text-slate-800">{lead.name}</div>

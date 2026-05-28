@@ -40,8 +40,6 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [clientToAssign, setClientToAssign] = useState<any | null>(null)
   const [availableCAs, setAvailableCAs] = useState<any[]>([])
   const clientListRef = useRef<HTMLDivElement>(null)
-  const [todayLeads, setTodayLeads] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState<"dashboard" | "today-leads">("dashboard")
 
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
@@ -192,21 +190,8 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
 
 
-  const fetchTodayLeads = async () => {
-    try {
-      const res = await fetch("/api/today-leads", { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success) {
-        setTodayLeads(data.leads || []);
-      }
-    } catch (err) {
-      console.error("Error fetching today's leads:", err);
-    }
-  };
-
   useEffect(() => {
     const fetchTeamData = async () => {
-      await fetchTodayLeads()
       const { data: teams } = await supabase.from("teams").select("id").eq("lead_id", user.id)
       const teamIds = teams?.map((t) => t.id) || []
 
@@ -463,53 +448,47 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
           </div>
 
           {/* Sticky Stats Cards */}
-          <div className="grid grid-cols-8 gap-3">
-            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); setTimeout(() => scrollToElement("all-cas-section"), 100); }}>
+          <div className="grid grid-cols-7 gap-3">
+            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => { setTimeout(() => scrollToElement("all-cas-section"), 100); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-blue-600 leading-tight">{stats.totalCAs}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Active CAs</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); setTimeout(() => scrollToElement("all-clients-section"), 100); }}>
+            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => { setTimeout(() => scrollToElement("all-clients-section"), 100); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-blue-600 leading-tight">{stats.totalClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Total Clients</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); handleSortClick("started-first"); }}>
+            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => { handleSortClick("started-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-blue-600 leading-tight">{stats.startedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Started</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-orange-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); handleSortClick("active-first"); }}>
+            <Card className="cursor-pointer hover:bg-orange-50 transition-colors border-slate-100" onClick={() => { handleSortClick("active-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-orange-600 leading-tight">{stats.activeClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Active Clients</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-green-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); handleSortClick("completed-first"); }}>
+            <Card className="cursor-pointer hover:bg-green-50 transition-colors border-slate-100" onClick={() => { handleSortClick("completed-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-green-600 leading-tight">{stats.completedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Completed</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-red-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); handleSortClick("paused-first"); }}>
+            <Card className="cursor-pointer hover:bg-red-50 transition-colors border-slate-100" onClick={() => { handleSortClick("paused-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-red-900 leading-tight">{stats.renewedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase leading-none">Non Renewed</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => { setActiveTab("dashboard"); handleSortClick("status-paused-first"); }}>
+            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => { handleSortClick("status-paused-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-slate-600 leading-tight">{stats.statusPausedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Paused</div>
-              </CardContent>
-            </Card>
-            <Card className="cursor-pointer hover:bg-indigo-50/50 transition-colors border-indigo-100 bg-indigo-50/10" onClick={() => setActiveTab("today-leads")}>
-              <CardContent className="p-2 text-center">
-                <div className="text-lg font-bold text-indigo-600 leading-tight">{todayLeads.length}</div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Leads Today</div>
               </CardContent>
             </Card>
           </div>
@@ -517,33 +496,6 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       </div>
 
       <div className="p-4 pt-6 max-w-7xl mx-auto">
-        {/* Tab Selection */}
-        <div className="flex border-b border-slate-200 mb-6 gap-6">
-          <button
-            onClick={() => setActiveTab("dashboard")}
-            className={`pb-3 text-sm font-bold transition-all border-b-2 ${activeTab === "dashboard"
-                ? "border-indigo-600 text-indigo-600 font-extrabold"
-                : "border-transparent text-slate-500 hover:text-slate-750"
-              }`}
-          >
-            📊 Dashboard Overview
-          </button>
-          <button
-            onClick={() => setActiveTab("today-leads")}
-            className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeTab === "today-leads"
-                ? "border-indigo-600 text-indigo-600 font-extrabold"
-                : "border-transparent text-slate-500 hover:text-slate-750"
-              }`}
-          >
-            📋 Today's Leads
-            <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-none font-bold text-[10px] px-1.5 py-0.5">
-              {todayLeads.length}
-            </Badge>
-          </button>
-        </div>
-
-        {activeTab === "dashboard" && (
-          <>
             {selectedCAIncentive && (
               <Card className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
                 <CardContent className="p-4">
@@ -828,63 +780,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                 </div>
               </CardContent>
             </Card>
-          </>
-        )}
 
-        {activeTab === "today-leads" && (
-          <Card className="mb-6">
-            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-              <CardTitle className="text-lg font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                📋 Today's Leads ({todayLeads.length})
-              </CardTitle>
-              <Button variant="outline" size="sm" onClick={fetchTodayLeads} className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-semibold shadow-sm">
-                🔄 Refresh Leads
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {todayLeads.length === 0 ? (
-                <p className="text-center text-slate-500 font-medium py-12">No leads received today.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Lead ID / Name</TableHead>
-                        <TableHead>Email / Phone</TableHead>
-                        <TableHead>City</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Current Stage</TableHead>
-                        <TableHead>Created At (IST)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {todayLeads.map((lead) => (
-                        <TableRow key={lead.id}>
-                          <TableCell>
-                            <div className="font-bold text-slate-800">{lead.name}</div>
-                            <Badge variant="outline" className="font-mono text-xs">{lead.business_id || "N/A"}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-slate-700 font-medium">{lead.email}</div>
-                            <div className="text-xs text-slate-400">{lead.phone || "No Phone"}</div>
-                          </TableCell>
-                          <TableCell className="text-slate-600 font-medium">{lead.city || "—"}</TableCell>
-                          <TableCell>
-                            <Badge className="bg-slate-100 text-slate-700 font-bold border-none uppercase text-[10px]">{lead.status || "N/A"}</Badge>
-                          </TableCell>
-                          <TableCell className="text-slate-800 font-bold text-xs">{lead.current_stage || "Prospect"}</TableCell>
-                          <TableCell className="text-xs text-slate-500 font-medium">
-                            {lead.created_at ? new Date(lead.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   )
