@@ -72,10 +72,22 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
   const [experienceFilter, setExperienceFilter] = useState<string>("all")
 
+  // Detailed Activity Logs status filter
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+
   // Dialog for Unique Companies
   const [showUniqueCompaniesDialog, setShowUniqueCompaniesDialog] = useState(false)
   const [modalCompanySearch, setModalCompanySearch] = useState("")
   const [approvingIds, setApprovingIds] = useState<Record<string, boolean>>({})
+
+  // Pagination for Detailed Activity Logs
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [dateFrom, dateTo, assessmentType, companySearch, clientSearch, selectedCA, statusFilter, activeTab])
 
   // Reset modal search on close
   useEffect(() => {
@@ -256,9 +268,23 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       // 7. Marketing filter (only approved invites)
       if (isMarketing && item.is_approved !== true) return false
 
+      // 8. Status Filter
+      if (statusFilter !== "all") {
+        if (statusFilter === "approved" && item.is_approved !== true) return false
+        if (statusFilter === "rejected" && item.is_approved !== false) return false
+        if (statusFilter === "pending" && (item.is_approved === true || item.is_approved === false)) return false
+      }
+
       return true
     })
-  }, [assessments, inScopeClientIds, dateFrom, dateTo, assessmentType, companySearch, selectedCA, clientSearch, clientsMap, isMarketing])
+  }, [assessments, inScopeClientIds, dateFrom, dateTo, assessmentType, companySearch, selectedCA, clientSearch, clientsMap, isMarketing, statusFilter])
+
+  // Paginated assessments for the Logs tab
+  const totalPages = Math.ceil(filteredAssessments.length / itemsPerPage)
+  const paginatedAssessments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredAssessments.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredAssessments, currentPage])
 
   // Stats computed from assessments filtered by all criteria EXCEPT assessmentType
   const statsAssessments = useMemo(() => {
@@ -922,6 +948,26 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
       {/* DETAILED LOGS TAB */}
       {activeTab === "logs" && (
         <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm font-bold text-slate-700">Detailed Invitation Logs</CardTitle>
+              <p className="text-xs text-slate-500">A detailed chronological view of all invitations, coding tests, and interviews.</p>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto min-w-[200px]">
+              <Label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Filter Status:</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-8 text-xs w-full bg-white border-slate-200">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
@@ -945,7 +991,7 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredAssessments.map((a) => {
+                    paginatedAssessments.map((a) => {
                       const client = clientsMap.get(a.client_id)
                       return (
                         <TableRow key={a.id} className="hover:bg-slate-50/50">
@@ -996,13 +1042,19 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                                   size="sm"
                                   variant="ghost"
                                   className="h-6 w-6 p-0 hover:bg-slate-100 shrink-0 ml-2"
-                                  disabled={a.is_approved === true}
+                                  disabled={a.is_approved !== null && a.is_approved !== undefined}
                                   onClick={() => {
                                     setEditingAssessmentId(a.id)
                                     setEditCompany(a.company_name || "")
                                     setEditJobRole(a.job_role || "")
                                   }}
-                                  title={a.is_approved === true ? "Approved invites cannot be edited" : "Edit details"}
+                                  title={
+                                    a.is_approved === true
+                                      ? "Approved invites cannot be edited"
+                                      : a.is_approved === false
+                                        ? "Rejected invites cannot be edited"
+                                        : "Edit details"
+                                  }
                                 >
                                   <Pencil className="h-3 w-3 text-indigo-600" />
                                 </Button>
@@ -1084,6 +1136,38 @@ export function ClientAssessmentsTracker({ user, scope, teamMembers = [], client
                 </TableBody>
               </Table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t bg-slate-50/50">
+                <div className="text-xs font-medium text-slate-500">
+                  Showing <span className="text-slate-800 font-semibold">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredAssessments.length)}</span> to{" "}
+                  <span className="text-slate-800 font-semibold">{Math.min(currentPage * itemsPerPage, filteredAssessments.length)}</span> of{" "}
+                  <span className="text-slate-800 font-semibold">{filteredAssessments.length}</span> entries
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 text-xs font-semibold px-3"
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-xs font-semibold text-slate-700 bg-slate-100/80 px-3 py-1.5 rounded border border-slate-200 min-w-[80px] text-center">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="h-8 text-xs font-semibold px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
