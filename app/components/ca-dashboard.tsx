@@ -415,18 +415,7 @@ const { data, error } = await supabase
         return
       }
 
-      const { data: data1, error: error1 } = await supabase
-        .from("work_history")
-        .select("*")
-        .gte("date", start)   // date is a DATE column
-        .lt("date", end)      // end-exclusive
-
-      if (error1) {
-        console.error("work_history fetch error:", error)
-        return
-      }
-
-      const workingDays = [...new Set(data1?.map(item => item.date))].length;
+      const workingDays = [...new Set(data?.map(item => item.date))].length;
       setTotalWorkingDays(workingDays)
       console.log('working days', workingDays)
       console.log("work_history fetch:", monthlyWHIncentive)
