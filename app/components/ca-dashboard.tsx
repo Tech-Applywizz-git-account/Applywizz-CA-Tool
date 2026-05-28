@@ -415,18 +415,7 @@ const { data, error } = await supabase
         return
       }
 
-      const { data: data1, error: error1 } = await supabase
-        .from("work_history")
-        .select("*")
-        .gte("date", start)   // date is a DATE column
-        .lt("date", end)      // end-exclusive
-
-      if (error1) {
-        console.error("work_history fetch error:", error)
-        return
-      }
-
-      const workingDays = [...new Set(data1?.map(item => item.date))].length;
+      const workingDays = [...new Set(data?.map(item => item.date))].length;
       setTotalWorkingDays(workingDays)
       console.log('working days', workingDays)
       console.log("work_history fetch:", monthlyWHIncentive)
@@ -611,20 +600,27 @@ const { data, error } = await supabase
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmittingAction) return true;
+    
+    // Core fields required for all assessment types
     if (
       !actionEmail ||
       !assessmentType ||
       !companyName ||
       !jobRole ||
       !appliedDate ||
-      !emailSubject ||
-      !emailBody ||
       !assessmentReceivedDate ||
-      !screenshotFile ||
-      !emailUrl
+      !screenshotFile
     ) {
       return true;
     }
+
+    // Subject, body, and URL are required for all types except offer_letter
+    if (assessmentType !== "offer_letter") {
+      if (!emailSubject || !emailBody || !emailUrl) {
+        return true;
+      }
+    }
+
     if (assessmentType === "offer_letter") {
       if (rounds.length !== roundsCount) return true;
     }
@@ -1585,7 +1581,9 @@ const { data, error } = await supabase
 
                   <div>
                     <Label htmlFor="email-subject" className="text-sm font-medium">
-                      {assessmentType === "offer_letter" ? "Offer Email Subject" : "Email Subject"} <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email Subject" : (
+                        <>Email Subject <span className="text-red-500">*</span></>
+                      )}
                     </Label>
                     <Input
                       id="email-subject"
@@ -1594,13 +1592,15 @@ const { data, error } = await supabase
                       onChange={(e) => setEmailSubject(e.target.value)}
                       placeholder={assessmentType === "offer_letter" ? "Enter offer email subject" : "Enter email subject"}
                       className="mt-1"
-                      required
+                      required={assessmentType !== "offer_letter"}
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="email-body" className="text-sm font-medium">
-                      {assessmentType === "offer_letter" ? "Offer Email Body" : "Email Body"} <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email Body" : (
+                        <>Email Body <span className="text-red-500">*</span></>
+                      )}
                     </Label>
                     <Textarea
                       id="email-body"
@@ -1609,7 +1609,7 @@ const { data, error } = await supabase
                       placeholder={assessmentType === "offer_letter" ? "Enter offer email body details..." : "Enter email body details..."}
                       className="mt-1"
                       rows={4}
-                      required
+                      required={assessmentType !== "offer_letter"}
                     />
                   </div>
 
@@ -1629,7 +1629,9 @@ const { data, error } = await supabase
 
                   <div>
                     <Label htmlFor="email-url" className="text-sm font-medium">
-                      {assessmentType === "offer_letter" ? "Offer Email URL" : "Email URL"} <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email URL" : (
+                        <>Email URL <span className="text-red-500">*</span></>
+                      )}
                     </Label>
                     <Input
                       id="email-url"
@@ -1638,7 +1640,7 @@ const { data, error } = await supabase
                       onChange={(e) => setEmailUrl(e.target.value)}
                       placeholder={assessmentType === "offer_letter" ? "Enter offer email URL" : "Enter email URL"}
                       className="mt-1"
-                      required
+                      required={assessmentType !== "offer_letter"}
                     />
                   </div>
                 </>
