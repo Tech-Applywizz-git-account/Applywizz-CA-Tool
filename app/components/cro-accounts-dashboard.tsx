@@ -20,8 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AMExpectedRevenueOverview } from "./am-expected-revenue-overview"
 import { AccountsSubmittedFormsPanel } from "./accounts-submitted-forms-panel"
 
-interface Props { 
-  user: any; 
+interface Props {
+  user: any;
   onLogout: () => void;
   basePath?: string;
 }
@@ -38,7 +38,9 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
   const [trackerSearch, setTrackerSearch] = useState("")
   const [trackerAM, setTrackerAM] = useState("all")
   const [trackerStatus, setTrackerStatus] = useState("all")
-  
+  const [leaderboardSortBy, setLeaderboardSortBy] = useState("revenue")
+  const [leaderboardPerformanceFilter, setLeaderboardPerformanceFilter] = useState("all")
+
   // Pagination for AWL Tracker
   const [trackerCurrentPage, setTrackerCurrentPage] = useState(1)
   const [trackerItemsPerPage, setTrackerItemsPerPage] = useState(20)
@@ -48,9 +50,9 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
   }, [trackerSearch, trackerAM, trackerStatus, trackerItemsPerPage])
 
   // Config editing states
-  const [slabRows, setSlabRows] = useState<{min: string; max: string; incentive: string}[]>([])
-  const [multRows, setMultRows] = useState<{min: string; max: string; multiplier: string}[]>([])
-  const [bonusRows, setBonusRows] = useState<{days: string; threshold: string; bonus: string}[]>([])
+  const [slabRows, setSlabRows] = useState<{ min: string; max: string; incentive: string }[]>([])
+  const [multRows, setMultRows] = useState<{ min: string; max: string; multiplier: string }[]>([])
+  const [bonusRows, setBonusRows] = useState<{ days: string; threshold: string; bonus: string }[]>([])
   const [savingConfig, setSavingConfig] = useState(false)
 
   const targetDate = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1), [monthOffset])
@@ -79,32 +81,114 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
 
   const activeAMs = amList.filter(a => a.isactive)
   const filteredAMs = useMemo(() => {
-    let list = [...activeAMs].sort((a, b) => b.monthlyRevenueUSD - a.monthlyRevenueUSD)
+    let list = [...activeAMs]
     if (searchQuery) {
       list = list.filter(a => a.name?.toLowerCase().includes(searchQuery.toLowerCase()) || a.email?.toLowerCase().includes(searchQuery.toLowerCase()))
     }
+
+    // Performance filter (Renewal Rate)
+    if (leaderboardPerformanceFilter === "high") {
+      list = list.filter(a => (a.renewalRate || 0) >= 80)
+    } else if (leaderboardPerformanceFilter === "medium") {
+      list = list.filter(a => (a.renewalRate || 0) >= 60 && (a.renewalRate || 0) < 80)
+    } else if (leaderboardPerformanceFilter === "low") {
+      list = list.filter(a => (a.renewalRate || 0) < 60)
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      if (leaderboardSortBy === "revenue") {
+        return (b.monthlyRevenueUSD || 0) - (a.monthlyRevenueUSD || 0)
+      } else if (leaderboardSortBy === "renewalRate") {
+        return (b.renewalRate || 0) - (a.renewalRate || 0)
+      } else if (leaderboardSortBy === "completedRenewals") {
+        return (b.successfulRenewals || 0) - (a.successfulRenewals || 0)
+      } else if (leaderboardSortBy === "salesCount") {
+        return (b.salesCount || 0) - (a.salesCount || 0)
+      } else if (leaderboardSortBy === "incentive") {
+        return (b.finalIncentive || 0) - (a.finalIncentive || 0)
+      }
+      return 0
+    })
+
     return list
-  }, [activeAMs, searchQuery])
+  }, [activeAMs, searchQuery, leaderboardSortBy, leaderboardPerformanceFilter])
 
   const filteredTrackerRecords = useMemo(() => {
-    const allDue = amList.flatMap(am => (am.dueThisMonth || []).map((d: any) => ({ ...d, amName: am.name })));
-    return allDue.filter(d => {
+    const allRecords: any[] = [];
+
+    amList.forEach(am => {
+      // 1. Completed renewals this month (am.renewals)
+      (am.renewals || []).forEach((r: any) => {
+        allRecords.push({
+          lead_id: r.lead_id || r.awl_id,
+          lead_name: r.lead_name || "",
+          awl_id: r.awl_id || r.lead_id || "",
+          account_manager_email: r.account_manager_email,
+          amName: am.name,
+          service_start_date: r.service_start_date,
+          subscription_cycle: r.subscription_cycle,
+          renewal_extension_days: r.renewal_extension_days,
+          expected_renewal_date: r.extended_renewal_at || r.expected_renewal_date || r.closed_at,
+          renewal_closed_at: r.closed_at,
+          original_sale_value: Number(r.application_sale_value || r.sale_value) || 0,
+          renewal_sale_value: Number(r.application_sale_value || r.sale_value) || 0,
+          renewed: true
+        });
+      });
+
+      // 2. Pending renewals (due this month but not completed this month)
+      (am.dueThisMonth || []).forEach((d: any) => {
+        if (!d.renewed) {
+          allRecords.push({
+            lead_id: d.lead_id,
+            lead_name: d.lead_name || "",
+            awl_id: d.awl_id || d.lead_id || "",
+            account_manager_email: d.account_manager_email,
+            amName: am.name,
+            service_start_date: d.service_start_date,
+            subscription_cycle: d.subscription_cycle,
+            renewal_extension_days: d.renewal_extension_days,
+            expected_renewal_date: d.expected_renewal_date,
+            renewal_closed_at: null,
+            original_sale_value: Number(d.original_sale_value) || 0,
+            renewal_sale_value: 0,
+            renewed: false
+          });
+        }
+      });
+    });
+
+    return allRecords.filter(d => {
       const matchesSearch = trackerSearch ? (
         d.lead_name?.toLowerCase().includes(trackerSearch.toLowerCase()) ||
         (d.awl_id || d.lead_id || "").toLowerCase().includes(trackerSearch.toLowerCase())
       ) : true;
-      
+
       const matchesAM = trackerAM === "all" || d.amName === trackerAM;
-      
+
       const matchesStatus = trackerStatus === "all" || (
         trackerStatus === "renewed" ? d.renewed : !d.renewed
       );
-      
+
       return matchesSearch && matchesAM && matchesStatus;
+    }).sort((a, b) => {
+      if (a.renewed !== b.renewed) {
+        return a.renewed ? 1 : -1;
+      }
+      if (!a.renewed) {
+        return new Date(a.expected_renewal_date).getTime() - new Date(b.expected_renewal_date).getTime();
+      } else {
+        const dateA = a.renewal_closed_at ? new Date(a.renewal_closed_at).getTime() : 0;
+        const dateB = b.renewal_closed_at ? new Date(b.renewal_closed_at).getTime() : 0;
+        return dateB - dateA;
+      }
     });
   }, [amList, trackerSearch, trackerAM, trackerStatus]);
 
   const totalRevenue = activeAMs.reduce((s, a) => s + a.monthlyRevenueUSD, 0)
+  const totalRenewalRevenue = activeAMs.reduce((s, a) => s + (a.renewalRevenueUSD || 0), 0)
+  const totalSalesRevenue = activeAMs.reduce((s, a) => s + (a.salesRevenueUSD || 0), 0)
   const totalIncentive = activeAMs.reduce((s, a) => s + a.finalIncentive, 0)
   const totalRenewals = activeAMs.reduce((s, a) => s + a.totalRenewals, 0)
   const totalSuccess = activeAMs.reduce((s, a) => s + a.successfulRenewals, 0)
@@ -176,8 +260,8 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
       </Card>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card 
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Card
           className="hover:shadow-md transition-shadow cursor-pointer hover:border-blue-300 hover:bg-blue-50/10"
           onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
         >
@@ -190,20 +274,46 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="hover:shadow-md transition-shadow cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/10"
           onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Renewal Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">${totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-emerald-600">${totalRenewalRevenue.toLocaleString()}</div>
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
+          className="hover:shadow-md transition-shadow cursor-pointer hover:border-cyan-300 hover:bg-cyan-50/10"
+          onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        >
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">Sales Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-cyan-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-cyan-600">${totalSalesRevenue.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="hover:shadow-md transition-shadow cursor-pointer hover:border-blue-300 hover:bg-blue-50/10"
+          onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        >
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">Combined Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">${totalRevenue.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+
+        <Card
           className="hover:shadow-md transition-shadow cursor-pointer hover:border-amber-300 hover:bg-amber-50/10"
           onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
         >
@@ -216,7 +326,7 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
           </CardContent>
         </Card>
 
-        <Card 
+        <Card
           className="hover:shadow-md transition-shadow cursor-pointer hover:border-violet-300 hover:bg-violet-50/10"
           onClick={() => leaderboardRef.current?.scrollIntoView({ behavior: 'smooth' })}
         >
@@ -265,7 +375,7 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
                     className="pl-9 h-9 text-xs bg-white"
                   />
                 </div>
-                
+
                 <Select value={trackerAM} onValueChange={setTrackerAM}>
                   <SelectTrigger className="w-full sm:w-48 h-9 text-xs bg-white">
                     <SelectValue placeholder="Account Manager" />
@@ -310,96 +420,110 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
                 <>
                   <div className="overflow-x-auto">
                     <Table>
-                    <TableHeader>
-                      <TableRow className="bg-slate-50/80">
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">#</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">AWL ID</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Lead Name</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Account Manager</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Service Start</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Cycle</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Ext. Days</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Expected Date</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Closed At</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Value ($)</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(() => {
-                        const allDue = amList.flatMap(am => (am.dueThisMonth || []).map((d: any) => ({ ...d, amName: am.name })));
-                        
-                        const filteredDue = allDue.filter(d => {
-                          const matchesSearch = trackerSearch ? (
-                            d.lead_name?.toLowerCase().includes(trackerSearch.toLowerCase()) ||
-                            (d.awl_id || d.lead_id || "").toLowerCase().includes(trackerSearch.toLowerCase())
-                          ) : true;
-                          
-                          const matchesAM = trackerAM === "all" || d.amName === trackerAM;
-                          
-                          const matchesStatus = trackerStatus === "all" || (
-                            trackerStatus === "renewed" ? d.renewed : !d.renewed
-                          );
-                          
-                          return matchesSearch && matchesAM && matchesStatus;
-                        });
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/80">
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400">#</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400">AWL ID</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400">Lead Name</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400">Account Manager</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Cycle</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Ext. Days</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400">Renewal Date</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400">Closed At</TableHead>
+                          <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          const totalPages = Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1;
+                          const paginatedDue = filteredTrackerRecords.slice((trackerCurrentPage - 1) * trackerItemsPerPage, trackerCurrentPage * trackerItemsPerPage);
 
-                        const totalPages = Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1;
-                        const paginatedDue = filteredTrackerRecords.slice((trackerCurrentPage - 1) * trackerItemsPerPage, trackerCurrentPage * trackerItemsPerPage);
+                          return paginatedDue.length === 0 ? (
+                            <TableRow><TableCell colSpan={9} className="text-center py-12 text-slate-400">No renewals found matching filters</TableCell></TableRow>
+                          ) : paginatedDue.map((d: any, i: number) => {
+                            let rowClass = d.renewed ? "bg-emerald-50/20" : "";
+                            let badgeClass = d.renewed ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700";
+                            let statusText = d.renewed ? "✓ Renewed" : "⏳ Pending";
 
-                        return paginatedDue.length === 0 ? (
-                          <TableRow><TableCell colSpan={11} className="text-center py-12 text-slate-400">No renewals found matching filters</TableCell></TableRow>
-                        ) : paginatedDue.map((d: any, i: number) => (
-                          <TableRow key={i} className={d.renewed ? "bg-emerald-50/20" : ""}>
-                            <TableCell className="text-xs font-bold text-slate-400">{(trackerCurrentPage - 1) * trackerItemsPerPage + i + 1}</TableCell>
-                            <TableCell className="text-xs font-mono font-bold text-indigo-600">{d.awl_id || d.lead_id}</TableCell>
-                            <TableCell className="text-sm font-bold text-slate-700">{d.lead_name || "—"}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{d.amName}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{d.service_start_date ? new Date(d.service_start_date).toLocaleDateString() : "—"}</TableCell>
-                            <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.subscription_cycle || "—"}</TableCell>
-                            <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.renewal_extension_days || "0"}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{new Date(d.expected_renewal_date).toLocaleDateString()}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{d.renewal_closed_at ? new Date(d.renewal_closed_at).toLocaleDateString() : "—"}</TableCell>
-                            <TableCell className="text-right font-bold text-emerald-700">${d.original_sale_value.toLocaleString()}</TableCell>
-                            <TableCell className="text-center"><Badge className={`border-none text-[10px] ${d.renewed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{d.renewed ? "✓ Renewed" : "⏳ Pending"}</Badge></TableCell>
-                          </TableRow>
-                        ))
-                      })()}
-                    </TableBody>
-                  </Table>
-                </div>
-                
-                {/* Pagination Controls */}
-                {filteredTrackerRecords.length > trackerItemsPerPage && (
-                  <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
-                    <p className="text-xs text-slate-400 font-medium">
-                      Showing {(trackerCurrentPage - 1) * trackerItemsPerPage + 1} to {Math.min(trackerCurrentPage * trackerItemsPerPage, filteredTrackerRecords.length)} of {filteredTrackerRecords.length} records
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs font-semibold"
-                        onClick={() => setTrackerCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={trackerCurrentPage === 1}
-                      >
-                        Previous
-                      </Button>
-                      <div className="flex items-center px-2 text-xs font-bold text-slate-600">
-                        Page {trackerCurrentPage} of {Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs font-semibold"
-                        onClick={() => setTrackerCurrentPage(p => Math.min(Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1, p + 1))}
-                        disabled={trackerCurrentPage === (Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1)}
-                      >
-                        Next
-                      </Button>
-                    </div>
+                            if (!d.renewed && d.expected_renewal_date) {
+                              try {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const expected = new Date(d.expected_renewal_date);
+                                expected.setHours(0, 0, 0, 0);
+                                const diffTime = expected.getTime() - today.getTime();
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                                if (diffDays < 0) {
+                                  rowClass = "bg-rose-50 border-rose-100 hover:bg-rose-100/50";
+                                  badgeClass = "bg-rose-100 text-rose-700 font-black animate-pulse";
+                                  statusText = "🚨 Overdue";
+                                } else if (diffDays === 0) {
+                                  rowClass = "bg-red-50/50 border-red-100 hover:bg-red-100/40";
+                                  badgeClass = "bg-red-100 text-red-700 font-bold";
+                                  statusText = "⏳ Due Today";
+                                } else if (diffDays <= 3) {
+                                  rowClass = "bg-amber-50 border-amber-100 hover:bg-amber-100/50";
+                                  badgeClass = "bg-amber-100 text-amber-700 font-semibold";
+                                  statusText = "⏳ Due 1-3d";
+                                } else if (diffDays <= 7) {
+                                  rowClass = "bg-yellow-50/40 border-yellow-100/50 hover:bg-yellow-100/30";
+                                  badgeClass = "bg-yellow-100 text-yellow-700 font-semibold";
+                                  statusText = "⏳ Due 4-7d";
+                                }
+                              } catch (e) { }
+                            }
+
+                            return (
+                              <TableRow key={i} className={rowClass}>
+                                <TableCell className="text-xs font-bold text-slate-400">{(trackerCurrentPage - 1) * trackerItemsPerPage + i + 1}</TableCell>
+                                <TableCell className="text-xs font-mono font-bold text-indigo-600">{d.awl_id || d.lead_id}</TableCell>
+                                <TableCell className="text-sm font-bold text-slate-700">{d.lead_name || "—"}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{d.amName}</TableCell>
+                                <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.subscription_cycle || "—"}</TableCell>
+                                <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.renewal_extension_days || "0"}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{new Date(d.expected_renewal_date).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{d.renewal_closed_at ? new Date(d.renewal_closed_at).toLocaleDateString() : "—"}</TableCell>
+                                <TableCell className="text-center"><Badge className={`border-none text-[10px] ${badgeClass}`}>{statusText}</Badge></TableCell>
+                              </TableRow>
+                            );
+                          });
+                        })()}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
+
+                  {/* Pagination Controls */}
+                  {filteredTrackerRecords.length > trackerItemsPerPage && (
+                    <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+                      <p className="text-xs text-slate-400 font-medium">
+                        Showing {(trackerCurrentPage - 1) * trackerItemsPerPage + 1} to {Math.min(trackerCurrentPage * trackerItemsPerPage, filteredTrackerRecords.length)} of {filteredTrackerRecords.length} records
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-semibold"
+                          onClick={() => setTrackerCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={trackerCurrentPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <div className="flex items-center px-2 text-xs font-bold text-slate-600">
+                          Page {trackerCurrentPage} of {Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-semibold"
+                          onClick={() => setTrackerCurrentPage(p => Math.min(Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1, p + 1))}
+                          disabled={trackerCurrentPage === (Math.ceil(filteredTrackerRecords.length / trackerItemsPerPage) || 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
@@ -424,7 +548,7 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6 bg-slate-50/20">
-              
+
               {/* Slabs */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
@@ -438,7 +562,7 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
                     <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Level
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {slabRows.length === 0 ? (
                     <div className="text-center py-6 text-slate-400 text-xs font-medium">No slabs defined. Click "Add Level" to start.</div>
@@ -487,7 +611,7 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
                     <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Multiplier
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {multRows.length === 0 ? (
                     <div className="text-center py-6 text-slate-400 text-xs font-medium">No multipliers defined.</div>
@@ -530,7 +654,7 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
                     <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Bonus
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {bonusRows.length === 0 ? (
                     <div className="text-center py-6 text-slate-400 text-xs font-medium">No bonuses defined.</div>
@@ -594,8 +718,33 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
               Accounts Leaderboard — {monthName}
               <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[10px] uppercase tracking-widest">Live Rankings</Badge>
             </CardTitle>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-52">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <Select value={leaderboardSortBy} onValueChange={setLeaderboardSortBy}>
+                <SelectTrigger className="w-full sm:w-44 h-8 bg-white/10 border-white/20 text-white text-xs">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="revenue">Sort by Combined Rev</SelectItem>
+                  <SelectItem value="renewalRate">Sort by Renewal Rate</SelectItem>
+                  <SelectItem value="completedRenewals">Sort by Completed Renewals</SelectItem>
+                  <SelectItem value="salesCount">Sort by Sales Count</SelectItem>
+                  <SelectItem value="incentive">Sort by Final Incentive</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={leaderboardPerformanceFilter} onValueChange={setLeaderboardPerformanceFilter}>
+                <SelectTrigger className="w-full sm:w-44 h-8 bg-white/10 border-white/20 text-white text-xs">
+                  <SelectValue placeholder="Filter performance" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Performers</SelectItem>
+                  <SelectItem value="high">High Performers (≥80%)</SelectItem>
+                  <SelectItem value="medium">Average Performers (60-79%)</SelectItem>
+                  <SelectItem value="low">Needs Improvement (&lt;60%)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="relative w-full sm:w-48">
                 <Search className="absolute left-2.5 top-2 h-4 w-4 text-white/50" />
                 <Input
                   placeholder="Search managers..."
@@ -609,84 +758,96 @@ export function CROAccountsDashboard({ user, onLogout, basePath = "/cro-dashboar
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50/80 border-b border-slate-200">
-                          <TableHead className="w-12 text-center font-black text-slate-500">#</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 pl-4">Account Manager</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Renewals</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Rate</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">
-                            <div className="flex items-center justify-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Streaks</div>
-                          </TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Slab ₹</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Multiplier</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Bonus ₹</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50 border-l border-slate-100">Revenue</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Final Inc</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-right pr-6">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {loading ? (
-                          <TableRow><TableCell colSpan={11} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" /></TableCell></TableRow>
-                        ) : filteredAMs.length === 0 ? (
-                          <TableRow><TableCell colSpan={11} className="text-center py-12 text-slate-400">No account managers found</TableCell></TableRow>
-                        ) : (
-                          filteredAMs.map((am, i) => {
-                            const progressPct = Math.min(100, am.renewalRate || 0);
-                            return (
-                              <TableRow key={am.email} className={`transition-colors ${i < 3 ? 'bg-amber-50/20' : ''} hover:bg-teal-50/30`}>
-                                <TableCell className="text-center">
-                                  {i === 0 ? <span className="text-lg">🥇</span> : i === 1 ? <span className="text-lg">🥈</span> : i === 2 ? <span className="text-lg">🥉</span> : <span className="text-xs font-bold text-slate-400">#{i + 1}</span>}
-                                </TableCell>
-                                <TableCell className="pl-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${i < 3 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}>
-                                      {am.name?.substring(0, 2)?.toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <p className="font-bold text-sm text-slate-800 leading-tight">{am.name}</p>
-                                      <p className="text-[10px] text-slate-400 font-medium">{am.email}</p>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center font-bold text-indigo-700">{am.successfulRenewals}</TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex flex-col items-center gap-1">
-                                    <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                      <div className={`h-full rounded-full transition-all ${am.renewalRate >= 80 ? 'bg-emerald-500' : am.renewalRate >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${progressPct}%` }} />
-                                    </div>
-                                    <span className={`text-[9px] font-bold ${am.renewalRate >= 80 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                      {am.renewalRate}%
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold ${am.streaks > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'text-slate-300'}`}>
-                                    <Flame className="h-3 w-3" /> {am.streaks || 0}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center font-bold text-violet-700">₹{(am.baseIncentive || 0).toLocaleString()}</TableCell>
-                                <TableCell className="text-center font-bold text-amber-700">{am.renewalMultiplier === 0 ? "❌" : `${am.renewalMultiplier}x`}</TableCell>
-                                <TableCell className="text-center font-bold text-blue-600">₹{(am.performanceBonus || 0).toLocaleString()}</TableCell>
-                                <TableCell className="text-center font-bold text-emerald-700 bg-slate-50/80 border-l border-slate-100/60">
-                                  ${(am.monthlyRevenueUSD || 0).toLocaleString()}
-                                </TableCell>
-                                <TableCell className="text-center font-black text-teal-700 bg-slate-50/80">
-                                  ₹{(am.finalIncentive || 0).toLocaleString()}
-                                </TableCell>
-                                <TableCell className="text-right pr-6">
-                                  <div className="flex gap-1.5 justify-end">
-                                    <Button variant="outline" size="sm" className="gap-1 text-xs font-bold hover:bg-teal-50 hover:text-teal-600" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}><ExternalLink className="h-3.5 w-3.5" />Dashboard</Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })
-                        )}
-                      </TableBody>
-                    </Table>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50/80 border-b border-slate-200">
+                  <TableHead className="w-12 text-center font-black text-slate-500">#</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 pl-4">Account Manager</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Total Renewals</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Completed Renewals</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Pending Renewals</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Sales</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Rate</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">
+                    <div className="flex items-center justify-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Streaks</div>
+                  </TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Slab ₹</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Multiplier</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Bonus ₹</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50 border-l border-slate-100">Renewal Rev</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Sales Rev</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Combined</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Final Inc</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={13} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" /></TableCell></TableRow>
+                ) : filteredAMs.length === 0 ? (
+                  <TableRow><TableCell colSpan={13} className="text-center py-12 text-slate-400">No account managers found</TableCell></TableRow>
+                ) : (
+                  filteredAMs.map((am, i) => {
+                    const progressPct = Math.min(100, am.renewalRate || 0);
+                    return (
+                      <TableRow
+                        key={am.email}
+                        className={`transition-colors cursor-pointer ${i < 3 ? 'bg-amber-50/20' : ''} hover:bg-teal-50/30`}
+                        onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}
+                      >
+                        <TableCell className="text-center">
+                          {i === 0 ? <span className="text-lg">🥇</span> : i === 1 ? <span className="text-lg">🥈</span> : i === 2 ? <span className="text-lg">🥉</span> : <span className="text-xs font-bold text-slate-400">#{i + 1}</span>}
+                        </TableCell>
+                        <TableCell className="pl-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${i < 3 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}>
+                              {am.name?.substring(0, 2)?.toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-slate-800 leading-tight">{am.name}</p>
+                              <p className="text-[10px] text-slate-400 font-medium">{am.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-slate-600">{am.totalRenewals}</TableCell>
+                        <TableCell className="text-center font-bold text-indigo-700">{am.successfulRenewals}</TableCell>
+                        <TableCell className="text-center font-bold text-amber-700">{am.failedRenewals || 0}</TableCell>
+                        <TableCell className="text-center font-bold text-cyan-700">{am.salesCount || 0}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${am.renewalRate >= 80 ? 'bg-emerald-500' : am.renewalRate >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${progressPct}%` }} />
+                            </div>
+                            <span className={`text-[9px] font-bold ${am.renewalRate >= 80 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                              {am.renewalRate}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold ${am.streaks > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'text-slate-300'}`}>
+                            <Flame className="h-3 w-3" /> {am.streaks || 0}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-violet-700">₹{(am.baseIncentive || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-center font-bold text-amber-700">{am.renewalMultiplier === 0 ? "❌" : `${am.renewalMultiplier}x`}</TableCell>
+                        <TableCell className="text-center font-bold text-blue-600">₹{(am.performanceBonus || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-center font-bold text-emerald-700 bg-slate-50/80 border-l border-slate-100/60">
+                          ${(am.renewalRevenueUSD || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-cyan-700 bg-slate-50/80">
+                          ${(am.salesRevenueUSD || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-center font-black text-blue-700 bg-slate-50/80">
+                          ${(am.monthlyRevenueUSD || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-center font-black text-teal-700 bg-slate-50/80">
+                          ₹{(am.finalIncentive || 0).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

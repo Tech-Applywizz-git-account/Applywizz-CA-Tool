@@ -30,15 +30,23 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
   const [amList, setAmList] = useState<any[]>([])
   const [config, setConfig] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [leaderboardSortBy, setLeaderboardSortBy] = useState("revenue")
+  const [leaderboardPerformanceFilter, setLeaderboardPerformanceFilter] = useState("all")
   const [selectedAM, setSelectedAM] = useState<any>(null)
   const [trackerSearch, setTrackerSearch] = useState("")
   const [trackerAM, setTrackerAM] = useState("all")
   const [trackerStatus, setTrackerStatus] = useState("all")
+  const [trackerCurrentPage, setTrackerCurrentPage] = useState(1)
+  const [trackerItemsPerPage, setTrackerItemsPerPage] = useState(20)
+
+  useEffect(() => {
+    setTrackerCurrentPage(1)
+  }, [trackerSearch, trackerAM, trackerStatus, trackerItemsPerPage])
 
   // Config editing — structured arrays instead of raw JSON
-  const [slabRows, setSlabRows] = useState<{min: string; max: string; incentive: string}[]>([])
-  const [multRows, setMultRows] = useState<{min: string; max: string; multiplier: string}[]>([])
-  const [bonusRows, setBonusRows] = useState<{days: string; threshold: string; bonus: string}[]>([])
+  const [slabRows, setSlabRows] = useState<{ min: string; max: string; incentive: string }[]>([])
+  const [multRows, setMultRows] = useState<{ min: string; max: string; multiplier: string }[]>([])
+  const [bonusRows, setBonusRows] = useState<{ days: string; threshold: string; bonus: string }[]>([])
   const [savingConfig, setSavingConfig] = useState(false)
 
   const targetDate = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1), [monthOffset])
@@ -103,9 +111,9 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
         .from("users")
         .update({ isactive: !currentStatus })
         .eq("email", email)
-      
+
       if (error) throw error
-      
+
       alert(`Status updated successfully!`)
       await fetchData()
     } catch (e: any) {
@@ -117,15 +125,43 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
 
   const activeAMs = amList.filter(a => a.isactive)
   const filteredAMs = useMemo(() => {
-    let list = [...activeAMs].sort((a, b) => b.monthlyRevenueUSD - a.monthlyRevenueUSD)
+    let list = [...activeAMs]
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       list = list.filter(a => a.name?.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q))
     }
+
+    // Performance filter (Renewal Rate)
+    if (leaderboardPerformanceFilter === "high") {
+      list = list.filter(a => (a.renewalRate || 0) >= 80)
+    } else if (leaderboardPerformanceFilter === "medium") {
+      list = list.filter(a => (a.renewalRate || 0) >= 60 && (a.renewalRate || 0) < 80)
+    } else if (leaderboardPerformanceFilter === "low") {
+      list = list.filter(a => (a.renewalRate || 0) < 60)
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      if (leaderboardSortBy === "revenue") {
+        return (b.monthlyRevenueUSD || 0) - (a.monthlyRevenueUSD || 0)
+      } else if (leaderboardSortBy === "renewalRate") {
+        return (b.renewalRate || 0) - (a.renewalRate || 0)
+      } else if (leaderboardSortBy === "completedRenewals") {
+        return (b.successfulRenewals || 0) - (a.successfulRenewals || 0)
+      } else if (leaderboardSortBy === "salesCount") {
+        return (b.salesCount || 0) - (a.salesCount || 0)
+      } else if (leaderboardSortBy === "incentive") {
+        return (b.finalIncentive || 0) - (a.finalIncentive || 0)
+      }
+      return 0
+    })
+
     return list
-  }, [activeAMs, searchQuery])
+  }, [activeAMs, searchQuery, leaderboardSortBy, leaderboardPerformanceFilter])
 
   const totalRevenue = activeAMs.reduce((s, a) => s + (a.monthlyRevenueUSD || 0), 0)
+  const totalRenewalRevenue = activeAMs.reduce((s, a) => s + (a.renewalRevenueUSD || 0), 0)
+  const totalSalesRevenue = activeAMs.reduce((s, a) => s + (a.salesRevenueUSD || 0), 0)
   const totalRenewals = activeAMs.reduce((s, a) => s + (a.totalRenewals || 0), 0)
   const totalSuccess = activeAMs.reduce((s, a) => s + (a.successfulRenewals || 0), 0)
   const avgRate = totalRenewals > 0 ? ((totalSuccess / totalRenewals) * 100).toFixed(1) : "0"
@@ -133,12 +169,12 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
   const topPerformer = filteredAMs[0] || null
 
   const handleExportCSV = () => {
-    const headers = ["#","Name","Email","Revenue ($)","Total","Paid","Rate %","Base ₹","Multiplier","Bonus ₹","Final ₹"]
-    const rows = filteredAMs.map((a, i) => [i+1, a.name, a.email, a.monthlyRevenueUSD, a.totalRenewals, a.successfulRenewals, a.renewalRate, a.baseIncentive, a.renewalMultiplier, a.performanceBonus, a.finalIncentive])
-    const csv = [headers.join(","), ...rows.map(r => r.map((v: any) => `"${String(v).replace(/"/g,'""')}"`).join(","))].join("\n")
+    const headers = ["#", "Name", "Email", "Revenue ($)", "Total", "Paid", "Rate %", "Base ₹", "Multiplier", "Bonus ₹", "Final ₹"]
+    const rows = filteredAMs.map((a, i) => [i + 1, a.name, a.email, a.monthlyRevenueUSD, a.totalRenewals, a.successfulRenewals, a.renewalRate, a.baseIncentive, a.renewalMultiplier, a.performanceBonus, a.finalIncentive])
+    const csv = [headers.join(","), ...rows.map(r => r.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement("a"); a.href = url; a.download = `accounts_${monthName.replace(" ","_")}.csv`; a.click()
+    const a = document.createElement("a"); a.href = url; a.download = `accounts_${monthName.replace(" ", "_")}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
@@ -211,7 +247,9 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
             {selectedAM && (
               <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 rounded-lg p-3"><p className="text-[10px] text-slate-400 font-bold">Revenue</p><p className="font-black text-emerald-700">${selectedAM.monthlyRevenueUSD.toLocaleString()}</p></div>
+                  <div className="bg-slate-50 rounded-lg p-3"><p className="text-[10px] text-slate-400 font-bold">Renewal Revenue</p><p className="font-black text-emerald-700">${(selectedAM.renewalRevenueUSD || 0).toLocaleString()}</p></div>
+                  <div className="bg-slate-50 rounded-lg p-3"><p className="text-[10px] text-slate-400 font-bold">Sales Revenue</p><p className="font-black text-cyan-700">${(selectedAM.salesRevenueUSD || 0).toLocaleString()}</p></div>
+                  <div className="bg-slate-50 rounded-lg p-3"><p className="text-[10px] text-slate-400 font-bold">Combined Revenue</p><p className="font-black text-blue-700">${selectedAM.monthlyRevenueUSD.toLocaleString()}</p></div>
                   <div className="bg-slate-50 rounded-lg p-3"><p className="text-[10px] text-slate-400 font-bold">Renewal Rate</p><p className="font-black text-violet-700">{selectedAM.renewalRate}%</p></div>
                   <div className="bg-slate-50 rounded-lg p-3"><p className="text-[10px] text-slate-400 font-bold">Renewals</p><p className="font-black">{selectedAM.successfulRenewals}/{selectedAM.totalRenewals}</p></div>
                   <div className="bg-teal-50 rounded-lg p-3"><p className="text-[10px] text-teal-500 font-bold">Final Incentive</p><p className="font-black text-teal-700">₹{selectedAM.finalIncentive.toLocaleString()}</p></div>
@@ -226,7 +264,7 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                           <TableCell className="text-xs">{r.lead_name || "—"}</TableCell>
                           <TableCell className="text-xs font-mono">{r.lead_id}</TableCell>
                           <TableCell className="text-xs text-right font-bold">${r.application_sale_value || 0}</TableCell>
-                          <TableCell className="text-center"><Badge className={`text-[9px] border-none ${(r.finance_status||"").toLowerCase() === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>{r.finance_status}</Badge></TableCell>
+                          <TableCell className="text-center"><Badge className={`text-[9px] border-none ${(r.finance_status || "").toLowerCase() === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>{r.finance_status}</Badge></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -254,13 +292,12 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: "Active AMs", value: activeAMs.length, icon: Users, color: "rose", extra: "" },
-                { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, color: "emerald", extra: "" },
+                { label: "Combined Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, color: "emerald", extra: `Renewals: $${totalRenewalRevenue.toLocaleString()} • Sales: $${totalSalesRevenue.toLocaleString()}` },
                 { label: "Renewals", value: `${totalSuccess}/${totalRenewals}`, icon: TrendingUp, color: "blue", extra: "" },
                 { label: "Avg Rate", value: `${avgRate}%`, icon: Percent, color: "violet", extra: "" },
-                { label: "Top Performer", value: topPerformer?.name || "—", icon: Crown, color: "amber", extra: topPerformer ? `$${topPerformer.monthlyRevenueUSD.toLocaleString()}` : "" },
               ].map((s, i) => (
                 <Card key={i} className="backdrop-blur-md bg-white/70 border border-white/40 overflow-hidden group hover:shadow-lg transition-all">
                   <div className={`h-1 w-full bg-gradient-to-r from-${s.color}-500 to-${s.color}-400`} />
@@ -285,34 +322,77 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                 {loading ? <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-teal-500 mr-3" /><span className="text-slate-500">Loading...</span></div> : (
                   <div className="overflow-x-auto"><Table><TableHeader><TableRow className="bg-slate-50/80">
                     <TableHead className="font-bold text-[10px] uppercase text-slate-400 pl-4">Name</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Revenue</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Renewal Rev</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Sales Rev</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Combined</TableHead>
                     <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Rate</TableHead>
                     <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Incentive</TableHead>
                     <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Actions</TableHead>
                   </TableRow></TableHeader><TableBody>
-                    {filteredAMs.map((am) => (
-                      <TableRow key={am.email} className="hover:bg-teal-50/30">
-                        <TableCell className="pl-4"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white text-[10px] font-black">{am.name?.substring(0,2)?.toUpperCase()}</div><div><p className="font-bold text-sm text-slate-800">{am.name}</p><p className="text-[10px] text-slate-400">{am.email}</p></div></div></TableCell>
-                        <TableCell className="text-right font-bold text-emerald-700">${am.monthlyRevenueUSD.toLocaleString()}</TableCell>
-                        <TableCell className="text-center"><Badge className={`border-none text-[10px] ${am.renewalRate >= 80 ? "bg-emerald-100 text-emerald-700" : am.renewalRate >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>{am.renewalRate}%</Badge></TableCell>
-                        <TableCell className="text-right font-black text-teal-700">₹{am.finalIncentive.toLocaleString()}</TableCell>
-                        <TableCell className="text-center"><Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}><ExternalLink className="h-3 w-3"/>Dashboard</Button></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody></Table></div>
+                      {filteredAMs.map((am) => (
+                        <TableRow key={am.email} className="hover:bg-teal-50/30">
+                          <TableCell className="pl-4"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white text-[10px] font-black">{am.name?.substring(0, 2)?.toUpperCase()}</div><div><p className="font-bold text-sm text-slate-800">{am.name}</p><p className="text-[10px] text-slate-400">{am.email}</p></div></div></TableCell>
+                          <TableCell className="text-right font-bold text-emerald-700">${(am.renewalRevenueUSD || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-bold text-cyan-700">${(am.salesRevenueUSD || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-black text-blue-700">${am.monthlyRevenueUSD.toLocaleString()}</TableCell>
+                          <TableCell className="text-center"><Badge className={`border-none text-[10px] ${am.renewalRate >= 80 ? "bg-emerald-100 text-emerald-700" : am.renewalRate >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>{am.renewalRate}%</Badge></TableCell>
+                          <TableCell className="text-right font-black text-teal-700">₹{am.finalIncentive.toLocaleString()}</TableCell>
+                          <TableCell className="text-center"><Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}><ExternalLink className="h-3 w-3" />Dashboard</Button></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody></Table></div>
                 )}
               </CardContent>
             </Card>
           </>
         )}
 
-
         {activeTab === "leaderboard" && (
           <Card className="backdrop-blur-md bg-white/70 border border-white/40 shadow-lg overflow-hidden">
             <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-teal-500 to-cyan-500" />
-            <CardHeader>
-              <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-2.5"><Trophy className="h-5 w-5 text-amber-500" /> Performance Leaderboard — {monthName}</CardTitle>
-              <CardDescription className="text-xs font-semibold text-slate-500">Ranked by renewal revenue • Incentive Pool: ₹{totalIncentive.toLocaleString()}</CardDescription>
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
+                <div>
+                  <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-2.5"><Trophy className="h-5 w-5 text-amber-500" /> Performance Leaderboard — {monthName}</CardTitle>
+                  <CardDescription className="text-xs font-semibold text-slate-500 mt-1">Ranked by renewal revenue • Incentive Pool: ₹{totalIncentive.toLocaleString()}</CardDescription>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+                  <Select value={leaderboardSortBy} onValueChange={setLeaderboardSortBy}>
+                    <SelectTrigger className="w-full sm:w-44 h-8 text-xs bg-white border-slate-200">
+                      <SelectValue placeholder="Sort By" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="revenue">Sort by Combined Rev</SelectItem>
+                      <SelectItem value="renewalRate">Sort by Renewal Rate</SelectItem>
+                      <SelectItem value="completedRenewals">Sort by Completed Renewals</SelectItem>
+                      <SelectItem value="salesCount">Sort by Sales Count</SelectItem>
+                      <SelectItem value="incentive">Sort by Final Incentive</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={leaderboardPerformanceFilter} onValueChange={setLeaderboardPerformanceFilter}>
+                    <SelectTrigger className="w-full sm:w-44 h-8 text-xs bg-white border-slate-200">
+                      <SelectValue placeholder="Filter performance" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Performers</SelectItem>
+                      <SelectItem value="high">High Performers (≥80%)</SelectItem>
+                      <SelectItem value="medium">Average Performers (60-79%)</SelectItem>
+                      <SelectItem value="low">Needs Improvement (&lt;60%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="relative w-full sm:w-48">
+                    <Search className="absolute left-2.5 top-2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search managers..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-8 text-xs bg-white border-slate-200"
+                    />
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
@@ -321,184 +401,88 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                 <div className="text-center py-16 text-slate-400 font-medium">No account managers found.</div>
               ) : (
                 <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50/80 border-b border-slate-200">
-                          <TableHead className="w-12 text-center font-black text-slate-500">#</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 pl-4">Account Manager</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Renewals</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Rate</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">
-                            <div className="flex items-center justify-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Streaks</div>
-                          </TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Slab ₹</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Multiplier</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Bonus ₹</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50 border-l border-slate-100">Revenue</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Final Inc</TableHead>
-                          <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-right pr-6">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredAMs.map((am, i) => {
-                          const progressPct = Math.min(100, am.renewalRate || 0);
-                          return (
-                            <TableRow key={am.email} className={`transition-colors ${i < 3 ? 'bg-amber-50/20' : ''} hover:bg-teal-50/30`}>
-                              <TableCell className="text-center">
-                                {i === 0 ? <span className="text-lg">🥇</span> : i === 1 ? <span className="text-lg">🥈</span> : i === 2 ? <span className="text-lg">🥉</span> : <span className="text-xs font-bold text-slate-400">#{i + 1}</span>}
-                              </TableCell>
-                              <TableCell className="pl-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${i < 3 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}>
-                                    {am.name?.substring(0, 2)?.toUpperCase()}
-                                  </div>
-                                  <div>
-                                    <p className="font-bold text-sm text-slate-800 leading-tight">{am.name}</p>
-                                    <p className="text-[10px] text-slate-400 font-medium">{am.email}</p>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center font-bold text-indigo-700">{am.successfulRenewals}</TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${am.renewalRate >= 80 ? 'bg-emerald-500' : am.renewalRate >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${progressPct}%` }} />
-                                  </div>
-                                  <span className={`text-[9px] font-bold ${am.renewalRate >= 80 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                    {am.renewalRate}%
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold ${am.streaks > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'text-slate-300'}`}>
-                                  <Flame className="h-3 w-3" /> {am.streaks || 0}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center font-bold text-violet-700">₹{(am.baseIncentive || 0).toLocaleString()}</TableCell>
-                              <TableCell className="text-center font-bold text-amber-700">{am.renewalMultiplier === 0 ? "❌" : `${am.renewalMultiplier}x`}</TableCell>
-                              <TableCell className="text-center font-bold text-blue-600">₹{(am.performanceBonus || 0).toLocaleString()}</TableCell>
-                              <TableCell className="text-center font-bold text-emerald-700 bg-slate-50/80 border-l border-slate-100/60">
-                                ${(am.monthlyRevenueUSD || 0).toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-center font-black text-teal-700 bg-slate-50/80">
-                                ₹{(am.finalIncentive || 0).toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-right pr-6">
-                                <div className="flex gap-1.5 justify-end">
-                                  <Button variant="outline" size="sm" className="gap-1 text-xs font-bold hover:bg-teal-50 hover:text-teal-600" onClick={() => setSelectedAM(am)}><Eye className="h-3.5 w-3.5" />Details</Button>
-                                  <Button variant="outline" size="sm" className="gap-1 text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}><ExternalLink className="h-3.5 w-3.5" />Dashboard</Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === "awl_tracker" && (
-          <Card className="backdrop-blur-md bg-white/70 border border-white/40 shadow-lg overflow-hidden">
-            <div className="h-1.5 w-full bg-gradient-to-r from-rose-500 to-pink-500" />
-            <CardHeader><CardTitle className="text-xl font-black text-slate-800 flex items-center gap-2.5"><ClipboardList className="h-5 w-5 text-rose-500" /> AWL Tracker — {monthName}</CardTitle>
-              <CardDescription className="text-xs font-semibold text-slate-500">All clients due for renewal across all Account Managers</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search lead or AWL ID..."
-                    value={trackerSearch}
-                    onChange={e => setTrackerSearch(e.target.value)}
-                    className="pl-9 h-9 text-xs bg-white"
-                  />
-                </div>
-                
-                <Select value={trackerAM} onValueChange={setTrackerAM}>
-                  <SelectTrigger className="w-full sm:w-48 h-9 text-xs bg-white">
-                    <SelectValue placeholder="Account Manager" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Managers</SelectItem>
-                    {Array.from(new Set(amList.map(a => a.name))).map((name: any) => (
-                      <SelectItem key={name} value={name}>{name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={trackerStatus} onValueChange={setTrackerStatus}>
-                  <SelectTrigger className="w-full sm:w-36 h-9 text-xs bg-white">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="renewed">Renewed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-rose-500 mr-3" /><span className="text-slate-500">Loading...</span></div>
-              ) : (
-                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-slate-50/80">
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">#</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">AWL ID</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Lead Name</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Account Manager</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Service Start</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Cycle</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Ext. Days</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Expected Date</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Closed At</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Value ($)</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Status</TableHead>
+                      <TableRow className="bg-slate-50/80 border-b border-slate-200">
+                        <TableHead className="w-12 text-center font-black text-slate-500">#</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 pl-4">Account Manager</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Total Renewals</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Completed Renewals</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Pending Renewals</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Sales</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Rate</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">
+                          <div className="flex items-center justify-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Streaks</div>
+                        </TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Slab ₹</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Multiplier</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center">Bonus ₹</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50 border-l border-slate-100">Renewal Rev</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Sales Rev</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Combined</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase tracking-wider text-slate-400 text-center bg-slate-50">Final Inc</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(() => {
-                        const allDue = amList.flatMap(am => (am.dueThisMonth || []).map((d: any) => ({ ...d, amName: am.name })));
-                        
-                        const filteredDue = allDue.filter(d => {
-                          const matchesSearch = trackerSearch ? (
-                            d.lead_name?.toLowerCase().includes(trackerSearch.toLowerCase()) ||
-                            (d.awl_id || d.lead_id || "").toLowerCase().includes(trackerSearch.toLowerCase())
-                          ) : true;
-                          
-                          const matchesAM = trackerAM === "all" || d.amName === trackerAM;
-                          
-                          const matchesStatus = trackerStatus === "all" || (
-                            trackerStatus === "renewed" ? d.renewed : !d.renewed
-                          );
-                          
-                          return matchesSearch && matchesAM && matchesStatus;
-                        });
-
-                        return filteredDue.length === 0 ? (
-                          <TableRow><TableCell colSpan={11} className="text-center py-12 text-slate-400">No renewals found matching filters</TableCell></TableRow>
-                        ) : filteredDue.map((d: any, i: number) => (
-                          <TableRow key={i} className={d.renewed ? "bg-emerald-50/20" : ""}>
-                            <TableCell className="text-xs font-bold text-slate-400">{i + 1}</TableCell>
-                            <TableCell className="text-xs font-mono font-bold text-indigo-600">{d.awl_id || d.lead_id}</TableCell>
-                            <TableCell className="text-sm font-bold text-slate-700">{d.lead_name || "—"}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{d.amName}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{d.service_start_date ? new Date(d.service_start_date).toLocaleDateString() : "—"}</TableCell>
-                            <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.subscription_cycle || "—"}</TableCell>
-                            <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.renewal_extension_days || "0"}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{new Date(d.expected_renewal_date).toLocaleDateString()}</TableCell>
-                            <TableCell className="text-xs text-slate-500">{d.renewal_closed_at ? new Date(d.renewal_closed_at).toLocaleDateString() : "—"}</TableCell>
-                            <TableCell className="text-right font-bold text-emerald-700">${d.original_sale_value.toLocaleString()}</TableCell>
-                            <TableCell className="text-center"><Badge className={`border-none text-[10px] ${d.renewed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{d.renewed ? "✓ Renewed" : "⏳ Pending"}</Badge></TableCell>
+                      {filteredAMs.map((am, i) => {
+                        const progressPct = Math.min(100, am.renewalRate || 0);
+                        return (
+                          <TableRow
+                            key={am.email}
+                            className={`transition-colors cursor-pointer ${i < 3 ? 'bg-amber-50/20' : ''} hover:bg-teal-50/30`}
+                            onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}
+                          >
+                            <TableCell className="text-center">
+                              {i === 0 ? <span className="text-lg">🥇</span> : i === 1 ? <span className="text-lg">🥈</span> : i === 2 ? <span className="text-lg">🥉</span> : <span className="text-xs font-bold text-slate-400">#{i + 1}</span>}
+                            </TableCell>
+                            <TableCell className="pl-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${i < 3 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}>
+                                  {am.name?.substring(0, 2)?.toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-sm text-slate-800 leading-tight">{am.name}</p>
+                                  <p className="text-[10px] text-slate-400 font-medium">{am.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center font-bold text-slate-600">{am.totalRenewals}</TableCell>
+                            <TableCell className="text-center font-bold text-indigo-700">{am.successfulRenewals}</TableCell>
+                            <TableCell className="text-center font-bold text-amber-700">{am.failedRenewals || 0}</TableCell>
+                            <TableCell className="text-center font-bold text-cyan-700">{am.salesCount || 0}</TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${am.renewalRate >= 80 ? 'bg-emerald-500' : am.renewalRate >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${progressPct}%` }} />
+                                </div>
+                                <span className={`text-[9px] font-bold ${am.renewalRate >= 80 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                  {am.renewalRate}%
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold ${am.streaks > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'text-slate-300'}`}>
+                                <Flame className="h-3 w-3" /> {am.streaks || 0}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center font-bold text-violet-700">₹{(am.baseIncentive || 0).toLocaleString()}</TableCell>
+                            <TableCell className="text-center font-bold text-amber-700">{am.renewalMultiplier === 0 ? "❌" : `${am.renewalMultiplier}x`}</TableCell>
+                            <TableCell className="text-center font-bold text-blue-600">₹{(am.performanceBonus || 0).toLocaleString()}</TableCell>
+                            <TableCell className="text-center font-bold text-emerald-700 bg-slate-50/80 border-l border-slate-100/60">
+                              ${(am.renewalRevenueUSD || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center font-bold text-cyan-700 bg-slate-50/80">
+                              ${(am.salesRevenueUSD || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center font-black text-blue-700 bg-slate-50/80">
+                              ${(am.monthlyRevenueUSD || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center font-black text-teal-700 bg-slate-50/80">
+                              ₹{(am.finalIncentive || 0).toLocaleString()}
+                            </TableCell>
                           </TableRow>
-                        ))
-                      })()}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -506,6 +490,245 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
             </CardContent>
           </Card>
         )}
+
+        {activeTab === "awl_tracker" && (() => {
+          const allDue: any[] = [];
+          amList.forEach(am => {
+            // 1. Completed renewals this month (am.renewals)
+            (am.renewals || []).forEach((r: any) => {
+              allDue.push({
+                lead_id: r.lead_id || r.awl_id,
+                lead_name: r.lead_name || "",
+                awl_id: r.awl_id || r.lead_id || "",
+                account_manager_email: r.account_manager_email,
+                amName: am.name,
+                subscription_cycle: r.subscription_cycle,
+                renewal_extension_days: r.renewal_extension_days,
+                expected_renewal_date: r.extended_renewal_at || r.expected_renewal_date || r.closed_at,
+                renewal_closed_at: r.closed_at,
+                original_sale_value: Number(r.application_sale_value || r.sale_value) || 0,
+                renewal_sale_value: Number(r.application_sale_value || r.sale_value) || 0,
+                renewed: true
+              });
+            });
+
+            // 2. Pending renewals (due this month but not completed this month)
+            (am.dueThisMonth || []).forEach((d: any) => {
+              if (!d.renewed) {
+                allDue.push({
+                  lead_id: d.lead_id,
+                  lead_name: d.lead_name || "",
+                  awl_id: d.awl_id || d.lead_id || "",
+                  account_manager_email: d.account_manager_email,
+                  amName: am.name,
+                  subscription_cycle: d.subscription_cycle,
+                  renewal_extension_days: d.renewal_extension_days,
+                  expected_renewal_date: d.expected_renewal_date,
+                  renewal_closed_at: null,
+                  original_sale_value: Number(d.original_sale_value) || 0,
+                  renewal_sale_value: 0,
+                  renewed: false
+                });
+              }
+            });
+          });
+
+          const filteredDue = allDue.filter(d => {
+            const matchesSearch = trackerSearch ? (
+              d.lead_name?.toLowerCase().includes(trackerSearch.toLowerCase()) ||
+              (d.awl_id || d.lead_id || "").toLowerCase().includes(trackerSearch.toLowerCase())
+            ) : true;
+
+            const matchesAM = trackerAM === "all" || d.amName === trackerAM;
+
+            const matchesStatus = trackerStatus === "all" || (
+              trackerStatus === "renewed" ? d.renewed : !d.renewed
+            );
+
+            return matchesSearch && matchesAM && matchesStatus;
+          }).sort((a, b) => {
+            if (a.renewed !== b.renewed) {
+              return a.renewed ? 1 : -1;
+            }
+            if (!a.renewed) {
+              return new Date(a.expected_renewal_date).getTime() - new Date(b.expected_renewal_date).getTime();
+            } else {
+              const dateA = a.renewal_closed_at ? new Date(a.renewal_closed_at).getTime() : 0;
+              const dateB = b.renewal_closed_at ? new Date(b.renewal_closed_at).getTime() : 0;
+              return dateB - dateA;
+            }
+          });
+
+          const totalPages = Math.ceil(filteredDue.length / trackerItemsPerPage) || 1;
+          const paginatedDue = filteredDue.slice((trackerCurrentPage - 1) * trackerItemsPerPage, trackerCurrentPage * trackerItemsPerPage);
+
+          return (
+            <Card className="backdrop-blur-md bg-white/70 border border-white/40 shadow-lg overflow-hidden">
+              <div className="h-1.5 w-full bg-gradient-to-r from-rose-500 to-pink-500" />
+              <CardHeader><CardTitle className="text-xl font-black text-slate-800 flex items-center gap-2.5"><ClipboardList className="h-5 w-5 text-rose-500" /> AWL Tracker — {monthName}</CardTitle>
+                <CardDescription className="text-xs font-semibold text-slate-500">All clients due for renewal across all Account Managers</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search lead or AWL ID..."
+                      value={trackerSearch}
+                      onChange={e => setTrackerSearch(e.target.value)}
+                      className="pl-9 h-9 text-xs bg-white"
+                    />
+                  </div>
+
+                  <Select value={trackerAM} onValueChange={setTrackerAM}>
+                    <SelectTrigger className="w-full sm:w-48 h-9 text-xs bg-white">
+                      <SelectValue placeholder="Account Manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Managers</SelectItem>
+                      {Array.from(new Set(amList.map(a => a.name))).map((name: any) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={trackerStatus} onValueChange={setTrackerStatus}>
+                    <SelectTrigger className="w-full sm:w-36 h-9 text-xs bg-white">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="renewed">Renewed</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={String(trackerItemsPerPage)} onValueChange={(v) => setTrackerItemsPerPage(Number(v))}>
+                    <SelectTrigger className="w-full sm:w-36 h-9 text-xs bg-white">
+                      <SelectValue placeholder="Per Page" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10 per page</SelectItem>
+                      <SelectItem value="20">20 per page</SelectItem>
+                      <SelectItem value="30">30 per page</SelectItem>
+                      <SelectItem value="50">50 per page</SelectItem>
+                      <SelectItem value="100">100 per page</SelectItem>
+                      <SelectItem value="200">200 per page</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-rose-500 mr-3" /><span className="text-slate-500">Loading...</span></div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/80">
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400">#</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400">AWL ID</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400">Lead Name</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400">Account Manager</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Cycle</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Ext. Days</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400">Renewal Date</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400">Closed At</TableHead>
+                            <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedDue.length === 0 ? (
+                            <TableRow><TableCell colSpan={9} className="text-center py-12 text-slate-400">No renewals found matching filters</TableCell></TableRow>
+                          ) : paginatedDue.map((d: any, i: number) => {
+                            let rowClass = d.renewed ? "bg-emerald-50/20" : "";
+                            let badgeClass = d.renewed ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700";
+                            let statusText = d.renewed ? "✓ Renewed" : "⏳ Pending";
+
+                            if (!d.renewed && d.expected_renewal_date) {
+                              try {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const expected = new Date(d.expected_renewal_date);
+                                expected.setHours(0, 0, 0, 0);
+                                const diffTime = expected.getTime() - today.getTime();
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                                if (diffDays < 0) {
+                                  rowClass = "bg-rose-50 border-rose-100 hover:bg-rose-100/50";
+                                  badgeClass = "bg-rose-100 text-rose-700 font-black animate-pulse";
+                                  statusText = "🚨 Overdue";
+                                } else if (diffDays === 0) {
+                                  rowClass = "bg-red-50/50 border-red-100 hover:bg-red-100/40";
+                                  badgeClass = "bg-red-100 text-red-700 font-bold";
+                                  statusText = "⏳ Due Today";
+                                } else if (diffDays <= 3) {
+                                  rowClass = "bg-amber-50 border-amber-100 hover:bg-amber-100/50";
+                                  badgeClass = "bg-amber-100 text-amber-700 font-semibold";
+                                  statusText = "⏳ Due 1-3d";
+                                } else if (diffDays <= 7) {
+                                  rowClass = "bg-yellow-50/40 border-yellow-100/50 hover:bg-yellow-100/30";
+                                  badgeClass = "bg-yellow-100 text-yellow-700 font-semibold";
+                                  statusText = "⏳ Due 4-7d";
+                                }
+                              } catch (e) { }
+                            }
+
+                            return (
+                              <TableRow key={i} className={rowClass}>
+                                <TableCell className="text-xs font-bold text-slate-400">{(trackerCurrentPage - 1) * trackerItemsPerPage + i + 1}</TableCell>
+                                <TableCell className="text-xs font-mono font-bold text-indigo-600">{d.awl_id || d.lead_id}</TableCell>
+                                <TableCell className="text-sm font-bold text-slate-700">{d.lead_name || "—"}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{d.amName}</TableCell>
+                                <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.subscription_cycle || "—"}</TableCell>
+                                <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.renewal_extension_days || "0"}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{new Date(d.expected_renewal_date).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{d.renewal_closed_at ? new Date(d.renewal_closed_at).toLocaleDateString() : "—"}</TableCell>
+                                <TableCell className="text-center"><Badge className={`border-none text-[10px] ${badgeClass}`}>{statusText}</Badge></TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {filteredDue.length > trackerItemsPerPage && (
+                      <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+                        <p className="text-xs text-slate-400 font-medium">
+                          Showing {(trackerCurrentPage - 1) * trackerItemsPerPage + 1} to {Math.min(trackerCurrentPage * trackerItemsPerPage, filteredDue.length)} of {filteredDue.length} records
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-semibold"
+                            onClick={() => setTrackerCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={trackerCurrentPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <div className="flex items-center px-2 text-xs font-bold text-slate-600">
+                            Page {trackerCurrentPage} of {totalPages}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-semibold"
+                            onClick={() => setTrackerCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={trackerCurrentPage === totalPages}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {activeTab === "directory" && (
           <Card className="backdrop-blur-md bg-white/70 border border-white/40 shadow-lg overflow-hidden">
@@ -521,26 +744,26 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
               <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Status</TableHead>
               <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Actions</TableHead>
             </TableRow></TableHeader><TableBody>
-              {amList.map((am,i)=>(
-                <TableRow key={am.email}>
-                  <TableCell className="text-xs font-bold text-slate-400">{i+1}</TableCell>
-                  <TableCell><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-black">{am.name?.substring(0,2)?.toUpperCase()}</div><span className="font-bold text-sm text-slate-800">{am.name}</span></div></TableCell>
-                  <TableCell className="text-xs text-slate-500">{am.email}</TableCell>
-                  <TableCell className="text-xs text-slate-500">{am.role}</TableCell>
-                  <TableCell className="text-center"><Badge className={`border-none text-[10px] ${am.isactive?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600"}`}>{am.isactive?"Active":"Inactive"}</Badge></TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex gap-1.5 justify-center">
-                      <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}>
-                        <ExternalLink className="h-3 w-3"/>View
-                      </Button>
-                      <Button variant="outline" size="sm" className={`gap-1 text-xs font-bold ${am.isactive ? "text-red-500 hover:bg-red-50 hover:text-red-600 border-red-200" : "text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border-emerald-200"}`} onClick={() => handleToggleAMStatus(am.email, am.isactive)}>
-                        {am.isactive ? "Deactivate" : "Activate"}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody></Table></div></CardContent>
+                {amList.map((am, i) => (
+                  <TableRow key={am.email}>
+                    <TableCell className="text-xs font-bold text-slate-400">{i + 1}</TableCell>
+                    <TableCell><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-black">{am.name?.substring(0, 2)?.toUpperCase()}</div><span className="font-bold text-sm text-slate-800">{am.name}</span></div></TableCell>
+                    <TableCell className="text-xs text-slate-500">{am.email}</TableCell>
+                    <TableCell className="text-xs text-slate-500">{am.role}</TableCell>
+                    <TableCell className="text-center"><Badge className={`border-none text-[10px] ${am.isactive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>{am.isactive ? "Active" : "Inactive"}</Badge></TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex gap-1.5 justify-center">
+                        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}>
+                          <ExternalLink className="h-3 w-3" />View
+                        </Button>
+                        <Button variant="outline" size="sm" className={`gap-1 text-xs font-bold ${am.isactive ? "text-red-500 hover:bg-red-50 hover:text-red-600 border-red-200" : "text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border-emerald-200"}`} onClick={() => handleToggleAMStatus(am.email, am.isactive)}>
+                          {am.isactive ? "Deactivate" : "Activate"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody></Table></div></CardContent>
           </Card>
         )}
 
@@ -560,7 +783,7 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6 bg-slate-50/20">
-              
+
               {/* Slabs */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
@@ -574,7 +797,7 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                     <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Level
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {slabRows.length === 0 ? (
                     <div className="text-center py-6 text-slate-400 text-xs font-medium">No slabs defined. Click "Add Level" to start.</div>
@@ -623,7 +846,7 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                     <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Multiplier
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {multRows.length === 0 ? (
                     <div className="text-center py-6 text-slate-400 text-xs font-medium">No multipliers defined.</div>
@@ -666,7 +889,7 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                     <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Bonus
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                   {bonusRows.length === 0 ? (
                     <div className="text-center py-6 text-slate-400 text-xs font-medium">No bonuses defined.</div>

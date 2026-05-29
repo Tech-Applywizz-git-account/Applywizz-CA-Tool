@@ -218,7 +218,11 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
     : [], [data, targetPrefix]);
 
   const filteredSales = useMemo(() => {
-    let rawSales = data?.crmSales?.filter((sale: any) => sale.closed_at?.startsWith(targetPrefix)) || [];
+    let rawSales = data?.crmSales?.filter((sale: any) => {
+      if (!sale.closed_at) return false;
+      const shiftDate = getShiftDateLocal(sale.closed_at, data?.shiftStartTime);
+      return shiftDate && shiftDate.startsWith(targetPrefix);
+    }) || [];
 
     if (salesSearchQuery.trim()) {
       const q = salesSearchQuery.toLowerCase().trim();
@@ -230,7 +234,7 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
     }
 
     if (selectedSalesDate) {
-      rawSales = rawSales.filter((s: any) => s.closed_at?.startsWith(selectedSalesDate));
+      rawSales = rawSales.filter((s: any) => getShiftDateLocal(s.closed_at, data?.shiftStartTime) === selectedSalesDate);
     }
 
     return [...rawSales].sort((a, b) => (b.closed_at || "").localeCompare(a.closed_at || ""));
@@ -799,9 +803,9 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
                   }}
                   disabled={isFuture && !isActive}
                   className={`h-12 w-12 shrink-0 rounded-2xl border flex flex-col items-center justify-center transition-all relative ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 scale-105 z-10' :
-                      isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-400/20' :
-                        isFuture ? 'bg-slate-50/50 border-dashed border-slate-200 text-slate-300 opacity-60' :
-                          'bg-white/80 border-emerald-100 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30'
+                    isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-400/20' :
+                      isFuture ? 'bg-slate-50/50 border-dashed border-slate-200 text-slate-300 opacity-60' :
+                        'bg-white/80 border-emerald-100 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30'
                     }`}
                 >
                   <span className={`text-[9px] font-black uppercase leading-none opacity-60 mb-0.5 ${isActive ? 'text-white' : ''}`}>
@@ -1629,12 +1633,12 @@ export function BDADashboard({ user, onLogout, viewerMode }: BDADashboardProps) 
           <main className="flex-1 min-w-0 p-5 lg:p-8 overflow-auto">
             {/* Page title bar with gradient */}
             <div className={`mb-6 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden ${activeTab === 'tracker' ? 'bg-gradient-to-r from-orange-500 to-amber-500' :
-                activeTab === 'incentive' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' :
-                  activeTab === 'submitted-forms' ? 'bg-gradient-to-r from-pink-500 to-rose-500' :
-                    activeTab === 'bonuses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' :
-                      activeTab === 'analytics' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
-                        activeTab === 'submission-form' ? 'bg-gradient-to-r from-rose-500 to-pink-600' :
-                          'bg-gradient-to-r from-blue-500 to-cyan-600'
+              activeTab === 'incentive' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' :
+                activeTab === 'submitted-forms' ? 'bg-gradient-to-r from-pink-500 to-rose-500' :
+                  activeTab === 'bonuses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' :
+                    activeTab === 'analytics' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
+                      activeTab === 'submission-form' ? 'bg-gradient-to-r from-rose-500 to-pink-600' :
+                        'bg-gradient-to-r from-blue-500 to-cyan-600'
               }`}>
               <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -translate-y-10 translate-x-10" />
               <div className="absolute bottom-0 left-20 w-24 h-24 rounded-full bg-white/5 translate-y-8" />

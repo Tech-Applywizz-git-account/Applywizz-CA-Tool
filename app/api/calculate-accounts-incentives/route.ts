@@ -56,25 +56,41 @@ export async function GET(req: Request) {
 
         const am = data.accountManagers[0];
 
-        // Upsert into accounts_incentives table
+        // Upsert into accounts_incentives table (with new columns for sales tracking)
+        const upsertData: any = {
+            email: am.email.toLowerCase(),
+            period: periodStr,
+            total_renewals: am.totalRenewals,
+            successful_renewals: am.successfulRenewals,
+            renewal_rate: am.renewalRate,
+            monthly_revenue_usd: am.monthlyRevenueUSD,
+            base_incentive_inr: am.baseIncentive,
+            renewal_multiplier: am.renewalMultiplier,
+            performance_bonus_inr: am.performanceBonus,
+            final_incentive_inr: am.finalIncentive,
+            last_updated: new Date().toISOString(),
+        };
+
+        // Add new columns if they exist in the schema (graceful handling)
+        try {
+            upsertData.renewal_revenue_usd = am.renewalRevenueUSD || 0;
+            upsertData.sales_revenue_usd = am.salesRevenueUSD || 0;
+            upsertData.total_sales_count = am.salesCount || 0;
+        } catch { }
+
         const { error: upsertError } = await supabaseAdmin
             .from("accounts_incentives")
-            .upsert({
-                email: am.email.toLowerCase(),
-                period: periodStr,
-                total_renewals: am.totalRenewals,
-                successful_renewals: am.successfulRenewals,
-                renewal_rate: am.renewalRate,
-                monthly_revenue_usd: am.monthlyRevenueUSD,
-                base_incentive_inr: am.baseIncentive,
-                renewal_multiplier: am.renewalMultiplier,
-                performance_bonus_inr: am.performanceBonus,
-                final_incentive_inr: am.finalIncentive,
-                last_updated: new Date().toISOString(),
-            }, { onConflict: "email, period" });
+            .upsert(upsertData, { onConflict: "email, period" });
 
         if (upsertError) {
             console.error("Accounts incentive upsert error:", upsertError);
+            // If new columns don't exist yet, retry without them
+            if (upsertError.message?.includes("column") || upsertError.code === "42703") {
+                const { renewal_revenue_usd, sales_revenue_usd, total_sales_count, ...fallbackData } = upsertData;
+                await supabaseAdmin
+                    .from("accounts_incentives")
+                    .upsert(fallbackData, { onConflict: "email, period" });
+            }
         }
 
         // Update user.incentive_amount JSONB with monthly totals
@@ -98,7 +114,13 @@ export async function GET(req: Request) {
             incentive: {
                 totalRenewals: am.totalRenewals,
                 successfulRenewals: am.successfulRenewals,
+                failedRenewals: am.failedRenewals,
+                dueRenewalsPaid: am.dueRenewalsPaid,
+                dueRenewalsUnpaid: am.dueRenewalsUnpaid,
                 renewalRate: am.renewalRate,
+                renewalRevenueUSD: am.renewalRevenueUSD,
+                salesRevenueUSD: am.salesRevenueUSD,
+                salesCount: am.salesCount,
                 monthlyRevenueUSD: am.monthlyRevenueUSD,
                 baseIncentive: am.baseIncentive,
                 renewalMultiplier: am.renewalMultiplier,

@@ -62,7 +62,7 @@ const getShiftDate = (closedAtStr: string, shiftTimeStr: string) => {
             year = dateParts[0];
             month = dateParts[1];
             day = dateParts[2];
-            const timeParts = timePart.replace(/[Z+].*/,'').split(':').map(Number);
+            const timeParts = timePart.replace(/[Z+].*/, '').split(':').map(Number);
             hours = timeParts[0];
             minutes = timeParts[1] || 0;
         } else if (str.includes('/')) {
@@ -138,7 +138,7 @@ export async function GET(req: Request) {
                 year = String(parsedDate.getFullYear());
             }
         }
-        
+
         month = month || String(new Date().getMonth() + 1);
         year = year || String(new Date().getFullYear());
 
@@ -153,47 +153,62 @@ export async function GET(req: Request) {
         // Fetch everything in parallel to minimize network latency
         // Resilient environment variable check: try new name, then old name
         const crmBase = (process.env.NEXT_PUBLIC_CRM_SYNC_URL || process.env.NEXT_PUBLIC_CRM_API_URL || "").replace(/^"|"$/g, '');
-        
+
         if (!crmBase) {
             console.error("CRM Base URL is missing in environment variables.");
-            return NextResponse.json({ 
-                success: false, 
-                error: "CRM_CONFIG_MISSING", 
-                details: "CRM Base URL not found in environment variables." 
+            return NextResponse.json({
+                success: false,
+                error: "CRM_CONFIG_MISSING",
+                details: "CRM Base URL not found in environment variables."
             }, { status: 500 });
         }
 
-        // Construct date range for the target month
-        const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
-        const monthEnd = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-
-        const [userRes, settingsRes, crmRes] = await Promise.all([
+        const [userRes, settingsRes] = await Promise.all([
             supabaseAdmin.from("users").select("id, role, role_history, incentive_amount").eq("email", email).single(),
-            supabaseAdmin.from("sales_settings").select("key, value"),
-            fetch(`${crmBase}/api/incentive-data/all-sales?startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`).catch(err => {
-                console.error("CRM Fetch Exception:", err);
-                return { ok: false, statusText: err.message } as any;
-            })
+            supabaseAdmin.from("sales_settings").select("key, value")
         ]);
 
         const userData = userRes.data;
         const role_history = userData?.role_history || {};
         const rawSettings = settingsRes.data;
 
+        const settingsMap = rawSettings?.reduce((acc, curr) => {
+            acc[curr.key] = curr.value;
+            return acc;
+        }, {} as Record<string, string>) || {};
+
+        const shiftStartTime = settingsMap["shift_start_time"] || "20:00"; // Default 8:00 PM
+
+        // Construct shift-aware date range for the target month
+        const [shiftHours, shiftMinutes] = shiftStartTime.split(":").map(Number);
+
+        // Month start date (Day 1 of target month)
+        // Shift starts on Day 1 at shiftHours:shiftMinutes:00
+        const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1, shiftHours, shiftMinutes, 0);
+
+        // Month end date (Day 1 of next month, at shiftHours:shiftMinutes - 1 second)
+        const monthEnd = new Date(parseInt(year), parseInt(month), 1, shiftHours, shiftMinutes, 0);
+        monthEnd.setSeconds(monthEnd.getSeconds() - 1);
+
+        const crmRes = await fetch(`${crmBase}/api/incentive-data/all-sales?startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`).catch(err => {
+            console.error("CRM Fetch Exception:", err);
+            return { ok: false, statusText: err.message } as any;
+        });
+
         if (!crmRes.ok) {
-            return NextResponse.json({ 
-                success: false, 
-                error: "CRM_FETCH_FAILED", 
-                details: `Failed to fetch from CRM at ${crmBase}. Status: ${crmRes.statusText}` 
+            return NextResponse.json({
+                success: false,
+                error: "CRM_FETCH_FAILED",
+                details: `Failed to fetch from CRM at ${crmBase}. Status: ${crmRes.statusText}`
             }, { status: 502 });
         }
 
         const crmData = await crmRes.json();
         if (!crmData.success || !crmData.data) {
-            return NextResponse.json({ 
-                success: false, 
-                error: "INVALID_CRM_RESPONSE", 
-                details: "CRM API returned success:false or missing sales data." 
+            return NextResponse.json({
+                success: false,
+                error: "INVALID_CRM_RESPONSE",
+                details: "CRM API returned success:false or missing sales data."
             }, { status: 502 });
         }
 
@@ -212,13 +227,6 @@ export async function GET(req: Request) {
             }
             return resolvedRole;
         };
-
-        const settingsMap = rawSettings?.reduce((acc, curr) => {
-            acc[curr.key] = curr.value;
-            return acc;
-        }, {} as Record<string, string>) || {};
-
-        const shiftStartTime = settingsMap["shift_start_time"] || "20:00"; // Default 8:00 PM
 
         // Fetch all active booster night cycles for this month from the dedicated table
         const monthKey = `${year}-${String(parseInt(month)).padStart(2, '0')}`;
@@ -281,7 +289,7 @@ export async function GET(req: Request) {
                 // Use the same raw parsing approach as getShiftDate for consistency
                 const saleISTStr = String(sale.closed_at).trim();
                 let saleISTMs: number;
-                
+
                 // If the string looks like ISO with Z or +offset, parse it and add IST offset
                 if (saleISTStr.includes('T') && (saleISTStr.includes('Z') || saleISTStr.includes('+'))) {
                     // UTC-based ISO string — convert to IST by using Date parse (which handles TZ)
@@ -292,7 +300,7 @@ export async function GET(req: Request) {
                     const normalized = saleISTStr.replace(/[Z+].*/, '').replace(' ', 'T');
                     saleISTMs = new Date(normalized + '+05:30').getTime();
                 }
-                
+
                 for (const bw of activeBoosterWindows) {
                     if (bw.multiplier > 1 && saleISTMs >= bw.start && saleISTMs <= bw.end) {
                         sale.is_booster = true; // Mark it for frontend
@@ -324,19 +332,19 @@ export async function GET(req: Request) {
 
             // Fetch dynamically locked parameters for this specific month
             const getVal = (baseKey: string) => settingsMap[`${baseKey}_${periodStr}`] || settingsMap[baseKey];
-            
+
             const roleKey = periodRole.toLowerCase();
-            
+
             const targetAmountRaw = parseFloat(getVal(`${roleKey}_target`));
             pData.target_amount = isNaN(targetAmountRaw) ? (periodRole === "Sales Head" || periodRole === "SBDA" ? 2000 : periodRole === "BDA" ? 1000 : 500) : targetAmountRaw;
             const dailyBonusRaw = parseFloat(getVal(`${roleKey}_daily_bonus`));
             const parsedThreshold = isNaN(dailyBonusRaw) ? (periodRole === "Sales Head" || periodRole === "SBDA" ? 700 : periodRole === "BDA" ? 400 : 0) : dailyBonusRaw;
-            
+
             // If the threshold is 0, it means "Disabled". We set it to Infinity so no sales can pass the threshold.
             const dailyThreshold = parsedThreshold <= 0 ? Infinity : parsedThreshold;
-            
+
             pData.daily_bonus_limit = dailyThreshold !== Infinity ? dailyThreshold : 0;
-            
+
             const slabRaw = getVal(`${roleKey}_slab_rules`);
             let slabRules = (periodRole === "Sales Head" || periodRole === "SBDA" ? defaultSBDASlab : periodRole === "BDA" ? defaultBDASlab : []);
             if (slabRaw) {
@@ -371,7 +379,7 @@ export async function GET(req: Request) {
                     .from("sales_incentives")
                     .upsert({
                         email,
-                        role: periodRole, 
+                        role: periodRole,
                         period,
                         target_amount: pData.target_amount,
                         achieved_amount: pData.actual_revenue,
@@ -381,7 +389,7 @@ export async function GET(req: Request) {
                         total_incentive: pData.total_incentive,
                         last_updated: new Date().toISOString()
                     }, { onConflict: "email, period" });
-                
+
                 if (upsertError) {
                     console.error("Upsert Error for period", period, upsertError);
                 }
