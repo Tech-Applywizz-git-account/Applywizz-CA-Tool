@@ -127,12 +127,12 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
           setAssignedCA(caData)
         }
 
-        // Fetch renewal date from CRM
-        if (data.email) {
+        // Fetch renewal date from CRM using applywizz_id
+        if (data.applywizz_id) {
           const { data: crmData } = await supabaseCRM
             .from("sales_closure")
             .select("extended_renewal_at")
-            .eq("email", data.email)
+            .eq("lead_id", data.applywizz_id)
             .order("closed_at", { ascending: false })
             .limit(1)
             .single()

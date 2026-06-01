@@ -87,26 +87,28 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     if (memberIds.length > 0) {
       const { data, error } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
       if (!error && data) {
-        const emails = data.map((c: any) => c.email).filter(Boolean);
+        const leadIds = data.map((c: any) => c.applywizz_id).filter(Boolean);
         const { data: crmData } = await supabaseCRM
           .from("sales_closure")
-          .select("email, extended_renewal_at, closed_at")
-          .in("email", emails);
+          .select("lead_id, extended_renewal_at, closed_at")
+          .in("lead_id", leadIds);
           
         if (crmData) {
           const renewalMap = new Map();
           const closedAtMap = new Map();
           crmData.forEach((r: any) => {
-              if (r.extended_renewal_at) {
+              if (r.extended_renewal_at && r.lead_id) {
                   const currentClosed = new Date(r.closed_at || 0).getTime();
-                  if (!renewalMap.has(r.email) || currentClosed > closedAtMap.get(r.email)) {
-                      renewalMap.set(r.email, r.extended_renewal_at);
-                      closedAtMap.set(r.email, currentClosed);
+                  if (!renewalMap.has(r.lead_id) || currentClosed > closedAtMap.get(r.lead_id)) {
+                      renewalMap.set(r.lead_id, r.extended_renewal_at);
+                      closedAtMap.set(r.lead_id, currentClosed);
                   }
               }
           });
           data.forEach((c: any) => {
-              c.renewal_date = renewalMap.get(c.email) || null;
+              if (c.applywizz_id) {
+                  c.renewal_date = renewalMap.get(c.applywizz_id) || null;
+              }
           });
         }
         setClients(data)
@@ -271,26 +273,28 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       if (memberIds.length > 0) {
         const { data: clientData } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
         if (clientData) {
-          const emails = clientData.map(c => c.email).filter(Boolean);
+          const leadIds = clientData.map(c => c.applywizz_id).filter(Boolean);
           const { data: crmData } = await supabaseCRM
             .from("sales_closure")
-            .select("email, extended_renewal_at, closed_at")
-            .in("email", emails);
+            .select("lead_id, extended_renewal_at, closed_at")
+            .in("lead_id", leadIds);
             
           if (crmData) {
             const renewalMap = new Map();
             const closedAtMap = new Map();
             crmData.forEach((r: any) => {
-                if (r.extended_renewal_at) {
+                if (r.extended_renewal_at && r.lead_id) {
                     const currentClosed = new Date(r.closed_at || 0).getTime();
-                    if (!renewalMap.has(r.email) || currentClosed > closedAtMap.get(r.email)) {
-                        renewalMap.set(r.email, r.extended_renewal_at);
-                        closedAtMap.set(r.email, currentClosed);
+                    if (!renewalMap.has(r.lead_id) || currentClosed > closedAtMap.get(r.lead_id)) {
+                        renewalMap.set(r.lead_id, r.extended_renewal_at);
+                        closedAtMap.set(r.lead_id, currentClosed);
                     }
                 }
             });
             clientData.forEach((c: any) => {
-                c.renewal_date = renewalMap.get(c.email) || null;
+                if (c.applywizz_id) {
+                    c.renewal_date = renewalMap.get(c.applywizz_id) || null;
+                }
             });
           }
         }
