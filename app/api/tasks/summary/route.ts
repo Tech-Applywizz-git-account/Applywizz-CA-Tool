@@ -75,7 +75,7 @@ export async function GET(req: Request) {
             // --- LOGIC FOR HISTORY (from work_history table) ---
             const { data: history, error: histError } = await supabaseAdmin
                 .from("work_history")
-                .select("ca_id, ca_name, completed_profiles:work_history_profiles(client_id, name, emails_submitted)")
+                .select("ca_id, ca_name, completed_profiles:work_history_profiles(client_id, name, emails_submitted,end_time)")
                 .eq("date", dateParam);
 
             if (histError) {

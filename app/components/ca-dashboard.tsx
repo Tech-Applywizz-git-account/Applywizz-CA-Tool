@@ -77,6 +77,8 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   const [appliedDate, setAppliedDate] = useState("")
   const [assessmentReceivedDate, setAssessmentReceivedDate] = useState("")
   const [emailUrl, setEmailUrl] = useState("")
+  const [roundsCount, setRoundsCount] = useState<number>(0)
+  const [rounds, setRounds] = useState<{ type: string; file: File | null }[]>([])
   const [trackingMode, setTrackingMode] = useState<"daily" | "monthly">("daily")
   const today = new Date().toISOString().split("T")[0]
   const [dateFrom, setDateFrom] = useState(today)
@@ -95,6 +97,64 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   const [totalWorkingDays, setTotalWorkingDays] = useState<number>(0);
   const [showEarnings, setShowEarnings] = useState(false)
   const [monthOffset, setMonthOffset] = useState<number>(0)
+  const [visSettings, setVisSettings] = useState<any>(null)
+
+  const shouldShowOverlay = useMemo(() => {
+    const loggedInUserStr = typeof window !== "undefined" ? localStorage.getItem("loggedInUser") : null
+    const loggedInUser = loggedInUserStr ? JSON.parse(loggedInUserStr) : user
+    const role = loggedInUser?.role || "CA"
+
+    const isAdmin = ["CRO", "CEO", "COO", "CPO", "System Admin"].includes(role)
+    if (isAdmin) return false // Admins bypass everything
+
+    if (!visSettings) return true // Hide until settings load
+
+    if (role === "Team Lead") {
+      if (!visSettings.team_lead_incentive_visibility) return true
+    } else {
+      if (!visSettings.ca_incentive_visibility) return true
+    }
+
+    const now = new Date()
+    const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+    const monthKey = targetDate.toISOString().substring(0, 7) // "YYYY-MM"
+
+    const allowedMonths = visSettings.visible_months || []
+    if (!allowedMonths.includes(monthKey)) {
+      return true
+    }
+
+    return false
+  }, [visSettings, monthOffset, user])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-visibility-settings-ca")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "incentive_visibility_settings",
+        },
+        async () => {
+          try {
+            const visRes = await fetch("/api/incentive-visibility")
+            const visData = await visRes.json()
+            if (visData.success) {
+              setVisSettings(visData.settings)
+            }
+          } catch (err) {
+            console.error("Failed to refetch settings in realtime:", err)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
   const fmtDate = (d: Date) => {
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, "0")
@@ -180,6 +240,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   // Incentives summed per date for the effective CA
   const incentivesByDate = useMemo(() => {
     const map = new Map<string, number>();
+    if (shouldShowOverlay) return map;
     for (const wh of workHistory || []) {
       // ensure we only count the effective CA
       if (wh?.ca_id !== effectiveCaId) continue;
@@ -191,7 +252,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
       map.set(d, (map.get(d) ?? 0) + v);
     }
     return map;
-  }, [workHistory, effectiveCaId]);
+  }, [workHistory, effectiveCaId, shouldShowOverlay]);
 
   // Total incentives for the dates currently visible on the page
   
@@ -413,18 +474,7 @@ const { data, error } = await supabase
         return
       }
 
-      const { data: data1, error: error1 } = await supabase
-        .from("work_history")
-        .select("*")
-        .gte("date", start)   // date is a DATE column
-        .lt("date", end)      // end-exclusive
-
-      if (error1) {
-        console.error("work_history fetch error:", error)
-        return
-      }
-
-      const workingDays = [...new Set(data1?.map(item => item.date))].length;
+      const workingDays = [...new Set(data?.map(item => item.date))].length;
       setTotalWorkingDays(workingDays)
       console.log('working days', workingDays)
       console.log("work_history fetch:", monthlyWHIncentive)
@@ -467,14 +517,34 @@ const { data, error } = await supabase
     const bootstrap = async () => {
       const userId = user.id
 
-      // Incentive (current user, current calendar month)
+      // Fetch visibility settings first
+      try {
+        const visRes = await fetch("/api/incentive-visibility")
+        const visData = await visRes.json()
+        if (visData.success) {
+          setVisSettings(visData.settings)
+        }
+      } catch (err) {
+        console.error(err)
+      }
+
+      // Incentive (current user, current calendar month) via secure backend API
       const startOfMonthISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-      const { data: incentiveData } = await supabase
-        .from("incentives")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("month", startOfMonthISO)
-      if (incentiveData && incentiveData.length > 0) setIncentive(incentiveData[0])
+      const loggedInUserStr = typeof window !== "undefined" ? localStorage.getItem("loggedInUser") : null
+      const loggedInUser = loggedInUserStr ? JSON.parse(loggedInUserStr) : user
+
+      try {
+        const incRes = await fetch(`/api/incentives?userId=${userId}&month=${encodeURIComponent(startOfMonthISO)}&requesterId=${loggedInUser.id}`)
+        const incData = await incRes.json()
+        if (incData.success && incData.data && incData.data.length > 0) {
+          setIncentive(incData.data[0])
+        } else {
+          setIncentive(null)
+        }
+      } catch (err) {
+        console.error("Failed to fetch incentives via secure API:", err)
+        setIncentive(null)
+      }
 
       // Team members in same team (excluding self)
       const { data: teamData } = await supabase
@@ -499,6 +569,29 @@ const { data, error } = await supabase
     // Month-aware refetch for clients and work history
     fetchClientsForView()
     fetchWorkHistory()
+
+    const fetchIncentiveForMonth = async () => {
+      const caId = currentView === "myself" ? user.id : (selectedCA || user.id)
+      const now = new Date()
+      const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+      const targetMonthISO = targetDate.toISOString()
+      const loggedInUserStr = typeof window !== "undefined" ? localStorage.getItem("loggedInUser") : null
+      const loggedInUser = loggedInUserStr ? JSON.parse(loggedInUserStr) : user
+
+      try {
+        const incRes = await fetch(`/api/incentives?userId=${caId}&month=${encodeURIComponent(targetMonthISO)}&requesterId=${loggedInUser.id}`)
+        const incData = await incRes.json()
+        if (incData.success && incData.data && incData.data.length > 0) {
+          setIncentive(incData.data[0])
+        } else {
+          setIncentive(null)
+        }
+      } catch (err) {
+        console.error("Failed to fetch monthly incentive:", err)
+        setIncentive(null)
+      }
+    }
+    fetchIncentiveForMonth()
   }, [selectedCA, currentView, monthOffset])
 
   useEffect(() => {
@@ -607,21 +700,53 @@ const { data, error } = await supabase
     alert("Status updated successfully!");
   };
 
-  const handleActionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!actionClient) return;
+  const isSubmitDisabled = useMemo(() => {
+    if (isSubmittingAction) return true;
+    
+    // Core fields required for all assessment types
     if (
       !actionEmail ||
       !assessmentType ||
       !companyName ||
       !jobRole ||
       !appliedDate ||
-      !emailSubject ||
-      !emailBody ||
       !assessmentReceivedDate ||
-      !screenshotFile ||
-      !emailUrl
+      !screenshotFile
     ) {
+      return true;
+    }
+
+    // Subject, body, and URL are required for all types except offer_letter
+    if (assessmentType !== "offer_letter") {
+      if (!emailSubject || !emailBody || !emailUrl) {
+        return true;
+      }
+    }
+
+    if (assessmentType === "offer_letter") {
+      if (rounds.length !== roundsCount) return true;
+    }
+    return false;
+  }, [
+    isSubmittingAction,
+    actionEmail,
+    assessmentType,
+    companyName,
+    jobRole,
+    appliedDate,
+    emailSubject,
+    emailBody,
+    assessmentReceivedDate,
+    screenshotFile,
+    emailUrl,
+    rounds,
+    roundsCount
+  ]);
+
+  const handleActionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!actionClient) return;
+    if (isSubmitDisabled) {
       alert("Please fill all the required fields.");
       return;
     }
@@ -650,7 +775,7 @@ const { data, error } = await supabase
       }
 
       // Insert record into client_assessments table
-      const { error: insertError } = await supabase
+      const { data: offerData, error: insertError } = await supabase
         .from("client_assessments")
         .insert({
           client_id: actionClient.id,
@@ -668,10 +793,64 @@ const { data, error } = await supabase
           created_by: user.id,
           ca_name: user.name,
           ca_email: user.email
-        });
+        })
+        .select("id")
+        .single();
 
       if (insertError) {
         throw new Error(`Failed to save action record: ${insertError.message}`);
+      }
+
+      // If assessmentType is offer_letter, insert rounds mapping back to parent
+      if (assessmentType === "offer_letter" && roundsCount > 0 && offerData) {
+        const parentId = offerData.id;
+        for (let i = 0; i < rounds.length; i++) {
+          const round = rounds[i];
+          let roundScreenshotUrl = "";
+          if (round.file) {
+            const rFileExt = round.file.name.split(".").pop();
+            const rFileName = `${actionClient.id}-round-${i + 1}-${Date.now()}.${rFileExt}`;
+            
+            const { error: rUploadError } = await supabase.storage
+              .from("assessment-screenshots")
+              .upload(rFileName, round.file);
+
+            if (rUploadError) {
+              throw new Error(`Failed to upload round ${i + 1} screenshot: ${rUploadError.message}`);
+            }
+
+            const { data: rPublicUrlData } = supabase.storage
+              .from("assessment-screenshots")
+              .getPublicUrl(rFileName);
+
+            roundScreenshotUrl = rPublicUrlData.publicUrl;
+          }
+
+          const { error: rInsertError } = await supabase
+            .from("client_assessments")
+            .insert({
+              client_id: actionClient.id,
+              applywizz_id: actionClient.applywizz_id || null,
+              client_email: actionEmail,
+              assessment_type: round.type || "assessment",
+              email_subject: `Round ${i + 1}${round.type ? ` (${round.type})` : ""}: ${companyName} - ${jobRole}`,
+              email_body: `Assessment record for Round ${i + 1} of selection process.`,
+              screenshot_url: roundScreenshotUrl || null,
+              company_name: companyName || null,
+              job_role: jobRole || null,
+              applied_date: appliedDate || null,
+              assessment_received_date: assessmentReceivedDate || null,
+              email_url: emailUrl || null,
+              created_by: user.id,
+              ca_name: user.name,
+              ca_email: user.email,
+              parent_id: parentId
+            });
+
+          if (rInsertError) {
+            throw new Error(`Failed to save round ${i + 1} record: ${rInsertError.message}`);
+          }
+        }
       }
 
       alert("Client action recorded successfully!");
@@ -686,6 +865,8 @@ const { data, error } = await supabase
       setAppliedDate("");
       setAssessmentReceivedDate("");
       setEmailUrl("");
+      setRoundsCount(0);
+      setRounds([]);
     } catch (err: any) {
       alert(err.message || "An unexpected error occurred.");
       console.error(err);
@@ -695,10 +876,11 @@ const { data, error } = await supabase
   };
 
   // Sum of incentives from work_history for the active CA and month
-  const monthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
+  const rawMonthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
     const v = Number(r?.incentives ?? 0)
     return sum + (isNaN(v) ? 0 : v)
   }, 0)
+  const monthlyWHIncentive = shouldShowOverlay ? 0 : rawMonthlyWHIncentive;
   // console.log('viv3',monthlyWHIncentive)
   const computedEarnings = useMemo(() => {
     if (!totalWorkingDays || totalWorkingDays <= 0) return null
@@ -929,7 +1111,7 @@ const { data, error } = await supabase
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
 
           {/* top Card: Performance Snapshot */}
-          <PermissionOverlay show={!viewerMode}>
+          <PermissionOverlay show={shouldShowOverlay}>
             <Card>
               {user.role !== 'Career Associative Trainee' && (
                 <>
@@ -1179,10 +1361,11 @@ const { data, error } = await supabase
                               setEmailBody("")
                               setScreenshotFile(null)
                               setEmailUrl("")
+                              setRoundsCount(0)
+                              setRounds([])
                               setActionDialogOpen(true)
                             }}
-                            disabled={client.is_active === false}
-                            title={client.is_active === false ? "Client is inactive. Contact your Team Lead." : "Manage Assessments/Interviews"}
+                            title="Manage Assessments/Interviews/Offer Letters"
                           >
                             Action
                           </Button>
@@ -1355,6 +1538,7 @@ const { data, error } = await supabase
                     <SelectItem value="interview">Interview</SelectItem>
                     <SelectItem value="assessment">Assessment</SelectItem>
                     <SelectItem value="screening_call">Screening call</SelectItem>
+                    <SelectItem value="offer_letter">Offer letter</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1408,7 +1592,7 @@ const { data, error } = await supabase
                     </div>
                     <div>
                       <Label htmlFor="assessment-date" className="text-sm font-medium">
-                        Date of Assessment Received <span className="text-red-500">*</span>
+                        {assessmentType === "offer_letter" ? "Date of Offer Letter Received" : "Date of Assessment Received"} <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="assessment-date"
@@ -1421,39 +1605,122 @@ const { data, error } = await supabase
                     </div>
                   </div>
 
+                  {assessmentType === "offer_letter" && (
+                    <div className="border border-indigo-100 rounded-md p-4 bg-slate-50 space-y-4">
+                      <div>
+                        <Label htmlFor="num-rounds" className="text-sm font-medium text-slate-800">
+                          How many rounds to achieve the offer letter?
+                        </Label>
+                        <Input
+                          id="num-rounds"
+                          type="number"
+                          min={1}
+                          value={roundsCount || ""}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0)
+                            setRoundsCount(val)
+                            setRounds((prev) => {
+                              const next = [...prev]
+                              if (val > prev.length) {
+                                for (let i = prev.length; i < val; i++) {
+                                  next.push({ type: "", file: null })
+                                }
+                              } else {
+                                next.splice(val)
+                              }
+                              return next
+                            })
+                          }}
+                          placeholder="e.g. 3"
+                          className="mt-1 bg-white"
+                        />
+                      </div>
+
+                      {rounds.map((round, idx) => (
+                        <div key={idx} className="p-3 border border-slate-200 rounded-md bg-white space-y-3">
+                          <h4 className="text-xs font-bold text-indigo-700">Round {idx + 1}</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs font-medium">Round Assessment Type</Label>
+                              <Select
+                                value={round.type}
+                                onValueChange={(val) => {
+                                  setRounds((prev) => {
+                                    const next = [...prev]
+                                    next[idx].type = val
+                                    return next
+                                  })
+                                }}
+                              >
+                                <SelectTrigger className="w-full mt-1">
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="interview">Interview</SelectItem>
+                                  <SelectItem value="assessment">Assessment</SelectItem>
+                                  <SelectItem value="screening_call">Screening call</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium">Upload Screenshot</Label>
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null
+                                  setRounds((prev) => {
+                                    const next = [...prev]
+                                    next[idx].file = file
+                                    return next
+                                  })
+                                }}
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="email-subject" className="text-sm font-medium">
-                      Email Subject <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email Subject" : (
+                        <>Email Subject <span className="text-red-500">*</span></>
+                      )}
                     </Label>
                     <Input
                       id="email-subject"
                       type="text"
                       value={emailSubject}
                       onChange={(e) => setEmailSubject(e.target.value)}
-                      placeholder="Enter email subject"
+                      placeholder={assessmentType === "offer_letter" ? "Enter offer email subject" : "Enter email subject"}
                       className="mt-1"
-                      required
+                      required={assessmentType !== "offer_letter"}
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="email-body" className="text-sm font-medium">
-                      Email Body <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email Body" : (
+                        <>Email Body <span className="text-red-500">*</span></>
+                      )}
                     </Label>
                     <Textarea
                       id="email-body"
                       value={emailBody}
                       onChange={(e) => setEmailBody(e.target.value)}
-                      placeholder="Enter email body details..."
+                      placeholder={assessmentType === "offer_letter" ? "Enter offer email body details..." : "Enter email body details..."}
                       className="mt-1"
                       rows={4}
-                      required
+                      required={assessmentType !== "offer_letter"}
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="screenshot" className="text-sm font-medium">
-                      Screenshot <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Letter Screenshot" : "Screenshot"} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="screenshot"
@@ -1467,16 +1734,18 @@ const { data, error } = await supabase
 
                   <div>
                     <Label htmlFor="email-url" className="text-sm font-medium">
-                      Email URL <span className="text-red-500">*</span>
+                      {assessmentType === "offer_letter" ? "Offer Email URL" : (
+                        <>Email URL <span className="text-red-500">*</span></>
+                      )}
                     </Label>
                     <Input
                       id="email-url"
                       type="url"
                       value={emailUrl}
                       onChange={(e) => setEmailUrl(e.target.value)}
-                      placeholder="Enter email URL"
+                      placeholder={assessmentType === "offer_letter" ? "Enter offer email URL" : "Enter email URL"}
                       className="mt-1"
-                      required
+                      required={assessmentType !== "offer_letter"}
                     />
                   </div>
                 </>
@@ -1484,19 +1753,7 @@ const { data, error } = await supabase
 
               <Button
                 type="submit"
-                disabled={
-                  isSubmittingAction ||
-                  !actionEmail ||
-                  !assessmentType ||
-                  !companyName ||
-                  !jobRole ||
-                  !appliedDate ||
-                  !emailSubject ||
-                  !emailBody ||
-                  !assessmentReceivedDate ||
-                  !screenshotFile ||
-                  !emailUrl
-                }
+                disabled={isSubmitDisabled}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-4"
               >
                 {isSubmittingAction ? "Submitting..." : "Submit Action"}
