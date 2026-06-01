@@ -97,6 +97,64 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   const [totalWorkingDays, setTotalWorkingDays] = useState<number>(0);
   const [showEarnings, setShowEarnings] = useState(false)
   const [monthOffset, setMonthOffset] = useState<number>(0)
+  const [visSettings, setVisSettings] = useState<any>(null)
+
+  const shouldShowOverlay = useMemo(() => {
+    const loggedInUserStr = typeof window !== "undefined" ? localStorage.getItem("loggedInUser") : null
+    const loggedInUser = loggedInUserStr ? JSON.parse(loggedInUserStr) : user
+    const role = loggedInUser?.role || "CA"
+
+    const isAdmin = ["CRO", "CEO", "COO", "CPO", "System Admin"].includes(role)
+    if (isAdmin) return false // Admins bypass everything
+
+    if (!visSettings) return true // Hide until settings load
+
+    if (role === "Team Lead") {
+      if (!visSettings.team_lead_incentive_visibility) return true
+    } else {
+      if (!visSettings.ca_incentive_visibility) return true
+    }
+
+    const now = new Date()
+    const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+    const monthKey = targetDate.toISOString().substring(0, 7) // "YYYY-MM"
+
+    const allowedMonths = visSettings.visible_months || []
+    if (!allowedMonths.includes(monthKey)) {
+      return true
+    }
+
+    return false
+  }, [visSettings, monthOffset, user])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-visibility-settings-ca")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "incentive_visibility_settings",
+        },
+        async () => {
+          try {
+            const visRes = await fetch("/api/incentive-visibility")
+            const visData = await visRes.json()
+            if (visData.success) {
+              setVisSettings(visData.settings)
+            }
+          } catch (err) {
+            console.error("Failed to refetch settings in realtime:", err)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
   const fmtDate = (d: Date) => {
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, "0")
@@ -182,6 +240,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
   // Incentives summed per date for the effective CA
   const incentivesByDate = useMemo(() => {
     const map = new Map<string, number>();
+    if (shouldShowOverlay) return map;
     for (const wh of workHistory || []) {
       // ensure we only count the effective CA
       if (wh?.ca_id !== effectiveCaId) continue;
@@ -193,7 +252,7 @@ export function CADashboard({ user, onLogout, viewerMode = false, forceCAId, cli
       map.set(d, (map.get(d) ?? 0) + v);
     }
     return map;
-  }, [workHistory, effectiveCaId]);
+  }, [workHistory, effectiveCaId, shouldShowOverlay]);
 
   // Total incentives for the dates currently visible on the page
   
@@ -458,14 +517,34 @@ const { data, error } = await supabase
     const bootstrap = async () => {
       const userId = user.id
 
-      // Incentive (current user, current calendar month)
+      // Fetch visibility settings first
+      try {
+        const visRes = await fetch("/api/incentive-visibility")
+        const visData = await visRes.json()
+        if (visData.success) {
+          setVisSettings(visData.settings)
+        }
+      } catch (err) {
+        console.error(err)
+      }
+
+      // Incentive (current user, current calendar month) via secure backend API
       const startOfMonthISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-      const { data: incentiveData } = await supabase
-        .from("incentives")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("month", startOfMonthISO)
-      if (incentiveData && incentiveData.length > 0) setIncentive(incentiveData[0])
+      const loggedInUserStr = typeof window !== "undefined" ? localStorage.getItem("loggedInUser") : null
+      const loggedInUser = loggedInUserStr ? JSON.parse(loggedInUserStr) : user
+
+      try {
+        const incRes = await fetch(`/api/incentives?userId=${userId}&month=${encodeURIComponent(startOfMonthISO)}&requesterId=${loggedInUser.id}`)
+        const incData = await incRes.json()
+        if (incData.success && incData.data && incData.data.length > 0) {
+          setIncentive(incData.data[0])
+        } else {
+          setIncentive(null)
+        }
+      } catch (err) {
+        console.error("Failed to fetch incentives via secure API:", err)
+        setIncentive(null)
+      }
 
       // Team members in same team (excluding self)
       const { data: teamData } = await supabase
@@ -490,6 +569,29 @@ const { data, error } = await supabase
     // Month-aware refetch for clients and work history
     fetchClientsForView()
     fetchWorkHistory()
+
+    const fetchIncentiveForMonth = async () => {
+      const caId = currentView === "myself" ? user.id : (selectedCA || user.id)
+      const now = new Date()
+      const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+      const targetMonthISO = targetDate.toISOString()
+      const loggedInUserStr = typeof window !== "undefined" ? localStorage.getItem("loggedInUser") : null
+      const loggedInUser = loggedInUserStr ? JSON.parse(loggedInUserStr) : user
+
+      try {
+        const incRes = await fetch(`/api/incentives?userId=${caId}&month=${encodeURIComponent(targetMonthISO)}&requesterId=${loggedInUser.id}`)
+        const incData = await incRes.json()
+        if (incData.success && incData.data && incData.data.length > 0) {
+          setIncentive(incData.data[0])
+        } else {
+          setIncentive(null)
+        }
+      } catch (err) {
+        console.error("Failed to fetch monthly incentive:", err)
+        setIncentive(null)
+      }
+    }
+    fetchIncentiveForMonth()
   }, [selectedCA, currentView, monthOffset])
 
   useEffect(() => {
@@ -774,10 +876,11 @@ const { data, error } = await supabase
   };
 
   // Sum of incentives from work_history for the active CA and month
-  const monthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
+  const rawMonthlyWHIncentive = (workHistory || []).reduce((sum, r) => {
     const v = Number(r?.incentives ?? 0)
     return sum + (isNaN(v) ? 0 : v)
   }, 0)
+  const monthlyWHIncentive = shouldShowOverlay ? 0 : rawMonthlyWHIncentive;
   // console.log('viv3',monthlyWHIncentive)
   const computedEarnings = useMemo(() => {
     if (!totalWorkingDays || totalWorkingDays <= 0) return null
@@ -1007,7 +1110,7 @@ const { data, error } = await supabase
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
 
           {/* top Card: Performance Snapshot */}
-          <PermissionOverlay show={!viewerMode}>
+          <PermissionOverlay show={shouldShowOverlay}>
             <Card>
               {user.role !== 'Career Associative Trainee' && (
                 <>

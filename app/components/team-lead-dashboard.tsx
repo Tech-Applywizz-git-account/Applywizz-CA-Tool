@@ -29,6 +29,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [incentives, setIncentives] = useState<any[]>([])
+  const [visSettings, setVisSettings] = useState<any>(null)
   const [selectedCA, setSelectedCA] = useState("all")
   const [newClientOpen, setNewClientOpen] = useState(false)
   const [dateTo] = useState(new Date().toISOString().split("T")[0])
@@ -39,6 +40,46 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
   const [clientToAssign, setClientToAssign] = useState<any | null>(null)
   const [availableCAs, setAvailableCAs] = useState<any[]>([])
   const clientListRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-visibility-settings-tl")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "incentive_visibility_settings",
+        },
+        async () => {
+          try {
+            const visRes = await fetch("/api/incentive-visibility")
+            const visData = await visRes.json()
+            if (visData.success) {
+              setVisSettings(visData.settings)
+              
+              // Refetch incentives for the team
+              const memberIds = teamMembers.map((m) => m.id)
+              const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+              if (memberIds.length > 0) {
+                const incRes = await fetch(`/api/incentives?userId=${memberIds.join(",")}&month=${encodeURIComponent(startOfMonth)}&requesterId=${user.id}`)
+                const incData = await incRes.json()
+                if (incData.success) {
+                  setIncentives(incData.data || [])
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Failed to refetch settings in realtime:", err)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [teamMembers, user.id])
 
   const fetchClients = async () => {
     const memberIds = teamMembers.map((m) => m.id)
@@ -207,13 +248,34 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         setClients(clientData || [])
       }
 
+      // Load settings
+      try {
+        const visRes = await fetch("/api/incentive-visibility")
+        const visData = await visRes.json()
+        if (visData.success) {
+          setVisSettings(visData.settings)
+        }
+      } catch (err) {
+        console.error(err)
+      }
+
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-      const { data: incentiveData } = await supabase
-        .from("incentives")
-        .select("*")
-        .in("user_id", memberIds)
-        .eq("month", startOfMonth)
-      setIncentives(incentiveData || [])
+      if (memberIds.length > 0) {
+        try {
+          const incRes = await fetch(`/api/incentives?userId=${memberIds.join(",")}&month=${encodeURIComponent(startOfMonth)}&requesterId=${user.id}`)
+          const incData = await incRes.json()
+          if (incData.success) {
+            setIncentives(incData.data || [])
+          } else {
+            setIncentives([])
+          }
+        } catch (err) {
+          console.error("Failed to fetch incentives via API:", err)
+          setIncentives([])
+        }
+      } else {
+        setIncentives([])
+      }
     }
     fetchTeamData()
   }, [user.id])
