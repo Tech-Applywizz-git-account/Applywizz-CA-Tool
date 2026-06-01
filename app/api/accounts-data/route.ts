@@ -42,16 +42,21 @@ const defaultPerformanceBonuses = [
 ];
 
 const calculateBaseIncentive = (revenue: number, slabs: any[]) => {
-    for (const rule of slabs) {
-        if (revenue >= rule.min && revenue <= rule.max) return rule.incentive;
+    // Sort descending by min to create a continuous step function, ignoring gaps in 'max'
+    const sorted = [...slabs].sort((a, b) => b.min - a.min);
+    for (const rule of sorted) {
+        if (revenue >= rule.min) return rule.incentive;
     }
     return 0;
 };
 
 const getRenewalMultiplier = (rate: number, multipliers: any[]) => {
+    // Math.round fixes near-boundary decimal issues (e.g. 68.97% becomes 69% if needed, but rounding normally helps match user intuition)
+    const roundedRate = Math.round(rate);
+    // Sort descending by min to create a continuous step function
     const sorted = [...multipliers].sort((a, b) => b.min - a.min);
     for (const m of sorted) {
-        if (rate >= m.min && rate <= m.max) return m.multiplier;
+        if (roundedRate >= m.min) return m.multiplier;
     }
     return 0;
 };

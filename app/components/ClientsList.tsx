@@ -4,7 +4,7 @@
  
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { supabase } from "@/lib/supabaseClient"
+import { supabase, supabaseCRM } from "@/lib/supabaseClient"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -35,6 +35,7 @@ type Client = {
   experience: number | null
   visa_type: string | null
   sponsorship: boolean | null
+  renewal_date?: string | null
 }
  
 type ClientsListProps = {
@@ -187,9 +188,37 @@ export default function ClientsList({
       setLoading(false)
       return
     }
+    
+    let clientsData = data as Client[];
+
+    if (clientsData && clientsData.length > 0) {
+      const emails = clientsData.map(c => c.email).filter(Boolean);
+      const { data: crmData } = await supabaseCRM
+          .from("sales_closure")
+          .select("email, extended_renewal_at, closed_at")
+          .in("email", emails);
+          
+      if (crmData) {
+        const renewalMap = new Map();
+        const closedAtMap = new Map();
+        crmData.forEach((r: any) => {
+            if (r.extended_renewal_at) {
+                const currentClosed = new Date(r.closed_at || 0).getTime();
+                if (!renewalMap.has(r.email) || currentClosed > closedAtMap.get(r.email)) {
+                    renewalMap.set(r.email, r.extended_renewal_at);
+                    closedAtMap.set(r.email, currentClosed);
+                }
+            }
+        });
+        clientsData = clientsData.map(c => ({
+            ...c,
+            renewal_date: renewalMap.get(c.email) || null
+        }));
+      }
+    }
  
     setTotal(count || 0)
-    setClients((data as Client[]) || [])
+    setClients(clientsData || [])
     setLoading(false)
   }, [teamId, teamIds, assignedCAId, status, active, sortKey, sortDir, from, to, q, pageSize])
  
@@ -330,6 +359,11 @@ export default function ClientsList({
                 </button>
               </TableHead>
  
+              {/* Renewal Date */}
+              <TableHead className="w-[120px] text-center">
+                <span className="font-medium">Renewal Date</span>
+              </TableHead>
+
               {/* Work Done By */}
               <TableHead className="w-[150px] text-center">
                 <button className="inline-flex items-center gap-1 justify-center font-medium w-full" onClick={() => toggleSort("work_done_ca_name")}>
@@ -472,6 +506,13 @@ export default function ClientsList({
                     <div className="text-slate-900">{c.date_assigned ?? "—"}</div>
                   </TableCell>
  
+                  {/* Renewal Date */}
+                  <TableCell className="text-center">
+                    <div className="text-slate-900">
+                      {c.renewal_date ? new Date(c.renewal_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                    </div>
+                  </TableCell>
+
                   {/* Work Done By */}
                   <TableCell className="text-center">
                     <div className="text-slate-900">

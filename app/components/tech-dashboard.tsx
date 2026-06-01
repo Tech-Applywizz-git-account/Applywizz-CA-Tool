@@ -21,7 +21,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
 
     const [isScrolled, setIsScrolled] = useState(false)
     const [monthOffset, setMonthOffset] = useState<number>(0)
-    
+
     // Global metrics fetched natively from calculation engine
     const [totalPortfolios, setTotalPortfolios] = useState<number>(0)
     const [totalGithubs, setTotalGithubs] = useState<number>(0)
@@ -30,7 +30,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
     const [totalPoolUsd, setTotalPoolUsd] = useState<number>(0)
     const [portfolioRateUSD, setPortfolioRateUSD] = useState<number>(2)
     const [githubRateUSD, setGithubRateUSD] = useState<number>(20)
-    
+
     // Personal Output Engine logic
     const [individualShareInr, setIndividualShareInr] = useState<number>(0)
     const [individualShareUsd, setIndividualShareUsd] = useState<number>(0)
@@ -45,7 +45,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
     const [gitRepoBaseInc, setGitRepoBaseInc] = useState<number>(7)
     const [gitRepoStep, setGitRepoStep] = useState<number>(10)
     const [gitRepoStepInc, setGitRepoStepInc] = useState<number>(2)
-    
+
     // Month-specific table data
     const [activeTab, setActiveTab] = useState<"portfolios" | "github" | "sales">("portfolios")
     const [monthPortfolios, setMonthPortfolios] = useState<any[]>([])
@@ -70,7 +70,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
         if (isFirstLoad.current) setLoading(true);
         try {
             const monthStr = getMonthName();
-            
+
             // Re-fetch global compute logic directly since everyone shares it equally
             const res = await fetch(`/api/calculate-tech-incentives?period=${encodeURIComponent(monthStr)}`);
             if (res.ok) {
@@ -88,7 +88,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                 setGitRepoBaseInc(data.gitRepoBaseInc || 7);
                 setGitRepoStep(data.gitRepoStep || 10);
                 setGitRepoStepInc(data.gitRepoStepInc || 2);
-                
+
                 const email = user.email.toLowerCase();
                 if (data.personalSalesInsights && data.personalSalesInsights[email]) {
                     const insights = data.personalSalesInsights[email];
@@ -103,22 +103,22 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                 } else {
                     setIndividualShareUsd(data.individualShareUSD || 0);
                     setIndividualShareInr(data.individualShareINR || 0);
-                    
+
                     // Approximate splits if not in map but part of global (rare)
                     const portShare = data.portfolioPoolUSD * (data.conversionRate || 85) / Math.max(1, data.techTeamSize || 1);
                     const gitShare = data.githubPoolUSD * (data.conversionRate || 85) / Math.max(1, data.techTeamSize || 1);
                     setPersonalPortfolioInr(portShare || 0);
                     setPersonalGithubInr(gitShare || 0);
-                    
+
                     setPersonalSalesUsd(0);
                     setPersonalSalesInr(0);
                     setTotalCombinedInr(data.individualShareINR || 0);
                     setMonthSalesLogs([]);
                 }
-                
+
                 setMonthPortfolios(data.portfoliosData || []);
                 setMonthGithubs(data.githubData || []);
-                
+
                 // Eligibility - If the user's email was mapped in the response, they are placed
                 // but since the global calculation handles it, we assume eligible if they can load this
                 setIsEligible(true);
@@ -157,7 +157,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
     return (
         <div className="min-h-screen bg-slate-50 p-4 lg:p-8">
             <div className="max-w-7xl mx-auto space-y-6 relative">
-                
+
                 {/* Header */}
                 <div className={`flex justify-between items-center bg-white rounded-xl shadow-md border border-slate-200 bg-gradient-to-r from-white to-slate-50/50 sticky top-2 z-50 transition-all duration-500 overflow-hidden backdrop-blur-lg ${isScrolled ? 'p-3 px-6 bg-white/95 shadow-lg' : 'p-6 items-start'}`}>
                     <div className="flex items-center gap-4 transition-all duration-500">
@@ -220,7 +220,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                     </div>
                 ) : (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        
+
                         {/* Summary View */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <Card className="lg:col-span-2 border-0 shadow-sm rounded-2xl ring-1 ring-slate-200/50 p-6 bg-white overflow-hidden relative">
@@ -231,7 +231,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                                     </h3>
                                     <div className="md:hidden">{renderMonthControls()}</div>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                     <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 mb-4 transition-all hover:bg-white hover:shadow-md group">
                                         <div className="flex items-center gap-2 mb-2">
@@ -291,7 +291,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                             <Card className="bg-slate-900 border-0 shadow-xl rounded-2xl p-6 flex flex-col relative overflow-hidden ring-1 ring-white/10 group">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-indigo-500"></div>
                                 <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all duration-700"></div>
-                                
+
                                 <div className="flex justify-between items-center mb-10">
                                     <div className="flex items-center gap-2">
                                         <div className="bg-white/10 p-2 rounded-lg border border-white/5">
@@ -306,7 +306,7 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                                 <div className={`flex flex-col mb-8 transition-all duration-700 ${isHidden ? 'blur-md opacity-60 scale-95 select-none pointer-events-none' : 'blur-0 opacity-100 scale-100'}`}>
                                     <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Total Payout Yield</p>
                                     <div className="text-5xl font-black tracking-tighter transition-all duration-500 text-emerald-300 drop-shadow-md">
-                                        ₹{totalCombinedInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        ₹{totalCombinedInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </div>
                                     <div className="grid grid-cols-1 gap-2 mt-6">
                                         <div className="bg-white/5 px-3 py-2 rounded-xl flex items-center justify-between border border-white/5 group-hover:bg-white/10 transition-all">
@@ -314,21 +314,21 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
                                                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Portfolio Share</p>
                                             </div>
-                                            <p className="text-[12px] text-indigo-300 font-black">₹{personalPortfolioInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                            <p className="text-[12px] text-indigo-300 font-black">₹{personalPortfolioInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                         </div>
                                         <div className="bg-white/5 px-3 py-2 rounded-xl flex items-center justify-between border border-white/5 group-hover:bg-white/10 transition-all">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
                                                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Github Share</p>
                                             </div>
-                                            <p className="text-[12px] text-blue-300 font-black">₹{personalGithubInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                            <p className="text-[12px] text-blue-300 font-black">₹{personalGithubInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                         </div>
                                         <div className="bg-white/5 px-3 py-2 rounded-xl flex items-center justify-between border border-white/5 group-hover:bg-white/10 transition-all">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
                                                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Git Sales Commission</p>
                                             </div>
-                                            <p className="text-[12px] text-amber-300 font-black">₹{personalSalesInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                            <p className="text-[12px] text-amber-300 font-black">₹{personalSalesInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                         </div>
                                     </div>
 
@@ -338,22 +338,22 @@ export function TechDashboard({ user, onLogout, viewerMode = false }: TechDashbo
                                             <Database className="h-3 w-3" /> Financial Engine Math
                                         </p>
                                         <div className="space-y-2">
-                                          <div className="flex justify-between text-[10px] text-slate-300/70 font-medium font-mono">
-                                            <span>Global Master Pool ({totalPortfolios} Ports × ${portfolioRateUSD}) + ({totalGithubs} Git × ${githubRateUSD})</span>
-                                            <span>${totalPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                                          </div>
-                                          <div className="flex justify-between text-[10px] text-slate-300/70 font-medium font-mono">
-                                            <span>Your Equal Pool Split (${totalPoolUsd.toLocaleString()} ÷ Active Teammates) × Base Rate</span>
-                                            <span>₹{individualShareInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                          </div>
-                                          <div className="flex justify-between text-[10px] text-slate-300/70 font-medium font-mono">
-                                            <span>Personal Git Repo Yield (${personalSalesUsd.toLocaleString()} × Base Rate)</span>
-                                            <span>₹{personalSalesInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                          </div>
-                                          <div className="flex justify-between text-[11px] font-bold text-emerald-300/90 mt-2 pt-2 border-t border-white/10 font-mono">
-                                            <span>Total System Payout</span>
-                                            <span>₹{totalCombinedInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                          </div>
+                                            <div className="flex justify-between text-[10px] text-slate-300/70 font-medium font-mono">
+                                                <span>Global Master Pool ({totalPortfolios} Ports × ${portfolioRateUSD}) + ({totalGithubs} Git × ${githubRateUSD})</span>
+                                                <span>${totalPoolUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] text-slate-300/70 font-medium font-mono">
+                                                <span>Your Equal Pool Split (${totalPoolUsd.toLocaleString()} ÷ Active Teammates) × Base Rate</span>
+                                                <span>₹{individualShareInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] text-slate-300/70 font-medium font-mono">
+                                                <span>Personal Git Repo Yield (${personalSalesUsd.toLocaleString()} × Base Rate)</span>
+                                                <span>₹{personalSalesInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[11px] font-bold text-emerald-300/90 mt-2 pt-2 border-t border-white/10 font-mono">
+                                                <span>Total System Payout</span>
+                                                <span>₹{totalCombinedInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

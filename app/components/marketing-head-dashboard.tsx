@@ -17,14 +17,13 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { MarketingDashboard } from "./marketing-dashboard"
-import { AssessmentAnalyticsPage } from "./assessment-analytics-page"
 
 interface MarketingHeadDashboardProps {
   user: any;
   onLogout: () => void;
 }
 
-type TabType = "overview" | "tracker" | "roster" | "rules" | "invites";
+type TabType = "overview" | "tracker" | "roster" | "rules";
 type TrackerTabType = "jobboard" | "skillpassport" | "influencer";
 
 
@@ -328,7 +327,6 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
     { id: "tracker", label: "Marketing Tracker", icon: Database },
     { id: "roster", label: "Marketers", icon: Users },
     { id: "rules", label: "Financial & Rate Policies", icon: Scale },
-    { id: "invites", label: "Approved Invites", icon: ShieldCheck },
   ] as const
 
   // --- UI Components ---
@@ -985,10 +983,10 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
                         <TableCell className="text-slate-600">{rep.email}</TableCell>
                         <TableCell><Badge className="bg-blue-100 text-blue-800 border-none">{rep.role}</Badge></TableCell>
                         <TableCell className="text-center"><Badge className="bg-emerald-100 text-emerald-800 border-0 font-bold">Active</Badge></TableCell>
-                        <TableCell className="text-right font-bold text-slate-700">₹{rep.job_board_incentive_inr?.toLocaleString() || 0}</TableCell>
-                        <TableCell className="text-right font-bold text-slate-700">₹{rep.skill_passport_incentive_inr?.toLocaleString() || 0}</TableCell>
-                        <TableCell className="text-right font-bold text-slate-700">₹{rep.influencer_incentive_inr?.toLocaleString() || 0}</TableCell>
-                        <TableCell className="text-right font-black text-indigo-700">₹{rep.total_incentive_inr?.toLocaleString() || 0}</TableCell>
+                        <TableCell className="text-right font-bold text-slate-700">₹{(rep.job_board_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right font-bold text-slate-700">₹{(rep.skill_passport_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right font-bold text-slate-700">₹{(rep.influencer_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right font-black text-indigo-700">₹{(rep.total_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell className="text-right pr-6">
                           <div className="flex items-center justify-end gap-2">
                             <Button
@@ -1416,12 +1414,6 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
                 </CardContent>
               </Card>
             </div>
-          </div>
-        )}
-
-        {activeTab === "invites" && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 md:p-6">
-            <AssessmentAnalyticsPage scope="executive" />
           </div>
         )}
       </div>

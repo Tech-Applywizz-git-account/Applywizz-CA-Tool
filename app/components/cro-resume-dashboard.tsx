@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Download, Edit2, Save, Eye, Globe, Settings2, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Download, Edit2, Save, Eye, Globe, Settings2, AlertTriangle, CheckCircle2, ClipboardList } from "lucide-react"
 import Link from "next/link"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ResumeCompletionPanel } from "./resume-completion-panel"
 
 interface CROResumeDashboardProps {
     basePath: string;
@@ -24,7 +26,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
     const [monthOffset, setMonthOffset] = useState<number>(0)
 
     const [configMode, setConfigMode] = useState<"resume" | "forage">("resume")
-    
+
     // Rate config
     const [resumeRate, setResumeRate] = useState<string>("80")
     const [forageBaseUsd, setForageBaseUsd] = useState<string>("3")
@@ -125,7 +127,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     const r = (rep.role || "").toLowerCase();
                     const d = (rep.designation || "").toLowerCase();
                     const isTraineeRep = r.includes("trainee") || d.includes("trainee") || r === "bdt-p" || d === "bdt-p";
-                    
+
                     return {
                         ...rep,
                         target_resumes: incn?.target_resumes || 0,
@@ -288,7 +290,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
             const email = `"${(rep.email || "").replace(/"/g, '""')}"`;
             const role = `"${(rep.role || "").replace(/"/g, '""')}"`;
             const status = `"${rep.isactive ? "Active" : "Inactive"}"`;
-            
+
             csvRows.push([name, email, role, status, workingDays, rep.target_resumes, rep.completed_resumes, rep.extra_resumes, rep.incentive_inr].join(","));
         });
 
@@ -343,7 +345,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     </div>
                 </div>
             )}
-            
+
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex justify-between items-start mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <div>
@@ -472,163 +474,180 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     </Card>
                 </div>
 
-                <Card className={`mb-8 border-0 shadow-xl overflow-hidden ring-1 transition-all duration-500 ${editingRate ? 'ring-indigo-500/30' : 'ring-slate-200/50 hover:ring-indigo-300'}`}>
-                    <CardHeader className={`transition-all duration-500 relative overflow-hidden ${editingRate ? 'bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 text-white py-8' : 'bg-white hover:bg-slate-50/80 py-6'}`}>
-                        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                            <div className="flex items-center gap-5">
-                                <div className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${editingRate ? 'bg-white/10 border border-white/20' : 'bg-indigo-50 border border-indigo-100'}`}>
-                                    <Settings2 className={`h-7 w-7 ${editingRate ? 'text-indigo-100' : 'text-indigo-600'}`} />
+                <Tabs defaultValue="financial-engine" className="w-full mb-8">
+                    <TabsList className="grid w-full grid-cols-2 h-14 bg-white border border-slate-200 shadow-sm mb-6 p-1.5 rounded-xl">
+                        <TabsTrigger value="financial-engine" className="rounded-lg font-bold transition-all data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm">
+                            <Settings2 className="mr-2 h-4 w-4" />
+                            Department Financial Engine
+                        </TabsTrigger>
+                        <TabsTrigger value="submitted-forms" className="rounded-lg font-bold transition-all data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 data-[state=active]:shadow-sm">
+                            <ClipboardList className="mr-2 h-4 w-4" />
+                            Resume Submitted Forms
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="financial-engine" className="mt-0 focus-visible:ring-0">
+                        <Card className={`border-0 shadow-xl overflow-hidden ring-1 transition-all duration-500 ${editingRate ? 'ring-indigo-500/30' : 'ring-slate-200/50 hover:ring-indigo-300'}`}>
+                            <CardHeader className={`transition-all duration-500 relative overflow-hidden ${editingRate ? 'bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 text-white py-8' : 'bg-white hover:bg-slate-50/80 py-6'}`}>
+                                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                    <div className="flex items-center gap-5">
+                                        <div className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${editingRate ? 'bg-white/10 border border-white/20' : 'bg-indigo-50 border border-indigo-100'}`}>
+                                            <Settings2 className={`h-7 w-7 ${editingRate ? 'text-indigo-100' : 'text-indigo-600'}`} />
+                                        </div>
+                                        <div>
+                                            <CardTitle className={`text-2xl font-black tracking-tight flex items-center gap-3 ${editingRate ? 'text-white' : 'text-slate-800'}`}>
+                                                Department Financial Engine
+                                            </CardTitle>
+                                            <p className={`text-sm mt-1.5 font-medium max-w-lg leading-relaxed ${editingRate ? 'text-indigo-200/90' : 'text-slate-500'}`}>
+                                                Configure flat rates for extra volume output for {getMonthName()}.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        onClick={() => setEditingRate(!editingRate)}
+                                        size="lg"
+                                        className={`font-bold transition-all duration-300 shadow-md ${!editingRate ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                                        variant={editingRate ? "outline" : "default"}
+                                    >
+                                        {editingRate ? "Hide Board" : "Launch Configuration Panel"}
+                                    </Button>
                                 </div>
-                                <div>
-                                    <CardTitle className={`text-2xl font-black tracking-tight flex items-center gap-3 ${editingRate ? 'text-white' : 'text-slate-800'}`}>
-                                        Department Financial Engine
-                                    </CardTitle>
-                                    <p className={`text-sm mt-1.5 font-medium max-w-lg leading-relaxed ${editingRate ? 'text-indigo-200/90' : 'text-slate-500'}`}>
-                                        Configure flat rates for extra volume output for {getMonthName()}.
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                onClick={() => setEditingRate(!editingRate)}
-                                size="lg"
-                                className={`font-bold transition-all duration-300 shadow-md ${!editingRate ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-                                variant={editingRate ? "outline" : "default"}
-                            >
-                                {editingRate ? "Hide Board" : "Launch Configuration Panel"}
-                            </Button>
-                        </div>
-                    </CardHeader>
+                            </CardHeader>
 
-                    {editingRate && (
-                        <div className="bg-slate-50/50 animate-in slide-in-from-top-8 fade-in duration-500 ease-out border-t border-slate-200 p-6 md:p-8">
-                            <div className="flex bg-slate-200/60 p-1 w-fit rounded-lg mb-8 mx-auto">
-                                <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "resume" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("resume")}>Resume Pricing</button>
-                                <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "forage" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("forage")}>Job Simulation Details</button>
-                            </div>
+                            {editingRate && (
+                                <div className="bg-slate-50/50 animate-in slide-in-from-top-8 fade-in duration-500 ease-out border-t border-slate-200 p-6 md:p-8">
+                                    <div className="flex bg-slate-200/60 p-1 w-fit rounded-lg mb-8 mx-auto">
+                                        <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "resume" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("resume")}>Resume Pricing</button>
+                                        <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "forage" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("forage")}>Job Simulation Details</button>
+                                    </div>
 
-                            {configMode === "resume" ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                                    <Card className="border border-indigo-100 shadow-sm w-full">
-                                        <div className="h-1 w-full bg-indigo-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rate Per Extra Resume</label>
-                                            </div>
-                                            <div className="relative group">
-                                                <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">₹</span>
-                                                <Input value={resumeRate} onChange={(e) => setResumeRate(e.target.value)} className="pl-7 h-11 border-indigo-200 bg-indigo-50/30 font-bold" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <Card className="border border-emerald-100 shadow-sm md:col-span-3">
-                                        <div className="h-1 w-full bg-emerald-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
+                                    {configMode === "resume" ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                                            <Card className="border border-indigo-100 shadow-sm w-full">
+                                                <div className="h-1 w-full bg-indigo-500"></div>
+                                                <CardContent className="p-5">
                                                     <div className="flex items-center gap-2 mb-3">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pricing Matrix Bases</label>
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rate Per Extra Resume</label>
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                    <div className="relative group">
+                                                        <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">₹</span>
+                                                        <Input value={resumeRate} onChange={(e) => setResumeRate(e.target.value)} className="pl-7 h-11 border-indigo-200 bg-indigo-50/30 font-bold" />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <Card className="border border-emerald-100 shadow-sm md:col-span-3">
+                                                <div className="h-1 w-full bg-emerald-500"></div>
+                                                <CardContent className="p-5">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                         <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">1 Cert</span>
-                                                            <Input value={forageBase1Usd} onChange={(e) => setForageBase1Usd(e.target.value)} className="h-8 text-xs" />
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pricing Matrix Bases</label>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">1 Cert</span>
+                                                                    <Input value={forageBase1Usd} onChange={(e) => setForageBase1Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">2 Certs</span>
+                                                                    <Input value={forageBase2Usd} onChange={(e) => setForageBase2Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">3 Certs</span>
+                                                                    <Input value={forageBase3Usd} onChange={(e) => setForageBase3Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">4+ Certs</span>
+                                                                    <Input value={forageBase4Usd} onChange={(e) => setForageBase4Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">5+ Certs</span>
+                                                                    <Input value={forageBase5Usd} onChange={(e) => setForageBase5Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                         <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">2 Certs</span>
-                                                            <Input value={forageBase2Usd} onChange={(e) => setForageBase2Usd(e.target.value)} className="h-8 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">3 Certs</span>
-                                                            <Input value={forageBase3Usd} onChange={(e) => setForageBase3Usd(e.target.value)} className="h-8 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">4+ Certs</span>
-                                                            <Input value={forageBase4Usd} onChange={(e) => setForageBase4Usd(e.target.value)} className="h-8 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">5+ Certs</span>
-                                                            <Input value={forageBase5Usd} onChange={(e) => setForageBase5Usd(e.target.value)} className="h-8 text-xs" />
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Baseline Split Configuration</label>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">Seller ($)</span>
+                                                                    <Input value={forageBaseUsd} onChange={(e) => setForageBaseUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">Team Pool ($)</span>
+                                                                    <Input value={forageTeamUsd} onChange={(e) => setForageTeamUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Baseline Split Configuration</label>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">Seller ($)</span>
-                                                            <Input value={forageBaseUsd} onChange={(e) => setForageBaseUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">Team Pool ($)</span>
-                                                            <Input value={forageTeamUsd} onChange={(e) => setForageTeamUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                                </CardContent>
+                                            </Card>
 
-                                    <Card className="border border-blue-100 shadow-sm w-full">
-                                        <div className="h-1 w-full bg-blue-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">USD to INR Forex Rate</label>
-                                            </div>
-                                            <div className="relative group mt-5">
-                                                <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">₹</span>
-                                                <Input value={forageUsdInr} onChange={(e) => setForageUsdInr(e.target.value)} className="pl-7 h-9 border-blue-200 bg-blue-50/30 text-sm" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                    
-                                    <Card className="border border-violet-100 shadow-sm w-full">
-                                        <div className="h-1 w-full bg-violet-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Volume Threshold Bonuses</label>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
-                                                    <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 1</span>
-                                                    <span className="text-xs text-slate-500">Hit</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs1Usd} onChange={(e) => setForageMs1Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                    <span className="text-xs text-slate-500">→ Get</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs1Inr} onChange={(e) => setForageMs1Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
-                                                    <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 2</span>
-                                                    <span className="text-xs text-slate-500">Hit</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs2Usd} onChange={(e) => setForageMs2Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                    <span className="text-xs text-slate-500">→ Get</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs2Inr} onChange={(e) => setForageMs2Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
-                                                    <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 3</span>
-                                                    <span className="text-xs text-slate-500">Hit</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs3Usd} onChange={(e) => setForageMs3Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                    <span className="text-xs text-slate-500">→ Get</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs3Inr} onChange={(e) => setForageMs3Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                            <Card className="border border-blue-100 shadow-sm w-full">
+                                                <div className="h-1 w-full bg-blue-500"></div>
+                                                <CardContent className="p-5">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">USD to INR Forex Rate</label>
+                                                    </div>
+                                                    <div className="relative group mt-5">
+                                                        <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">₹</span>
+                                                        <Input value={forageUsdInr} onChange={(e) => setForageUsdInr(e.target.value)} className="pl-7 h-9 border-blue-200 bg-blue-50/30 text-sm" />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card className="border border-violet-100 shadow-sm w-full">
+                                                <div className="h-1 w-full bg-violet-500"></div>
+                                                <CardContent className="p-5">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Volume Threshold Bonuses</label>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
+                                                            <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 1</span>
+                                                            <span className="text-xs text-slate-500">Hit</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs1Usd} onChange={(e) => setForageMs1Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                            <span className="text-xs text-slate-500">→ Get</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs1Inr} onChange={(e) => setForageMs1Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
+                                                            <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 2</span>
+                                                            <span className="text-xs text-slate-500">Hit</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs2Usd} onChange={(e) => setForageMs2Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                            <span className="text-xs text-slate-500">→ Get</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs2Inr} onChange={(e) => setForageMs2Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
+                                                            <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 3</span>
+                                                            <span className="text-xs text-slate-500">Hit</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs3Usd} onChange={(e) => setForageMs3Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                            <span className="text-xs text-slate-500">→ Get</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs3Inr} onChange={(e) => setForageMs3Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col flex-row justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm mt-8">
+                                        <Button size="lg" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg" onClick={saveSettings} disabled={savingRate}>
+                                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                                            {savingRate ? "Committing Sync..." : "Commit Setting"}
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
-                            
-                            <div className="flex flex-col flex-row justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm mt-8">
-                                <Button size="lg" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg" onClick={saveSettings} disabled={savingRate}>
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    {savingRate ? "Committing Sync..." : "Commit Setting"}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </Card>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="submitted-forms" className="mt-0 focus-visible:ring-0">
+                        <ResumeCompletionPanel monthOffset={monthOffset} />
+                    </TabsContent>
+                </Tabs>
 
                 <Card className="mb-8 overflow-hidden shadow-sm">
                     <CardHeader className="bg-white border-b border-slate-100">

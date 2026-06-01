@@ -49,6 +49,9 @@ export function ResumeDashboard({ user, onLogout, viewerMode }: ResumeDashboardP
     const fetchData = useCallback(async () => {
         if (isFirstLoad.current) setLoading(true);
         try {
+            const periodStr = targetDate.toLocaleString("default", { month: "long", year: "numeric" });
+            await fetch(`/api/calculate-resume-incentives?period=${encodeURIComponent(periodStr)}`, { cache: 'no-store' });
+
             const monthStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
             const res = await fetch(`/api/resume-data?email=${encodeURIComponent(user.email)}&month=${monthStr}`);
             const data = await res.json();
@@ -85,7 +88,7 @@ export function ResumeDashboard({ user, onLogout, viewerMode }: ResumeDashboardP
                 <ChevronLeft className="h-4 w-4 mr-1" /> Previous
             </Button>
             <Button variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700 shadow-md whitespace-nowrap font-bold" onClick={() => setMonthOffset(0)}>
-                This Month
+                {getMonthName()}
             </Button>
             <Button variant="outline" size="sm" className="border-slate-300 hover:bg-slate-100 transition-all font-semibold" onClick={() => setMonthOffset((prev) => prev + 1)}>
                 Next <ChevronRight className="h-4 w-4 ml-1" />
@@ -233,9 +236,9 @@ export function ResumeDashboard({ user, onLogout, viewerMode }: ResumeDashboardP
                         <div className="flex-1 w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                             {/* Active Tab Banner */}
                             <div className={`p-5 rounded-2xl text-white shadow-md relative overflow-hidden ${activeTab === 'overview' ? 'bg-gradient-to-r from-indigo-600 to-violet-600' :
-                                    activeTab === 'resumes' ? 'bg-gradient-to-r from-blue-600 to-indigo-600' :
-                                        activeTab === 'forage' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
-                                            'bg-gradient-to-r from-teal-600 to-cyan-600'
+                                activeTab === 'resumes' ? 'bg-gradient-to-r from-blue-600 to-indigo-600' :
+                                    activeTab === 'forage' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
+                                        'bg-gradient-to-r from-teal-600 to-cyan-600'
                                 }`}>
                                 <div className="absolute top-0 right-0 w-36 h-36 rounded-full bg-white/5 -translate-y-8 translate-x-8" />
                                 <div className="relative">

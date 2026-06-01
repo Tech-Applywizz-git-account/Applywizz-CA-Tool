@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AccountsSubmittedFormsPanel } from "./accounts-submitted-forms-panel"
+import { AMExpectedRevenueOverview } from "./am-expected-revenue-overview"
 
 interface Props { user: any; onLogout: () => void }
 type TabType = "overview" | "leaderboard" | "awl_tracker" | "directory" | "submitted_forms" | "config"
@@ -312,38 +313,8 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
               ))}
             </div>
 
-            {/* Quick AM List */}
-            <Card className="backdrop-blur-md bg-white/70 border border-white/40 shadow-lg overflow-hidden">
-              <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 to-cyan-500" />
-              <CardHeader>
-                <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-2.5"><Users className="h-5 w-5 text-teal-500" /> Account Managers — {monthName}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {loading ? <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-teal-500 mr-3" /><span className="text-slate-500">Loading...</span></div> : (
-                  <div className="overflow-x-auto"><Table><TableHeader><TableRow className="bg-slate-50/80">
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 pl-4">Name</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Renewal Rev</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Sales Rev</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Combined</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Rate</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-right">Incentive</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase text-slate-400 text-center">Actions</TableHead>
-                  </TableRow></TableHeader><TableBody>
-                      {filteredAMs.map((am) => (
-                        <TableRow key={am.email} className="hover:bg-teal-50/30">
-                          <TableCell className="pl-4"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white text-[10px] font-black">{am.name?.substring(0, 2)?.toUpperCase()}</div><div><p className="font-bold text-sm text-slate-800">{am.name}</p><p className="text-[10px] text-slate-400">{am.email}</p></div></div></TableCell>
-                          <TableCell className="text-right font-bold text-emerald-700">${(am.renewalRevenueUSD || 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-bold text-cyan-700">${(am.salesRevenueUSD || 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-black text-blue-700">${am.monthlyRevenueUSD.toLocaleString()}</TableCell>
-                          <TableCell className="text-center"><Badge className={`border-none text-[10px] ${am.renewalRate >= 80 ? "bg-emerald-100 text-emerald-700" : am.renewalRate >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>{am.renewalRate}%</Badge></TableCell>
-                          <TableCell className="text-right font-black text-teal-700">₹{am.finalIncentive.toLocaleString()}</TableCell>
-                          <TableCell className="text-center"><Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => window.open(`/accounts-dashboard?viewAs=${encodeURIComponent(am.email)}&viewName=${encodeURIComponent(am.name)}`, '_blank')}><ExternalLink className="h-3 w-3" />Dashboard</Button></TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody></Table></div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Expected Revenue */}
+            <AMExpectedRevenueOverview monthName={monthName} targetDate={targetDate} />
           </>
         )}
 

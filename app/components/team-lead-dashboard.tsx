@@ -45,7 +45,31 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     const memberIds = teamMembers.map((m) => m.id)
     if (memberIds.length > 0) {
       const { data, error } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
-      if (!error && data) setClients(data)
+      if (!error && data) {
+        const emails = data.map((c: any) => c.email).filter(Boolean);
+        const { data: crmData } = await supabaseCRM
+          .from("sales_closure")
+          .select("email, extended_renewal_at, closed_at")
+          .in("email", emails);
+          
+        if (crmData) {
+          const renewalMap = new Map();
+          const closedAtMap = new Map();
+          crmData.forEach((r: any) => {
+              if (r.extended_renewal_at) {
+                  const currentClosed = new Date(r.closed_at || 0).getTime();
+                  if (!renewalMap.has(r.email) || currentClosed > closedAtMap.get(r.email)) {
+                      renewalMap.set(r.email, r.extended_renewal_at);
+                      closedAtMap.set(r.email, currentClosed);
+                  }
+              }
+          });
+          data.forEach((c: any) => {
+              c.renewal_date = renewalMap.get(c.email) || null;
+          });
+        }
+        setClients(data)
+      }
     }
   }
 
@@ -205,6 +229,30 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       const memberIds = members?.map((m) => m.id) || []
       if (memberIds.length > 0) {
         const { data: clientData } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
+        if (clientData) {
+          const emails = clientData.map(c => c.email).filter(Boolean);
+          const { data: crmData } = await supabaseCRM
+            .from("sales_closure")
+            .select("email, extended_renewal_at, closed_at")
+            .in("email", emails);
+            
+          if (crmData) {
+            const renewalMap = new Map();
+            const closedAtMap = new Map();
+            crmData.forEach((r: any) => {
+                if (r.extended_renewal_at) {
+                    const currentClosed = new Date(r.closed_at || 0).getTime();
+                    if (!renewalMap.has(r.email) || currentClosed > closedAtMap.get(r.email)) {
+                        renewalMap.set(r.email, r.extended_renewal_at);
+                        closedAtMap.set(r.email, currentClosed);
+                    }
+                }
+            });
+            clientData.forEach((c: any) => {
+                c.renewal_date = renewalMap.get(c.email) || null;
+            });
+          }
+        }
         setClients(clientData || [])
       }
 
@@ -672,6 +720,12 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                         <div>
                           <div className="text-lg font-bold text-blue-600">{client.emails_submitted}</div>
                           <div className="text-xs text-slate-600">Emails Received</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-slate-700">
+                            {client.renewal_date ? new Date(client.renewal_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </div>
+                          <div className="text-xs text-slate-600">Renewal Date</div>
                         </div>
 
                         {/* Status badge (existing) */}

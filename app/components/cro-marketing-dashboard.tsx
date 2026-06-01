@@ -486,7 +486,7 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                             <div className="flex flex-col mb-4">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">Total Distributed <Globe className="h-3 w-3" /></span>
                                 <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-800 tracking-tighter leading-none drop-shadow-sm">
-                                    ₹{totalIncentivesINR.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    ₹{totalIncentivesINR.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                             </div>
 
@@ -495,23 +495,23 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                 <div className="flex justify-between items-center text-xs group">
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-slate-500 font-bold group-hover:text-pink-700 transition-colors">Influencer Referrals</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">({totalInfluencerUnpaidCountGlobal} unpaid × ${influencerUnpaidRate} + {totalInfluencerPaidCountGlobal} paid × ${influencerPaidRate}) = <span className="text-pink-500/70">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
+                                        <span className="text-[10px] text-slate-400 font-medium">({totalInfluencerUnpaidCountGlobal} unpaid × ${influencerUnpaidRate} + {totalInfluencerPaidCountGlobal} paid × ${influencerPaidRate}) = <span className="text-pink-500/70">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
                                     </div>
-                                    <span className="font-extrabold text-pink-600">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                    <span className="font-extrabold text-pink-600">₹{totalInfluencerIncentivesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs group">
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-slate-500 font-bold group-hover:text-emerald-700 transition-colors">Job Board</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">{totalJobBoardSalesCountGlobal} × ₹{totalJobBoardSalesCountGlobal > 0 ? (totalJobBoardIncentivesGlobal / totalJobBoardSalesCountGlobal).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0} = <span className="text-emerald-600/70">₹{totalJobBoardIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
+                                        <span className="text-[10px] text-slate-400 font-medium">{totalJobBoardSalesCountGlobal} × ₹{totalJobBoardSalesCountGlobal > 0 ? (totalJobBoardIncentivesGlobal / totalJobBoardSalesCountGlobal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 0} = <span className="text-emerald-600/70">₹{totalJobBoardIncentivesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
                                     </div>
-                                    <span className="font-extrabold text-emerald-600">₹{totalJobBoardIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                    <span className="font-extrabold text-emerald-600">₹{totalJobBoardIncentivesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs group">
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-slate-500 font-bold group-hover:text-orange-700 transition-colors">Skill Passport</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">{totalSkillPassportSalesCountGlobal} × ₹{totalSkillPassportSalesCountGlobal > 0 ? (totalSkillPassportIncentivesGlobal / totalSkillPassportSalesCountGlobal).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0} = <span className="text-orange-500/70">₹{totalSkillPassportIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
+                                        <span className="text-[10px] text-slate-400 font-medium">{totalSkillPassportSalesCountGlobal} × ₹{totalSkillPassportSalesCountGlobal > 0 ? (totalSkillPassportIncentivesGlobal / totalSkillPassportSalesCountGlobal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 0} = <span className="text-orange-500/70">₹{totalSkillPassportIncentivesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
                                     </div>
-                                    <span className="font-extrabold text-orange-600">₹{totalSkillPassportIncentivesGlobal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                    <span className="font-extrabold text-orange-600">₹{totalSkillPassportIncentivesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -858,16 +858,16 @@ export function CROMarketingDashboard({ basePath, user, onLogout }: CROMarketing
                                                 </TableCell>
 
                                                 <TableCell className="font-semibold text-emerald-600">
-                                                    ₹{rep.job_board_incentive_inr.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                    ₹{(rep.job_board_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </TableCell>
                                                 <TableCell className="font-semibold text-orange-500">
-                                                    ₹{(rep.skill_passport_incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                    ₹{(rep.skill_passport_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </TableCell>
                                                 <TableCell className="font-semibold text-pink-600">
-                                                    ₹{(rep.influencer_incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                    ₹{(rep.influencer_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </TableCell>
                                                 <TableCell className="text-right font-black text-indigo-700">
-                                                    ₹{rep.incentive_inr.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                    ₹{(rep.incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </TableCell>
                                                 <TableCell className="text-right flex items-center justify-end gap-2">
                                                     <Button variant="outline" size="sm" className="bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200 text-xs h-7" onClick={() => handleDemoteToTrainee(rep.id)}>

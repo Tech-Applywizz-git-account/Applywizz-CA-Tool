@@ -60,8 +60,8 @@ export async function GET(req: Request) {
         // Parallel Fetch all required data to slash loading time
         const [settingsRes, usersRes, portfolioRes, githubRes, salesRes] = await Promise.all([
             supabaseAdmin.from("marketing_settings").select("key, value").in("key", [
-                "usd_to_inr_rate", `usd_to_inr_rate_${periodStr}`, 
-                "tech_portfolio_usd", `tech_portfolio_usd_${periodStr}`, 
+                "usd_to_inr_rate", `usd_to_inr_rate_${periodStr}`,
+                "tech_portfolio_usd", `tech_portfolio_usd_${periodStr}`,
                 "tech_github_usd", `tech_github_usd_${periodStr}`,
                 "tech_gitrepo_base_sale", `tech_gitrepo_base_sale_${periodStr}`,
                 "tech_gitrepo_base_inc", `tech_gitrepo_base_inc_${periodStr}`,
@@ -81,7 +81,7 @@ export async function GET(req: Request) {
 
         const settingsData = settingsRes.data;
         let usersData = usersRes.data || [];
-        
+
         // Strictly filter out trainees and Technical Head from the shared equity pool
         usersData = usersData.filter((u: any) => {
             const r = (u.role || "").toLowerCase();
@@ -139,24 +139,26 @@ export async function GET(req: Request) {
         const totalSuccessfulPortfolios = portfolioData ? portfolioData.length : 0;
         const totalSuccessfulGithubs = githubData ? githubData.length : 0;
 
-        // 4. Math: Dynamic Per Output, split equally
-        const portfolioPoolUSD = totalSuccessfulPortfolios * portfolioRateUSD;
-        const githubPoolUSD = totalSuccessfulGithubs * githubRateUSD;
-        const totalPoolUSD = portfolioPoolUSD + githubPoolUSD;
-        
-        // Split share per head
-        const portfolioShareUSD = portfolioPoolUSD / N;
-        const githubShareUSD = githubPoolUSD / N;
+        const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-        const individualShareUSD = totalPoolUSD / N;
-        const individualShareINR = individualShareUSD * conversionRate;
-        
-        const portfolioShareINR = portfolioShareUSD * conversionRate;
-        const githubShareINR = githubShareUSD * conversionRate;
+        // 4. Math: Dynamic Per Output, split equally
+        const portfolioPoolUSD = round2(totalSuccessfulPortfolios * portfolioRateUSD);
+        const githubPoolUSD = round2(totalSuccessfulGithubs * githubRateUSD);
+        const totalPoolUSD = round2(portfolioPoolUSD + githubPoolUSD);
+
+        // Split share per head
+        const portfolioShareUSD = round2(portfolioPoolUSD / N);
+        const githubShareUSD = round2(githubPoolUSD / N);
+
+        const individualShareUSD = round2(totalPoolUSD / N);
+        const individualShareINR = round2(individualShareUSD * conversionRate);
+
+        const portfolioShareINR = round2(portfolioShareUSD * conversionRate);
+        const githubShareINR = round2(githubShareUSD * conversionRate);
 
         // 5. Map personal sales
         const validUserEmails = new Set(usersData.map((u: any) => u.email.toLowerCase()));
-        
+
         const personalSalesLog: Record<string, Array<any>> = {};
         const personalSalesUsd: Record<string, number> = {};
         let totalGlobalGitSalesYieldUsd = 0;
@@ -170,7 +172,7 @@ export async function GET(req: Request) {
                     let saleValue = parseFloat(project?.github_sold_value || sale.github_sale_value || "0");
                     const emailObj = project?.github_sold_by_email;
                     const email = typeof emailObj === "string" ? emailObj.toLowerCase() : null;
-                    
+
                     if (email && validUserEmails.has(email) && saleValue >= gitRepoBaseSale) {
                         let incentiveUsd = gitRepoBaseInc;
                         const extras = Math.floor((saleValue - gitRepoBaseSale) / gitRepoStep);
@@ -203,9 +205,9 @@ export async function GET(req: Request) {
 
         for (const user of usersData) {
             const email = user.email.toLowerCase();
-            const repSalesUsd = personalSalesUsd[email] || 0;
-            const repSalesInr = repSalesUsd * conversionRate;
-            const absoluteTotalInr = individualShareINR + repSalesInr;
+            const repSalesUsd = round2(personalSalesUsd[email] || 0);
+            const repSalesInr = round2(repSalesUsd * conversionRate);
+            const absoluteTotalInr = round2(individualShareINR + repSalesInr);
 
             finalSalesMap[email] = {
                 poolIncentiveUsd: individualShareUSD,
@@ -232,7 +234,7 @@ export async function GET(req: Request) {
                 ...(user.incentive_amount || {}),
                 [periodStr]: absoluteTotalInr
             };
-            
+
             userUpdates.push(
                 supabaseAdmin.from("users").update({ incentive_amount: updatedIncentives }).eq("id", user.id)
             );
@@ -241,7 +243,7 @@ export async function GET(req: Request) {
         // 7. Commit to DB
         if (upsertPayloads.length > 0) {
             await supabaseAdmin.from("tech_incentives").upsert(upsertPayloads, { onConflict: "email,period" });
-            
+
             if (userUpdates.length > 0) {
                 await Promise.all(userUpdates);
             }
