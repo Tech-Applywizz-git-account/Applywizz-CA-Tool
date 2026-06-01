@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { AssessmentAnalyticsPage } from "./assessment-analytics-page"
 import {
   Users, DollarSign, Calendar, Search, LogOut, LayoutDashboard, Target,
   Trophy, Eye, ChevronLeft, ChevronRight, FileText, Loader2, Activity,
@@ -23,7 +24,7 @@ interface MarketingHeadDashboardProps {
   onLogout: () => void;
 }
 
-type TabType = "overview" | "tracker" | "roster" | "rules";
+type TabType = "overview" | "tracker" | "roster" | "rules" | "invites";
 type TrackerTabType = "jobboard" | "skillpassport" | "influencer";
 
 
@@ -327,6 +328,7 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
     { id: "tracker", label: "Marketing Tracker", icon: Database },
     { id: "roster", label: "Marketers", icon: Users },
     { id: "rules", label: "Financial & Rate Policies", icon: Scale },
+    { id: "invites", label: "Approved Invites", icon: ShieldCheck },
   ] as const
 
   // --- UI Components ---
@@ -1414,6 +1416,11 @@ export function MarketingHeadDashboard({ user, onLogout }: MarketingHeadDashboar
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+        {activeTab === "invites" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 md:p-6">
+            <AssessmentAnalyticsPage scope="executive" />
           </div>
         )}
       </div>

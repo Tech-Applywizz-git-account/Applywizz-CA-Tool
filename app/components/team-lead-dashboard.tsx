@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Plus, AlertTriangle } from "lucide-react"
+import { Calendar, Plus, AlertTriangle, ArrowUpDown } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NewClientForm } from "./new-client-form"
 import { User, Users } from "lucide-react"
@@ -349,7 +349,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     selectedCA === "all"
       ? clients
       : clients.filter((c) => c.assigned_ca_id === selectedCA);
-  const [clientSortOrder, setClientSortOrder] = useState<"active-first" | "paused-first" | "started-first" | "completed-first" | "status-paused-first" | null>("active-first");
+  const [clientSortOrder, setClientSortOrder] = useState<"active-first" | "paused-first" | "started-first" | "completed-first" | "status-paused-first" | "renewal-asc" | "renewal-desc" | null>("active-first");
 
   const q = searchTerm.trim().toLowerCase();
 
@@ -369,6 +369,22 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     if (clientListRef.current) {
       clientListRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  const getRenewalAlertColor = (renewalDateStr?: string | null) => {
+    if (!renewalDateStr) return "bg-white border-slate-200";
+    const renewalDate = new Date(renewalDateStr);
+    renewalDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const diffTime = renewalDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "bg-red-200 border-red-500 shadow-sm shadow-red-200"; // current renewal date
+    if (diffDays === 1) return "bg-orange-200 border-orange-500 shadow-sm shadow-orange-200"; // 1 day before
+    if (diffDays === 2) return "bg-yellow-200 border-yellow-500 shadow-sm shadow-yellow-200"; // 2 days before
+    return "bg-white border-slate-200"; // normal
   };
 
   // const filteredClients = !q
@@ -409,6 +425,16 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         const bPaused = b.status === "Paused";
         if (aPaused === bPaused) return 0;
         return aPaused ? -1 : 1;
+      } else if (clientSortOrder === "renewal-asc") {
+        if (!a.renewal_date && !b.renewal_date) return 0;
+        if (!a.renewal_date) return 1;
+        if (!b.renewal_date) return -1;
+        return new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime();
+      } else if (clientSortOrder === "renewal-desc") {
+        if (!a.renewal_date && !b.renewal_date) return 0;
+        if (!a.renewal_date) return 1;
+        if (!b.renewal_date) return -1;
+        return new Date(b.renewal_date).getTime() - new Date(a.renewal_date).getTime();
       }
       return 0;
     });
@@ -640,7 +666,18 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
             <Card id="all-clients-section" className="overflow-visible">
               <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-bold text-slate-700">{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
+                  <div className="flex items-center gap-4">
+                    <CardTitle className="text-sm font-bold text-slate-700">{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleSortClick(clientSortOrder === "renewal-asc" ? "renewal-desc" : "renewal-asc")}
+                      className="h-7 text-xs flex items-center gap-1 bg-white hover:bg-slate-50"
+                    >
+                      Renewal Date
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                   <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="h-7 text-xs px-3"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Client</Button>
@@ -765,7 +802,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
               >
                 <div className="space-y-4">
                   {filteredClients.map((client) => (
-                    <div key={client.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
+                    <div key={client.id} className={`flex items-center justify-between p-4 rounded-lg border transition-all ${getRenewalAlertColor(client.renewal_date)}`}>
                       <div className="flex items-center gap-3">
                         {client.status === "Started" && client.jobs_applied === 0 && <AlertTriangle className="h-5 w-5 text-red-500" />}
                         <div>
@@ -788,10 +825,10 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                           <div className="text-xs text-slate-600">Emails Received</div>
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-slate-700">
+                          <div className={`text-sm font-semibold ${client.renewal_date ? (new Date(client.renewal_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0) <= 0 ? "text-red-700" : "text-slate-700") : "text-slate-700"}`}>
                             {client.renewal_date ? new Date(client.renewal_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                           </div>
-                          <div className="text-xs text-slate-600">Renewal Date</div>
+                          <div className={`text-xs ${client.renewal_date && (new Date(client.renewal_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0) <= 0) ? "text-red-600 font-medium" : "text-slate-600"}`}>Renewal Date</div>
                         </div>
 
                         {/* Status badge (existing) */}
