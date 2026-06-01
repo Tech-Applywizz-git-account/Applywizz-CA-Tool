@@ -16,6 +16,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { User, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 
 
 
@@ -56,6 +58,73 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [availableCAs, setAvailableCAs] = useState<any[]>([])
   const [teamMappings, setTeamMappings] = useState<Record<string, string>>({})
 
+  // Incentive Visibility Controls State
+  const [caIncentiveVis, setCaIncentiveVis] = useState(false)
+  const [teamLeadIncentiveVis, setTeamLeadIncentiveVis] = useState(true)
+  const [visibleMonths, setVisibleMonths] = useState<string[]>([])
+  const [lastUpdatedBy, setLastUpdatedBy] = useState<string | null>(null)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+  const [savingSettings, setSavingSettings] = useState(false)
+
+  const [selectedVisYear, setSelectedVisYear] = useState<number>(new Date().getFullYear())
+
+  const availableMonths = useMemo(() => {
+    const months = [];
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(selectedVisYear, m, 1);
+      const value = d.toISOString().substring(0, 7); // "YYYY-MM"
+      const label = d.toLocaleString("default", { month: "long", year: "numeric" });
+      months.push({ value, label });
+    }
+    return months;
+  }, [selectedVisYear]);
+
+  useEffect(() => {
+    const fetchVisibilitySettings = async () => {
+      try {
+        const res = await fetch("/api/incentive-visibility");
+        const data = await res.json();
+        if (data.success && data.settings) {
+          setCaIncentiveVis(data.settings.ca_incentive_visibility ?? false);
+          setTeamLeadIncentiveVis(data.settings.team_lead_incentive_visibility ?? true);
+          setVisibleMonths(data.settings.visible_months || []);
+          setLastUpdatedBy(data.updaterName || null);
+          setLastUpdatedAt(data.settings.updated_at || null);
+        }
+      } catch (err) {
+        console.error("Failed to load incentive visibility settings:", err);
+      }
+    };
+    fetchVisibilitySettings();
+  }, []);
+
+  const handleSaveVisibilitySettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch("/api/incentive-visibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ca_incentive_visibility: caIncentiveVis,
+          team_lead_incentive_visibility: teamLeadIncentiveVis,
+          visible_months: visibleMonths,
+          updated_by: user.id
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLastUpdatedBy(data.updaterName || null);
+        setLastUpdatedAt(data.settings.updated_at || null);
+        alert("Visibility settings updated successfully.");
+      } else {
+        alert("Failed to update visibility settings: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Error updating visibility settings: " + err.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   // --- Fetch Team Leads ---
   useEffect(() => {
@@ -1037,6 +1106,116 @@ const openAssignDialog = async (client: any) => {
             />
           </div>
         </div>
+
+        {/* Incentive Visibility Controls Card */}
+        <Card className="mb-6 border-indigo-100 shadow-sm bg-white">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              ⚙️ Incentive Visibility Controls
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold text-slate-800">
+                      Allow Career Associates to View Incentives
+                    </Label>
+                    <p className="text-xs text-slate-500">
+                      Toggle whether CAs can view their performance and incentive amounts on their dashboards.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={caIncentiveVis}
+                    onCheckedChange={setCaIncentiveVis}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold text-slate-800">
+                      Allow Team Leads to View Incentives
+                    </Label>
+                    <p className="text-xs text-slate-500">
+                      Toggle whether Team Leads can view CAs' incentive details.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={teamLeadIncentiveVis}
+                    onCheckedChange={setTeamLeadIncentiveVis}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-semibold text-slate-800">
+                    Visible Incentive Months
+                  </Label>
+                  <Select
+                    value={selectedVisYear.toString()}
+                    onValueChange={(val) => setSelectedVisYear(parseInt(val))}
+                  >
+                    <SelectTrigger className="w-28 h-8 text-xs">
+                      <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                      <SelectItem value="2027">2027</SelectItem>
+                      <SelectItem value="2028">2028</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-slate-500 mb-3">
+                  Select which months' incentives are accessible/visible to CAs and Team Leads.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 border border-slate-200 rounded-lg max-h-[160px] overflow-y-auto">
+                  {availableMonths.map((m) => (
+                    <div key={m.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`month-${m.value}`}
+                        checked={visibleMonths.includes(m.value)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setVisibleMonths((prev) => [...prev, m.value]);
+                          } else {
+                            setVisibleMonths((prev) => prev.filter((x) => x !== m.value));
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor={`month-${m.value}`}
+                        className="text-xs font-medium text-slate-700 cursor-pointer select-none"
+                      >
+                        {m.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              <div className="text-xs text-slate-500">
+                {lastUpdatedAt && (
+                  <span>
+                    Last updated by <span className="font-semibold">{lastUpdatedBy || "Unknown"}</span> on{" "}
+                    <span className="font-semibold">{new Date(lastUpdatedAt).toLocaleString("en-IN")}</span>
+                  </span>
+                )}
+              </div>
+              <Button
+                onClick={handleSaveVisibilitySettings}
+                disabled={savingSettings}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                {savingSettings ? "Saving..." : "Save Visibility Settings"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Team Incentives (only when a specific Team Lead is selected) */}
         {selectedTeamLead !== "all" && (
