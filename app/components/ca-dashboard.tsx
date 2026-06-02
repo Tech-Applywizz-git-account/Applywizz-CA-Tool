@@ -1110,7 +1110,7 @@ const { data, error } = await supabase
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
 
           {/* top Card: Performance Snapshot */}
-          <PermissionOverlay show={shouldShowOverlay}>
+          <PermissionOverlay show={shouldShowOverlay || isOnBehalfMode}>
             <Card>
               {user.role !== 'Career Associative Trainee' && (
                 <>
