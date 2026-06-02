@@ -425,16 +425,33 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         const bPaused = b.status === "Paused";
         if (aPaused === bPaused) return 0;
         return aPaused ? -1 : 1;
-      } else if (clientSortOrder === "renewal-asc") {
+      } else if (clientSortOrder === "renewal-asc" || clientSortOrder === "renewal-desc") {
+        // Active first priority
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+
+        const getPriority = (c: any) => {
+          if (!c.renewal_date) return 99;
+          const rDate = new Date(c.renewal_date);
+          rDate.setHours(0, 0, 0, 0);
+          const tDate = new Date();
+          tDate.setHours(0, 0, 0, 0);
+          const diff = Math.ceil((rDate.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diff === 0) return 1; // today
+          if (diff === 1) return 2; // tomorrow
+          if (diff === 2) return 3; // day after tomorrow
+          return 10; // others
+        };
+
+        const pA = getPriority(a);
+        const pB = getPriority(b);
+        if (pA !== pB) return pA - pB; // lower priority numbers appear first
+
         if (!a.renewal_date && !b.renewal_date) return 0;
         if (!a.renewal_date) return 1;
         if (!b.renewal_date) return -1;
-        return new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime();
-      } else if (clientSortOrder === "renewal-desc") {
-        if (!a.renewal_date && !b.renewal_date) return 0;
-        if (!a.renewal_date) return 1;
-        if (!b.renewal_date) return -1;
-        return new Date(b.renewal_date).getTime() - new Date(a.renewal_date).getTime();
+        
+        const timeDiff = new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime();
+        return clientSortOrder === "renewal-asc" ? timeDiff : -timeDiff;
       }
       return 0;
     });
