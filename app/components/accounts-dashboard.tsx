@@ -255,36 +255,30 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
   );
 
   const renderIncentivePanel = () => {
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-
     const getCategoryDetails = (expectedDateStr: string) => {
-      if (!expectedDateStr) return { label: "Unknown", className: "bg-slate-100 text-slate-700 border-slate-200" };
-      const dateStr = expectedDateStr.substring(0, 10);
-      if (dateStr < todayStr) {
-        return {
-          label: "🚨 Overdue",
-          className: "bg-rose-50 text-rose-700 border-rose-200 animate-pulse font-bold"
-        };
-      } else if (dateStr === todayStr) {
-        return {
-          label: "⚡ Today",
-          className: "bg-amber-50 text-amber-800 border-amber-200 font-bold"
-        };
-      } else if (dateStr === tomorrowStr) {
-        return {
-          label: "📅 Tomorrow",
-          className: "bg-purple-50 text-purple-700 border-purple-200 font-bold"
-        };
-      } else {
-        return {
-          label: "✨ Upcoming",
-          className: "bg-sky-50 text-sky-700 border-sky-200 font-bold"
-        };
+      if (!expectedDateStr) return { label: "Unknown", className: "bg-slate-100 text-slate-700 border-slate-200", filterValue: "unknown" };
+      
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const expected = new Date(expectedDateStr);
+        expected.setHours(0, 0, 0, 0);
+        const diffTime = expected.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) {
+          return { label: "🚨 Overdue", className: "bg-rose-50 text-rose-700 border-rose-200 animate-pulse font-bold", filterValue: "overdue" };
+        } else if (diffDays === 0) {
+          return { label: "⏳ Today", className: "bg-amber-50 text-amber-800 border-amber-200 font-bold", filterValue: "today" };
+        } else if (diffDays >= 1 && diffDays <= 3) {
+          return { label: "📅 1 - 3 Days", className: "bg-blue-50 text-blue-700 border-blue-200 font-bold", filterValue: "1-3" };
+        } else if (diffDays >= 4 && diffDays <= 7) {
+          return { label: "📅 4 - 7 Days", className: "bg-purple-50 text-purple-700 border-purple-200 font-bold", filterValue: "4-7" };
+        } else {
+          return { label: "🔮 > 7 Days", className: "bg-sky-50 text-sky-700 border-sky-200 font-bold", filterValue: "7+" };
+        }
+      } catch (e) {
+        return { label: "Unknown", className: "bg-slate-100 text-slate-700 border-slate-200", filterValue: "unknown" };
       }
     };
 
@@ -292,11 +286,7 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
     if (scheduleFilter !== "all") {
         filteredMonthRenewals = filteredMonthRenewals.filter((d: any) => {
             const cat = getCategoryDetails(d.expected_renewal_date);
-            if (scheduleFilter === "overdue") return cat.label.includes("Overdue");
-            if (scheduleFilter === "today") return cat.label.includes("Today");
-            if (scheduleFilter === "tomorrow") return cat.label.includes("Tomorrow");
-            if (scheduleFilter === "upcoming") return cat.label.includes("Upcoming");
-            return true;
+            return cat.filterValue === scheduleFilter;
         });
     }
 
@@ -465,8 +455,9 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
                     <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="tomorrow">Tomorrow</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="1-3">1 - 3 Days</SelectItem>
+                    <SelectItem value="4-7">4 - 7 Days</SelectItem>
+                    <SelectItem value="7+">&gt; 7 Days</SelectItem>
                   </SelectContent>
                 </Select>
                 <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-black text-[10px] px-2.5 py-1 uppercase tracking-wider">

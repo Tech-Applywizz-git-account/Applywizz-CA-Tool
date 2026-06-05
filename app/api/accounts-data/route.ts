@@ -440,7 +440,12 @@ export async function GET(req: Request) {
         // If single email requested, filter
         let result = Object.values(amMetrics);
         if (email) {
-            result = result.filter((am: any) => am.email.toLowerCase() === email.toLowerCase());
+            const e = email.toLowerCase();
+            const altE = e.includes('@applywizz.com') ? e.replace('@applywizz.com', '@applywizz.ai') : e.replace('@applywizz.ai', '@applywizz.com');
+            result = result.filter((am: any) => {
+                const amEmail = am.email.toLowerCase();
+                return amEmail === e || amEmail === altE;
+            });
         }
 
         return NextResponse.json({

@@ -94,11 +94,16 @@ export async function GET(req: Request) {
         }
 
         // Update user.incentive_amount JSONB with monthly totals
-        const { data: userData } = await supabaseAdmin
+        const e = email.toLowerCase();
+        const altE = e.includes('@applywizz.com') ? e.replace('@applywizz.com', '@applywizz.ai') : e.replace('@applywizz.ai', '@applywizz.com');
+        
+        const { data: userDataList } = await supabaseAdmin
             .from("users")
             .select("id, incentive_amount")
-            .eq("email", email)
-            .single();
+            .in("email", [e, altE])
+            .limit(1);
+
+        const userData = userDataList?.[0];
 
         if (userData?.id) {
             const updatedIncentives = {
