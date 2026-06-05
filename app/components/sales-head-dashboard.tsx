@@ -13,7 +13,7 @@ import {
   Users, TrendingUp, DollarSign, Calendar, Search, LogOut, Medal, BarChart3,
   LayoutDashboard, Target, Flame, Trophy, Sparkles, Eye, ChevronLeft, ChevronRight,
   FileText, Loader2, Crown, Activity, ArrowUpRight, Zap, Receipt, Download, Filter,
-  Settings2, PlusCircle, ArrowRight, LockOpen, Trash2, Save
+  Settings2, PlusCircle, ArrowRight, LockOpen, Trash2, Save, RefreshCw
 } from "lucide-react"
 
 // Import existing reusable modules
@@ -52,8 +52,40 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
 
   // Month navigation
   const [monthOffset, setMonthOffset] = useState(0)
+  const [syncing, setSyncing] = useState(false)
   const targetDate = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1), [monthOffset])
   const monthName = useMemo(() => targetDate.toLocaleString("default", { month: "long", year: "numeric" }), [targetDate])
+
+  const handleSyncCRM = async () => {
+    setSyncing(true)
+    try {
+      const activeRepsForCalc = salesReps.filter(r => r.isactive);
+      const calcPromises = activeRepsForCalc.map(rep =>
+        fetch(`/api/calculate-sales-incentives?email=${encodeURIComponent(rep.email)}&role=${encodeURIComponent(rep.role)}&period=${encodeURIComponent(monthName)}&t=${new Date().getTime()}`, {
+          cache: "no-store",
+          headers: {
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache, no-store, must-revalidate"
+          }
+        })
+      );
+      
+      const results = await Promise.all(calcPromises);
+      const allOk = results.every(res => res.ok);
+
+      if (allOk) {
+        await fetchSalesUsers();
+        alert("CRM Synchronized and Incentives Recalculated Successfully!");
+      } else {
+        alert("Some recalculations failed. Check console or CRM connectivity.");
+      }
+    } catch (e) {
+      console.error("Sync error:", e)
+      alert("Error synchronizing CRM data.")
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Performance data
   const [streaksMap, setStreaksMap] = useState<Record<string, number>>({})
@@ -299,11 +331,15 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
   // Leaderboard data computation
   const leaderboardReps = useMemo(() => {
     return [...activeReps].map(rep => {
-      const email = rep.email
-      const em = monthlyExpData[email] || { dailySalesCount: 0, totalSalesCount: 0, overAchieverCount: 0, details: [] }
-      const streaks = streaksMap[email] || 0
+      const email = rep.email?.toLowerCase() || ""
+      const altEmail = email.includes('@applywizz.com') ? email.replace('@applywizz.com', '@applywizz.ai') : email.replace('@applywizz.ai', '@applywizz.com')
+      
+      const em = monthlyExpData[email] || monthlyExpData[altEmail] || { dailySalesCount: 0, totalSalesCount: 0, overAchieverCount: 0, details: [] }
+      const streaks = streaksMap[email] || streaksMap[altEmail] || 0
 
-      const userIncs = incentivesByPeriod.filter(r => r.email === email && r.role === rep.role)
+      const userIncs = incentivesByPeriod.filter(r => 
+        (r.email?.toLowerCase() === email || r.email?.toLowerCase() === altEmail) && r.role === rep.role
+      )
       const fullMonthAchievedAmount = userIncs.reduce((sum, r) => sum + (Number(r.achieved_amount) || 0), 0)
       const fullMonthBoosterRevenue = userIncs.reduce((sum, r) => sum + (Number(r.booster_revenue) || 0), 0)
       const fullMonthDailyBonus = userIncs.reduce((sum, r) => sum + (Number(r.daily_bonus) || 0), 0)
@@ -338,9 +374,25 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
       let cycleDailySalesCount = 0
       let cycleTotalSalesCount = 0
       let cycleOverAchieverCount = 0
+      
+      // Compute accurate total sales directly from CRM ledger, completely bypassing expected-revenue tracking bugs
+      const repTrueSales = allSalesRecords.filter(s => {
+          const sEmail = (s.account_assigned_email || "").toLowerCase();
+          return sEmail === email || sEmail === altEmail;
+      });
+      
+      const activeDays = new Set<string>();
+      repTrueSales.forEach(s => {
+          const d = new Date(s.closed_at || s.sales_closure || new Date());
+          const isCycle1 = d.getDate() <= 15;
+          if ((biWeeklyCycle === 1 && isCycle1) || (biWeeklyCycle === 2 && !isCycle1)) {
+              cycleTotalSalesCount++;
+              activeDays.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+          }
+      });
+      cycleDailySalesCount = activeDays.size;
+
       validDetails.forEach((entry: any) => {
-        const actualSales = entry.actual_awl_ids?.length || 0
-        if (actualSales > 0) { cycleDailySalesCount += 1; cycleTotalSalesCount += actualSales }
         if (entry.has_revenue && entry.sales?.length > 0) {
           const expectedRev = (entry.sales || []).reduce((s: number, sale: any) => s + (Number(sale.expected_revenue) || 0), 0)
           const actualRev = Number(entry.actual_revenue) || 0
@@ -381,11 +433,19 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
       if (a.totalSalesCount !== b.totalSalesCount) return b.totalSalesCount - a.totalSalesCount
       return b.overAchieverCount - a.overAchieverCount
     })
-  }, [activeReps, monthlyExpData, streaksMap, incentivesByPeriod, biWeeklyCycle, roleConfigs])
+  }, [activeReps, monthlyExpData, streaksMap, incentivesByPeriod, biWeeklyCycle, roleConfigs, allSalesRecords])
 
   // Summary stats
   const totalActiveReps = activeReps.length
-  const activeEmails = new Set(activeReps.map(r => r.email?.toLowerCase()).filter(Boolean))
+  const activeEmails = new Set<string>()
+  activeReps.forEach(r => {
+      if (r.email) {
+          const e = r.email.toLowerCase()
+          activeEmails.add(e)
+          if (e.includes('@applywizz.com')) activeEmails.add(e.replace('@applywizz.com', '@applywizz.ai'))
+          else if (e.includes('@applywizz.ai')) activeEmails.add(e.replace('@applywizz.ai', '@applywizz.com'))
+      }
+  })
   const totalRevenue = Object.entries(incentiveBreakdown).reduce((sum, [email, ib]) => sum + (activeEmails.has(email) ? (ib.achievedAmount || 0) : 0), 0)
   const totalStreaks = Object.entries(streaksMap).reduce((sum, [email, s]) => sum + (activeEmails.has(email.toLowerCase()) ? s : 0), 0)
   const overviewTotalSales = allSalesRecords.filter(s => activeEmails.has(s.account_assigned_email?.toLowerCase())).length
@@ -394,26 +454,52 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
   // Sales Records computed values
   const repEmailToName = useMemo(() => {
     const map: Record<string, string> = {}
-    salesReps.forEach(r => { if (r.email) map[r.email.toLowerCase()] = r.name || r.email })
+    salesReps.forEach(r => {
+        if (r.email) {
+            const e = r.email.toLowerCase();
+            const name = r.name || r.email;
+            map[e] = name;
+            if (e.includes('@applywizz.com')) map[e.replace('@applywizz.com', '@applywizz.ai')] = name;
+            else if (e.includes('@applywizz.ai')) map[e.replace('@applywizz.ai', '@applywizz.com')] = name;
+        }
+    })
     return map
   }, [salesReps])
 
   const filteredAllSales = useMemo(() => {
     // Build set of known sales rep emails
-    const knownRepEmails = new Set(salesReps.map(r => r.email?.toLowerCase()).filter(Boolean))
+    const knownRepEmails = new Set<string>()
+    salesReps.forEach(r => {
+        if (r.email) {
+            const e = r.email.toLowerCase()
+            knownRepEmails.add(e)
+            if (e.includes('@applywizz.com')) knownRepEmails.add(e.replace('@applywizz.com', '@applywizz.ai'))
+            else if (e.includes('@applywizz.ai')) knownRepEmails.add(e.replace('@applywizz.ai', '@applywizz.com'))
+        }
+    })
+    
     let records = [...allSalesRecords]
     // Always scope to known sales reps unless a specific non-rep person is selected
     if (salesPersonFilter === "All") {
       records = records.filter(s => knownRepEmails.has(s.account_assigned_email?.toLowerCase()))
     } else {
-      records = records.filter(s => s.account_assigned_email?.toLowerCase() === salesPersonFilter.toLowerCase())
+      const spf = salesPersonFilter.toLowerCase();
+      const altSpf = spf.includes('@applywizz.com') ? spf.replace('@applywizz.com', '@applywizz.ai') : spf.replace('@applywizz.ai', '@applywizz.com');
+      records = records.filter(s => {
+         const ea = s.account_assigned_email?.toLowerCase();
+         return ea === spf || ea === altSpf;
+      })
     }
     if (salesStatusFilter !== "all") {
-      const targetEmails = new Set(
-        salesReps
-          .filter(r => salesStatusFilter === "active" ? r.isactive : !r.isactive)
-          .map(r => r.email?.toLowerCase())
-      )
+      const targetEmails = new Set<string>()
+      salesReps.filter(r => salesStatusFilter === "active" ? r.isactive : !r.isactive).forEach(r => {
+          if (r.email) {
+             const e = r.email.toLowerCase()
+             targetEmails.add(e)
+             if (e.includes('@applywizz.com')) targetEmails.add(e.replace('@applywizz.com', '@applywizz.ai'))
+             else if (e.includes('@applywizz.ai')) targetEmails.add(e.replace('@applywizz.ai', '@applywizz.com'))
+          }
+      })
       records = records.filter(s => targetEmails.has(s.account_assigned_email?.toLowerCase()))
     }
     if (salesSearchQuery.trim()) {
@@ -623,8 +709,18 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
             </div>
           </div>
 
-          {/* Month Navigation */}
-          <div className="hidden md:flex items-center gap-2 bg-white/80 backdrop-blur-sm px-1.5 py-1 rounded-xl border border-slate-200/60 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Button 
+              onClick={handleSyncCRM} 
+              disabled={syncing}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-9 px-4 rounded-xl shadow-sm transition-all flex items-center gap-2"
+            >
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <span className="hidden sm:inline">{syncing ? "Syncing CRM..." : "Sync CRM"}</span>
+            </Button>
+            
+            {/* Month Navigation */}
+            <div className="hidden md:flex items-center gap-2 bg-white/80 backdrop-blur-sm px-1.5 py-1 rounded-xl border border-slate-200/60 shadow-sm">
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => setMonthOffset(p => p - 1)}>
               <ChevronLeft className="h-4 w-4 text-slate-600" />
             </Button>
@@ -640,6 +736,7 @@ export function SalesHeadDashboard({ user, onLogout }: SalesHeadDashboardProps) 
                 Today
               </Button>
             )}
+            </div>
           </div>
 
           {/* User Section */}

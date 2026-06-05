@@ -212,11 +212,16 @@ export async function GET(req: Request) {
             }, { status: 502 });
         }
 
-        // Filter sales for this specific rep by account_assigned_email
+        // Filter sales for this specific rep by account_assigned_email (handling both .com and .ai domains)
         const allSalesData = crmData.data || [];
-        const sales = allSalesData.filter((s: any) =>
-            s.account_assigned_email?.toLowerCase() === email.toLowerCase()
-        );
+        const sales = allSalesData.filter((s: any) => {
+            const saleEmail = s.account_assigned_email?.toLowerCase();
+            const repEmail = email.toLowerCase();
+            if (!saleEmail) return false;
+            return saleEmail === repEmail || 
+                   saleEmail === repEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                   saleEmail === repEmail.replace('@applywizz.ai', '@applywizz.com');
+        });
 
         const getRoleForMonth = (monthStr: string) => {
             if (Object.keys(role_history).length === 0) return role;

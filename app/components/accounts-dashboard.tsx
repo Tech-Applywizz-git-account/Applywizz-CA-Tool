@@ -65,6 +65,7 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
   const [renewalsSearchQuery, setRenewalsSearchQuery] = useState("");
   const [salesSearchQuery, setSalesSearchQuery] = useState("");
   const [salesStatusFilter, setSalesStatusFilter] = useState("all");
+  const [scheduleFilter, setScheduleFilter] = useState("all");
 
   const targetDate = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1), [monthOffset])
   const monthName = useMemo(() => targetDate.toLocaleString("default", { month: "long", year: "numeric" }), [targetDate])
@@ -255,11 +256,11 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
 
   const renderIncentivePanel = () => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
     const getCategoryDetails = (expectedDateStr: string) => {
       if (!expectedDateStr) return { label: "Unknown", className: "bg-slate-100 text-slate-700 border-slate-200" };
@@ -287,8 +288,19 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
       }
     };
 
-    const sortedMonthRenewals = combinedThisMonth
-      .filter((d: any) => !d.renewed)
+    let filteredMonthRenewals = combinedThisMonth.filter((d: any) => !d.renewed);
+    if (scheduleFilter !== "all") {
+        filteredMonthRenewals = filteredMonthRenewals.filter((d: any) => {
+            const cat = getCategoryDetails(d.expected_renewal_date);
+            if (scheduleFilter === "overdue") return cat.label.includes("Overdue");
+            if (scheduleFilter === "today") return cat.label.includes("Today");
+            if (scheduleFilter === "tomorrow") return cat.label.includes("Tomorrow");
+            if (scheduleFilter === "upcoming") return cat.label.includes("Upcoming");
+            return true;
+        });
+    }
+
+    const sortedMonthRenewals = filteredMonthRenewals
       .sort((a: any, b: any) => {
         return (a.expected_renewal_date || "").localeCompare(b.expected_renewal_date || "");
       });
@@ -444,9 +456,23 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                 </CardTitle>
                 <CardDescription className="text-xs font-semibold text-slate-500 mt-1">Pending clients to work on for renewals in {monthName}</CardDescription>
               </div>
-              <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-black text-[10px] px-2.5 py-1 uppercase tracking-wider">
-                {sortedMonthRenewals.length} Pending
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
+                  <SelectTrigger className="w-full sm:w-36 h-9 text-xs bg-white">
+                    <SelectValue placeholder="Schedule Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="tomorrow">Tomorrow</SelectItem>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-black text-[10px] px-2.5 py-1 uppercase tracking-wider">
+                  {sortedMonthRenewals.length} Pending
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -476,7 +502,20 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                           {d.expected_renewal_date ? new Date(d.expected_renewal_date).toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                         </TableCell>
                         <TableCell className="text-xs font-bold text-slate-800">{d.lead_name || "—"}</TableCell>
-                        <TableCell className="text-xs font-mono text-indigo-600 font-bold">{d.awl_id || d.lead_id || "—"}</TableCell>
+                        <TableCell className="text-xs font-mono text-indigo-600 font-bold">
+                          {isViewOnly ? (
+                            <a
+                              href={`https://applywizz-crm-tool.vercel.app/leads/${(d.awl_id || d.lead_id || "").trim()}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800 hover:underline decoration-indigo-300 transition-colors"
+                            >
+                              {d.awl_id || d.lead_id || "—"}
+                            </a>
+                          ) : (
+                            d.awl_id || d.lead_id || "—"
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs text-center text-slate-500 font-bold">{d.subscription_cycle || "—"}</TableCell>
                         <TableCell className="text-xs text-center text-slate-500 font-bold">{d.renewal_extension_days || "0"}</TableCell>
                       </TableRow>
@@ -716,7 +755,20 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                     <TableRow key={r.id || i} className="bg-emerald-50/20">
                       <TableCell className="text-xs font-bold text-slate-400">{(renewalRecordsPage - 1) * renewalRecordsPerPage + i + 1}</TableCell>
                       <TableCell className="font-bold text-sm text-slate-700">{r.lead_name || "—"}</TableCell>
-                      <TableCell className="text-xs font-mono text-slate-500">{r.lead_id || r.awl_id || "—"}</TableCell>
+                      <TableCell className="text-xs font-mono text-slate-500">
+                        {isViewOnly ? (
+                          <a
+                            href={`https://applywizz-crm-tool.vercel.app/leads/${(r.lead_id || r.awl_id || "").trim()}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 hover:text-indigo-800 hover:underline decoration-indigo-300 transition-colors"
+                          >
+                            {r.lead_id || r.awl_id || "—"}
+                          </a>
+                        ) : (
+                          r.lead_id || r.awl_id || "—"
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-bold text-emerald-700">${Number(r.application_sale_value || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-xs text-slate-500">{r.closed_at ? new Date(r.closed_at).toLocaleDateString() : "—"}</TableCell>
                       <TableCell className="text-xs text-slate-500">{r.payment_mode || "—"}</TableCell>
@@ -841,7 +893,20 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                     <TableRow key={s.lead_id + i} className="bg-cyan-50/20">
                       <TableCell className="text-xs font-bold text-slate-400">{(salesRecordsPage - 1) * salesRecordsPerPage + i + 1}</TableCell>
                       <TableCell className="font-bold text-sm text-slate-700">{s.lead_name || "—"}</TableCell>
-                      <TableCell className="text-xs font-mono text-indigo-600 font-bold">{s.awl_id || s.lead_id || "—"}</TableCell>
+                      <TableCell className="text-xs font-mono text-indigo-600 font-bold">
+                        {isViewOnly ? (
+                          <a
+                            href={`https://applywizz-crm-tool.vercel.app/leads/${(s.awl_id || s.lead_id || "").trim()}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 hover:text-indigo-800 hover:underline decoration-indigo-300 transition-colors"
+                          >
+                            {s.awl_id || s.lead_id || "—"}
+                          </a>
+                        ) : (
+                          s.awl_id || s.lead_id || "—"
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-slate-500">{s.email || "—"}</TableCell>
                       <TableCell className="text-right font-bold text-cyan-700">${Number(s.sale_value || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-xs text-slate-500">{s.closed_at ? new Date(s.closed_at).toLocaleDateString() : "—"}</TableCell>
@@ -938,7 +1003,20 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                   <TableRow key={d.lead_id + i} className={d.renewed ? "bg-emerald-50/30" : ""}>
                     <TableCell className="text-xs font-bold text-slate-400">{(currentPage - 1) * upcomingPerPage + i + 1}</TableCell>
                     <TableCell className="font-bold text-sm text-slate-700">{d.lead_name || "—"}</TableCell>
-                    <TableCell className="text-xs font-mono text-indigo-600 font-bold">{d.awl_id || d.lead_id}</TableCell>
+                    <TableCell className="text-xs font-mono text-indigo-600 font-bold">
+                      {isViewOnly ? (
+                        <a
+                          href={`https://applywizz-crm-tool.vercel.app/leads/${(d.awl_id || d.lead_id || "").trim()}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-600 hover:text-indigo-800 hover:underline decoration-indigo-300 transition-colors"
+                        >
+                          {d.awl_id || d.lead_id}
+                        </a>
+                      ) : (
+                        d.awl_id || d.lead_id
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.subscription_cycle || "—"}</TableCell>
                     <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.renewal_extension_days || "0"}</TableCell>
                     <TableCell className="text-xs text-slate-500">{new Date(d.expected_renewal_date).toLocaleDateString()}</TableCell>

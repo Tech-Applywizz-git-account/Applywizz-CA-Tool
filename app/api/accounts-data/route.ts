@@ -339,7 +339,14 @@ export async function GET(req: Request) {
                 amEmail = (sale.account_assigned_email || "").toLowerCase().trim();
             }
 
-            if (!amMetrics[amEmail]) return;
+            if (!amMetrics[amEmail]) {
+                const altEmail = amEmail.includes('@applywizz.com') ? amEmail.replace('@applywizz.com', '@applywizz.ai') : amEmail.replace('@applywizz.ai', '@applywizz.com');
+                if (amMetrics[altEmail]) {
+                    amEmail = altEmail;
+                } else {
+                    return;
+                }
+            }
 
             // Check if this sale's closed_at (or sales_closure) falls in the target month
             const closedAt = sale.closed_at || sale.sales_closure;

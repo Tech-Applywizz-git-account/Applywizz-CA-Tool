@@ -11,6 +11,9 @@ import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Download, Edit2, 
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResumeCompletionPanel } from "./resume-completion-panel"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { WorkingDaysCalendar } from "./working-days-calendar" // touch to refresh TS server
+import { Calendar } from "lucide-react"
 
 interface CROResumeDashboardProps {
     basePath: string;
@@ -20,6 +23,8 @@ interface CROResumeDashboardProps {
 
 export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashboardProps) {
     const [resumeReps, setResumeReps] = useState<any[]>([])
+    const [forageSales, setForageSales] = useState<any[]>([])
+    const [selectedRepSales, setSelectedRepSales] = useState<{ repName: string; sales: any[] } | null>(null)
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
 
@@ -90,6 +95,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                 const data = await calcRes.json();
                 setTargetBaseline(data.baselineTarget || 0);
                 setWorkingDays(data.workingDays || 0);
+                setForageSales(data.forageSalesData || []);
             }
 
             // 2. Process Users + Incentives
@@ -259,6 +265,39 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
         return r.includes("trainee") || d.includes("trainee") || r === "bdt-p" || d === "bdt-p";
     }
 
+    const getJobSimulationsCount = (email: string) => {
+        const targetEmail = email.toLowerCase();
+        return forageSales.filter((s: any) => {
+            if (!s.forage_info || !s.forage_info[0]) return false;
+            const sellerEmailRaw = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmailRaw) return false;
+            return sellerEmailRaw === targetEmail ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+        }).length;
+    };
+
+    const handleShowSalesDetails = (repName: string, email: string) => {
+        const targetEmail = email.toLowerCase();
+        const repSales = forageSales.filter((s: any) => {
+            if (!s.forage_info || !s.forage_info[0]) return false;
+            const sellerEmailRaw = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmailRaw) return false;
+            return sellerEmailRaw === targetEmail ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+        }).map((s: any) => {
+            const fInfo = s.forage_info[0];
+            return {
+                id: s.id,
+                lead_name: s.lead_name || s.lead_id || "Unknown Client",
+                certs: parseInt(s.forage_internship_certification || fInfo.forage_internship_certification || "0"),
+                sold_value: parseFloat(fInfo.forage_sold_value || s.forage_internship_sale_value || "0")
+            };
+        });
+        setSelectedRepSales({ repName, sales: repSales });
+    };
+
     const filteredReps = useMemo(() => {
         return resumeReps.filter(rep => {
             if (!searchTerm.trim()) return true
@@ -272,14 +311,35 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
         activeTrainees: filteredReps.filter(rep => rep.isactive && isTrainee(rep))
     }), [filteredReps]);
 
-    const { totalIncentivesINR, totalResumeIncentivesINR, totalForageIncentivesINR, totalCompletedResumes, totalExtraResumes, totalJobSimulationsUSD } = useMemo(() => ({
-        totalIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.total_incentive_inr || 0), 0),
-        totalResumeIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.incentive_inr || 0), 0),
-        totalForageIncentivesINR: activeReps.reduce((sum, rep) => sum + ((rep.forage_direct_incentive_inr || 0) + (rep.forage_team_split_inr || 0) + (rep.forage_bonus_inr || 0)), 0),
-        totalCompletedResumes: activeReps.reduce((sum, rep) => sum + (rep.completed_resumes || 0), 0),
-        totalExtraResumes: activeReps.reduce((sum, rep) => sum + (rep.extra_resumes || 0), 0),
-        totalJobSimulationsUSD: activeReps.reduce((sum, rep) => sum + (rep.forage_sales_usd || 0), 0)
-    }), [activeReps]);
+    const { totalIncentivesINR, totalResumeIncentivesINR, totalForageIncentivesINR, totalCompletedResumes, totalExtraResumes, totalJobSimulationsUSD, totalCertifications } = useMemo(() => {
+        const activeRepEmails = activeReps.map(r => r.email?.toLowerCase());
+        const forageStats = forageSales.reduce((acc: { certs: number, usd: number }, sale: any) => {
+            if (!sale.forage_info || !sale.forage_info[0]) return acc;
+            const sellerEmail = sale.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmail) return acc;
+            const matched = activeRepEmails.find(e =>
+                e === sellerEmail ||
+                e === sellerEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                e === sellerEmail.replace('@applywizz.ai', '@applywizz.com')
+            );
+            if (matched) {
+                const certs = parseInt(sale.forage_info[0].forage_internship_certification || sale.forage_internship_certification || "0");
+                const usd = parseFloat(sale.forage_info[0].forage_sold_value || sale.forage_internship_sale_value || "0");
+                return { certs: acc.certs + certs, usd: acc.usd + usd };
+            }
+            return acc;
+        }, { certs: 0, usd: 0 });
+
+        return {
+            totalIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.total_incentive_inr || 0), 0),
+            totalResumeIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.incentive_inr || 0), 0),
+            totalForageIncentivesINR: activeReps.reduce((sum, rep) => sum + ((rep.forage_direct_incentive_inr || 0) + (rep.forage_team_split_inr || 0) + (rep.forage_bonus_inr || 0)), 0),
+            totalCompletedResumes: activeReps.reduce((sum, rep) => sum + (rep.completed_resumes || 0), 0),
+            totalExtraResumes: activeReps.reduce((sum, rep) => sum + (rep.extra_resumes || 0), 0),
+            totalJobSimulationsUSD: forageStats.usd,
+            totalCertifications: forageStats.certs
+        };
+    }, [activeReps, forageSales]);
 
     const exportToCSV = () => {
         const headers = ["Name", "Email", "Designation", "Status", "Working Days", "Required Target", "Completed", "Extra Resumes", "Incentive (INR)"];
@@ -377,7 +437,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                     <ChevronLeft className="h-4 w-4 mr-1" /> Previous Month
                                 </Button>
                                 <Button variant="default" onClick={() => setMonthOffset(0)}>
-                                    This Month
+                                    {getMonthName()}
                                 </Button>
                                 <Button variant="outline" onClick={() => setMonthOffset((prev) => prev + 1)}>
                                     Next Month <ChevronRight className="h-4 w-4 ml-1" />
@@ -417,8 +477,12 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                 <span className="font-black text-slate-800 text-lg">{totalCompletedResumes}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-emerald-700 font-bold">Job Simulations Target Volume</span>
+                                <span className="text-emerald-700 font-bold">Job Simulations Revenue (All)</span>
                                 <span className="font-black text-emerald-600 border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 rounded text-lg">${totalJobSimulationsUSD.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-amber-700 font-bold">Total Certifications</span>
+                                <span className="font-black text-amber-600 border border-amber-200 bg-amber-50 px-2 py-0.5 rounded text-sm">{totalCertifications}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs">
                                 <span className="text-indigo-700 font-bold">Resumes Exceeding Quota</span>
@@ -475,14 +539,18 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                 </div>
 
                 <Tabs defaultValue="financial-engine" className="w-full mb-8">
-                    <TabsList className="grid w-full grid-cols-2 h-14 bg-white border border-slate-200 shadow-sm mb-6 p-1.5 rounded-xl">
-                        <TabsTrigger value="financial-engine" className="rounded-lg font-bold transition-all data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm">
+                    <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-14 bg-white border border-slate-200 shadow-sm mb-6 p-1.5 rounded-xl gap-1">
+                        <TabsTrigger value="financial-engine" className="rounded-lg font-bold transition-all data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm py-2 md:py-0">
                             <Settings2 className="mr-2 h-4 w-4" />
                             Department Financial Engine
                         </TabsTrigger>
-                        <TabsTrigger value="submitted-forms" className="rounded-lg font-bold transition-all data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 data-[state=active]:shadow-sm">
+                        <TabsTrigger value="submitted-forms" className="rounded-lg font-bold transition-all data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 data-[state=active]:shadow-sm py-2 md:py-0">
                             <ClipboardList className="mr-2 h-4 w-4" />
                             Resume Submitted Forms
+                        </TabsTrigger>
+                        <TabsTrigger value="calendar-config" className="rounded-lg font-bold transition-all data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 data-[state=active]:shadow-sm py-2 md:py-0">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Working Days Calendar
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="financial-engine" className="mt-0 focus-visible:ring-0">
@@ -647,6 +715,9 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     <TabsContent value="submitted-forms" className="mt-0 focus-visible:ring-0">
                         <ResumeCompletionPanel monthOffset={monthOffset} />
                     </TabsContent>
+                    <TabsContent value="calendar-config" className="mt-0 focus-visible:ring-0">
+                        <WorkingDaysCalendar monthOffset={monthOffset} periodName={getMonthName()} onRecalculateNeeded={() => handleRecalculate(true)} />
+                    </TabsContent>
                 </Tabs>
 
                 <Card className="mb-8 overflow-hidden shadow-sm">
@@ -679,10 +750,11 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                     <TableRow className="bg-slate-50/50">
                                         <TableHead className="pl-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Identity Details</TableHead>
                                         <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">Status</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500 text-blue-700">Total Completed</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700">Extra Volume</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-center">Job Simulation Yield</TableHead>
-                                        <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-indigo-700">Total Compensation</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500 text-blue-700">Resumes Completed</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-center">Job Simulations</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-blue-700 text-right">Incentive on Resumes</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-right">Incentive on Job Sim</TableHead>
+                                        <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-indigo-700">Total Incentives</TableHead>
                                         <TableHead className="text-right pr-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -692,7 +764,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                             <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <Users className="h-8 w-8 text-slate-300" />
-                                                    <p>No active resume representatives found for this month.</p>
+                                                    <p>No active resume representatives found for {getMonthName()}.</p>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -710,29 +782,37 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                                     <Badge className="bg-emerald-100 text-emerald-800 shadow-none hover:bg-emerald-200">Active</Badge>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-bold text-blue-700 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
-                                                        {rep.completed_resumes}
+                                                    <div className="flex flex-col">
+                                                        <div className="font-bold text-blue-700 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
+                                                            {rep.completed_resumes}
+                                                        </div>
+                                                        {rep.extra_resumes > 0 && (
+                                                            <div className="text-[10px] text-emerald-600 font-bold mt-1">+{rep.extra_resumes} Extra</div>
+                                                        )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {rep.extra_resumes > 0 ? (
-                                                        <div className="flex items-center gap-1.5 font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded border border-emerald-100">
-                                                            <span>+{rep.extra_resumes}</span>
-                                                            <TrendingUp className="h-3 w-3" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="font-semibold text-slate-400">-</div>
-                                                    )}
-                                                </TableCell>
                                                 <TableCell className="text-center">
-                                                    {rep.forage_sales_usd > 0 ? (
-                                                        <div className="flex flex-col items-center">
-                                                            <div className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">${rep.forage_sales_usd}</div>
-                                                            <div className="text-[10px] text-emerald-500/70 mt-0.5 font-bold">Split + Bonus</div>
+                                                    <div
+                                                        className="flex flex-col items-center cursor-pointer hover:scale-105 transition-all"
+                                                        onClick={() => handleShowSalesDetails(rep.name || rep.email, rep.email)}
+                                                    >
+                                                        <div className="font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 w-fit px-2 py-0.5 rounded border border-emerald-200 shadow-sm">
+                                                            {getJobSimulationsCount(rep.email)}
                                                         </div>
-                                                    ) : (
-                                                        <div className="font-semibold text-slate-400">-</div>
-                                                    )}
+                                                        {rep.forage_sales_usd > 0 && (
+                                                            <div className="text-[10px] text-emerald-500/70 mt-1 font-bold">${rep.forage_sales_usd.toLocaleString()}</div>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="font-bold text-slate-700">
+                                                        ₹{(rep.incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="font-bold text-slate-700">
+                                                        ₹{((rep.forage_direct_incentive_inr || 0) + (rep.forage_team_split_inr || 0) + (rep.forage_bonus_inr || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="font-black text-lg text-indigo-700 tracking-tight">
@@ -820,6 +900,66 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={!!selectedRepSales} onOpenChange={() => setSelectedRepSales(null)}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-black text-slate-800">
+                            Job Simulations for {selectedRepSales?.repName}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            Detailed list of all forage certifications sold in {getMonthName()}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-x-auto border border-slate-100 rounded-xl mt-4">
+                        <Table>
+                            <TableHeader className="bg-slate-50">
+                                <TableRow>
+                                    <TableHead className="font-bold text-xs">Client Name</TableHead>
+                                    <TableHead className="font-bold text-xs text-center">Certifications</TableHead>
+                                    <TableHead className="font-bold text-xs text-right pr-6">Sale Value (USD)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedRepSales?.sales.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center py-6 text-slate-400 text-sm">
+                                            No qualified job simulation sales found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    <>
+                                        {selectedRepSales?.sales.map((sale: any, idx: number) => (
+                                            <TableRow key={idx} className="hover:bg-slate-50/50">
+                                                <TableCell className="font-semibold text-slate-700 text-sm">{sale.lead_name}</TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant="secondary" className="font-bold text-indigo-600 bg-indigo-50 border-indigo-100">
+                                                        {sale.certs} Cert{sale.certs > 1 ? "s" : ""}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-6 font-bold text-slate-800 text-sm">
+                                                    ${sale.sold_value.toLocaleString()}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        <TableRow className="bg-slate-50/80 font-black border-t border-slate-200">
+                                            <TableCell className="text-slate-800 text-sm font-bold pl-6">Total</TableCell>
+                                            <TableCell className="text-center font-bold">
+                                                <Badge className="font-black text-indigo-700 bg-indigo-100 border-indigo-200 hover:bg-indigo-150">
+                                                    {selectedRepSales?.sales.reduce((sum, s) => sum + s.certs, 0)} Certs
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 text-indigo-700 text-sm font-black">
+                                                ${selectedRepSales?.sales.reduce((sum, s) => sum + s.sold_value, 0).toLocaleString()}
+                                            </TableCell>
+                                        </TableRow>
+                                    </>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

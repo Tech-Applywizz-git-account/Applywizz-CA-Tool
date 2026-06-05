@@ -512,9 +512,35 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
 
             const matchesAM = trackerAM === "all" || d.amName === trackerAM;
 
-            const matchesStatus = trackerStatus === "all" || (
-              trackerStatus === "renewed" ? d.renewed : !d.renewed
-            );
+            let matchesStatus = false;
+            if (trackerStatus === "all") {
+              matchesStatus = true;
+            } else if (trackerStatus === "renewed") {
+              matchesStatus = d.renewed;
+            } else if (trackerStatus === "pending") {
+              matchesStatus = !d.renewed;
+            } else if (!d.renewed && d.expected_renewal_date) {
+              try {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const expected = new Date(d.expected_renewal_date);
+                expected.setHours(0, 0, 0, 0);
+                const diffTime = expected.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+                if (trackerStatus === "today") {
+                   matchesStatus = diffDays === 0;
+                } else if (trackerStatus === "1-3") {
+                   matchesStatus = diffDays >= 1 && diffDays <= 3;
+                } else if (trackerStatus === "4-7") {
+                   matchesStatus = diffDays >= 4 && diffDays <= 7;
+                } else if (trackerStatus === "7+") {
+                   matchesStatus = diffDays > 7;
+                } else if (trackerStatus === "overdue") {
+                   matchesStatus = diffDays < 0;
+                }
+              } catch(e) {}
+            }
 
             return matchesSearch && matchesAM && matchesStatus;
           }).sort((a, b) => {
@@ -570,7 +596,12 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                     <SelectContent>
                       <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="renewed">Renewed</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="pending">Pending (All)</SelectItem>
+                      <SelectItem value="today">Due Today</SelectItem>
+                      <SelectItem value="1-3">Due in 1-3 Days</SelectItem>
+                      <SelectItem value="4-7">Due in 4-7 Days</SelectItem>
+                      <SelectItem value="7+">Due in >7 Days</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -648,7 +679,16 @@ export function AccountsHeadDashboard({ user, onLogout }: Props) {
                             return (
                               <TableRow key={i} className={rowClass}>
                                 <TableCell className="text-xs font-bold text-slate-400">{(trackerCurrentPage - 1) * trackerItemsPerPage + i + 1}</TableCell>
-                                <TableCell className="text-xs font-mono font-bold text-indigo-600">{d.awl_id || d.lead_id}</TableCell>
+                                <TableCell className="text-xs font-mono font-bold">
+                                  <a
+                                    href={`https://applywizz-crm-tool.vercel.app/leads/${(d.awl_id || d.lead_id || "").trim()}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-600 hover:text-indigo-800 hover:underline decoration-indigo-300 transition-colors"
+                                  >
+                                    {d.awl_id || d.lead_id}
+                                  </a>
+                                </TableCell>
                                 <TableCell className="text-sm font-bold text-slate-700">{d.lead_name || "—"}</TableCell>
                                 <TableCell className="text-xs text-slate-500">{d.amName}</TableCell>
                                 <TableCell className="text-xs text-center text-slate-500 font-semibold">{d.subscription_cycle || "—"}</TableCell>

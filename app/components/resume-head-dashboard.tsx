@@ -15,13 +15,14 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { ResumeCompletionPanel } from "./resume-completion-panel"
+import { WorkingDaysCalendar } from "./working-days-calendar"
 
 interface ResumeHeadDashboardProps {
   user: any;
   onLogout: () => void;
 }
 
-type TabType = "overview" | "leaderboard" | "tracker" | "roster" | "rules" | "submitted-forms";
+type TabType = "overview" | "leaderboard" | "tracker" | "roster" | "rules" | "submitted-forms" | "calendar-config";
 
 export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview")
@@ -30,6 +31,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
   const [searchQuery, setSearchQuery] = useState("")
   const [trackerSearchQuery, setTrackerSearchQuery] = useState("")
   const [confirmRep, setConfirmRep] = useState<{ id: string, isActive: boolean, name: string } | null>(null)
+  const [selectedRepSales, setSelectedRepSales] = useState<{ repName: string; sales: any[] } | null>(null)
   const [showYield, setShowYield] = useState(false)
 
   // Month navigation
@@ -109,8 +111,11 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
               isactive: u.isactive === true,
               isTrainee: isTraineeRep,
               completedResumes: insight.completed_resumes || 0,
+              extraResumes: insight.extra_resumes || 0,
               forageSalesUsd: insight.forage_sales_usd || 0,
               totalCombinedInr: isTraineeRep ? 0 : (insight.total_incentive_inr || 0),
+              resumeIncentiveInr: isTraineeRep ? 0 : (insight.incentive_inr || 0),
+              forageIncentiveInr: isTraineeRep ? 0 : ((insight.forage_direct_incentive_inr || 0) + (insight.forage_team_split_inr || 0) + (insight.forage_bonus_inr || 0)),
             }
           })
         setResumeReps(normalizedData)
@@ -158,6 +163,39 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
       alert("Failed to toggle active state: " + error.message)
     }
   }
+
+  const getJobSimulationsCount = (email: string) => {
+    const targetEmail = email.toLowerCase();
+    return forageSalesData.filter((s: any) => {
+      if (!s.forage_info || !s.forage_info[0]) return false;
+      const sellerEmailRaw = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+      if (!sellerEmailRaw) return false;
+      return sellerEmailRaw === targetEmail ||
+        sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+        sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+    }).length;
+  };
+
+  const handleShowSalesDetails = (repName: string, email: string) => {
+    const targetEmail = email.toLowerCase();
+    const repSales = forageSalesData.filter((s: any) => {
+      if (!s.forage_info || !s.forage_info[0]) return false;
+      const sellerEmailRaw = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+      if (!sellerEmailRaw) return false;
+      return sellerEmailRaw === targetEmail ||
+        sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+        sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+    }).map((s: any) => {
+      const fInfo = s.forage_info[0];
+      return {
+        id: s.id,
+        lead_name: s.lead_name || s.lead_id || "Unknown Client",
+        certs: parseInt(s.forage_internship_certification || fInfo.forage_internship_certification || "0"),
+        sold_value: parseFloat(fInfo.forage_sold_value || s.forage_internship_sale_value || "0")
+      };
+    });
+    setSelectedRepSales({ repName, sales: repSales });
+  };
 
   const handlePromoteTrainee = async (repId: string) => {
     const { error } = await supabase.from("users").update({ role: "Resume Associate", designation: "Resume Associate" }).eq("id", repId)
@@ -212,12 +250,20 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
     })
   }, [forageSalesData, trackerSearchQuery])
 
+  const totalCertifications = useMemo(() => {
+    return filteredForageSales.reduce((sum, sale: any) => {
+      const certs = parseInt(sale.forage_info?.[0]?.forage_internship_certification || sale.forage_internship_certification || "0")
+      return sum + certs;
+    }, 0);
+  }, [filteredForageSales])
+
   // --- Navigation Tabs ---
   const tabs = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "leaderboard", label: "Leaderboard", icon: Trophy },
     { id: "tracker", label: "Resume Tracker", icon: Database },
     { id: "submitted-forms", label: "Submitted Forms", icon: ClipboardList },
+    { id: "calendar-config", label: "Working Calendar", icon: Calendar },
     { id: "roster", label: "Resume Associates", icon: Users },
     { id: "rules", label: "Incentive Rules", icon: FileText },
   ] as const
@@ -298,9 +344,12 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
           <DollarSign className="h-4 w-4 text-indigo-500 group-hover:scale-110 transition-transform" />
         </CardHeader>
         <CardContent className="relative z-10 pt-2 pb-5">
-          <div className="flex items-baseline gap-2">
-            <div className="text-4xl font-black text-slate-800 tracking-tight">${totalForageUsd}</div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Generated</span>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline gap-2">
+              <div className="text-4xl font-black text-slate-800 tracking-tight">${totalForageUsd}</div>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Generated</span>
+            </div>
+            <p className="text-[10px] text-indigo-600/80 font-bold uppercase tracking-wider">{totalCertifications} Certifications</p>
           </div>
         </CardContent>
       </Card>
@@ -482,7 +531,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                           </div>
                         </>
                       ) : (
-                        <p className="text-slate-400 italic">No incentives recorded yet for this month.</p>
+                        <p className="text-slate-400 italic">No incentives recorded yet for {monthName}.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -676,7 +725,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                         </TableHeader>
                         <TableBody>
                           {filteredResumes.length === 0 ? (
-                            <TableRow><TableCell colSpan={3} className="text-center py-8 text-slate-400">No resumes logged for this month.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={3} className="text-center py-8 text-slate-400">No resumes logged for {monthName}.</TableCell></TableRow>
                           ) : (
                             filteredResumes.map((row, i) => (
                               <TableRow key={i} className="hover:bg-slate-50 border-b border-slate-50">
@@ -710,7 +759,7 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                         </TableHeader>
                         <TableBody>
                           {filteredForageSales.length === 0 ? (
-                            <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-400">No forage sales logged for this month.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-400">No forage sales logged for {monthName}.</TableCell></TableRow>
                           ) : (
                             filteredForageSales.map((row, i) => {
                               const fInfo = row.forage_info?.[0] || {};
@@ -757,13 +806,17 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                         <TableRow>
                           <TableHead className="pl-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Identity Details</TableHead>
                           <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Status</TableHead>
-                          <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-slate-400">Yield</TableHead>
+                          <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400 text-blue-700">Resumes Completed</TableHead>
+                          <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-center">Job Simulations</TableHead>
+                          <TableHead className="text-xs font-bold uppercase tracking-wider text-blue-700 text-right">Incentive on Resumes</TableHead>
+                          <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-right">Incentive on Job Sim</TableHead>
+                          <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total Yield</TableHead>
                           <TableHead className="text-right pr-6 text-xs font-bold uppercase tracking-wider text-slate-400">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {activeReps.length === 0 ? (
-                          <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400">No active members found.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={8} className="text-center py-10 text-slate-400">No active members found.</TableCell></TableRow>
                         ) : (
                           activeReps.map((rep) => (
                             <TableRow key={rep.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
@@ -772,7 +825,40 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
                                 <div className="text-xs text-slate-400">{rep.email}</div>
                               </TableCell>
                               <TableCell><Badge className="bg-emerald-100 text-emerald-800 shadow-none border-0">Active</Badge></TableCell>
-                              <TableCell className="text-right font-black text-indigo-700">₹{rep.totalCombinedInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <div className="font-bold text-blue-700 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
+                                    {rep.completedResumes}
+                                  </div>
+                                  {rep.extraResumes > 0 && (
+                                    <div className="text-[10px] text-emerald-600 font-bold mt-1">+{rep.extraResumes} Extra</div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div
+                                  className="flex flex-col items-center cursor-pointer hover:scale-105 transition-all"
+                                  onClick={() => handleShowSalesDetails(rep.name || rep.email, rep.email)}
+                                >
+                                  <div className="font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 w-fit px-2 py-0.5 rounded border border-emerald-200 shadow-sm">
+                                    {getJobSimulationsCount(rep.email)}
+                                  </div>
+                                  {rep.forageSalesUsd > 0 && (
+                                    <div className="text-[10px] text-emerald-500/70 mt-1 font-bold">${rep.forageSalesUsd.toLocaleString()}</div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="font-bold text-slate-700">
+                                  ₹{(rep.resumeIncentiveInr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="font-bold text-slate-700">
+                                  ₹{(rep.forageIncentiveInr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-black text-indigo-700">₹{rep.totalCombinedInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                               <TableCell className="text-right pr-6">
                                 <div className="flex items-center justify-end gap-2">
                                   <Button variant="outline" size="sm" className="bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200 text-xs h-7" onClick={() => handleDemoteToTrainee(rep.id)}>
@@ -924,9 +1010,80 @@ export function ResumeHeadDashboard({ user, onLogout }: ResumeHeadDashboardProps
               <ResumeCompletionPanel monthOffset={monthOffset} />
             )}
 
+            {/* CALENDAR CONFIG */}
+            {activeTab === "calendar-config" && (
+              <WorkingDaysCalendar
+                monthOffset={monthOffset}
+                periodName={monthName}
+                onRecalculateNeeded={async () => {
+                  await fetchResumeUsersAndData();
+                }}
+              />
+            )}
+
           </>
         )}
       </div>
+
+      <Dialog open={!!selectedRepSales} onOpenChange={() => setSelectedRepSales(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-800">
+              Job Simulations for {selectedRepSales?.repName}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Detailed list of all forage certifications sold in {monthName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-x-auto border border-slate-100 rounded-xl mt-4">
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead className="font-bold text-xs">Client Name</TableHead>
+                  <TableHead className="font-bold text-xs text-center">Certifications</TableHead>
+                  <TableHead className="font-bold text-xs text-right pr-6">Sale Value (USD)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedRepSales?.sales.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-6 text-slate-400 text-sm">
+                      No qualified job simulation sales found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {selectedRepSales?.sales.map((sale: any, idx: number) => (
+                      <TableRow key={idx} className="hover:bg-slate-50/50">
+                        <TableCell className="font-semibold text-slate-700 text-sm">{sale.lead_name}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="font-bold text-indigo-600 bg-indigo-50 border-indigo-100">
+                            {sale.certs} Cert{sale.certs > 1 ? "s" : ""}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right pr-6 font-bold text-slate-800 text-sm">
+                          ${sale.sold_value.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-slate-50/80 font-black border-t border-slate-200">
+                      <TableCell className="text-slate-800 text-sm font-bold pl-6">Total</TableCell>
+                      <TableCell className="text-center font-bold">
+                        <Badge className="font-black text-indigo-700 bg-indigo-100 border-indigo-200 hover:bg-indigo-150">
+                          {selectedRepSales?.sales.reduce((sum, s) => sum + s.certs, 0)} Certs
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right pr-6 text-indigo-700 text-sm font-black">
+                        ${selectedRepSales?.sales.reduce((sum, s) => sum + s.sold_value, 0).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
