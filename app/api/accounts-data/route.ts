@@ -234,8 +234,15 @@ export async function GET(req: Request) {
             const closedAt = record.closed_at;
             if (!closedAt || !isTargetMonth(closedAt)) return;
 
-            const amEmail = (record.account_manager_email || "").toLowerCase();
-            if (!amMetrics[amEmail]) return;
+            let amEmail = (record.account_manager_email || "").toLowerCase();
+            if (!amMetrics[amEmail]) {
+                const altEmail = amEmail.includes('@applywizz.com') ? amEmail.replace('@applywizz.com', '@applywizz.ai') : amEmail.replace('@applywizz.ai', '@applywizz.com');
+                if (amMetrics[altEmail]) {
+                    amEmail = altEmail;
+                } else {
+                    return;
+                }
+            }
 
             const renewalValue = Number(record.sale_value || record.application_sale_value) || 0;
 
@@ -254,8 +261,15 @@ export async function GET(req: Request) {
         // ─── STEP 2a (ii): Process DUE Renewals (extended_renewal_at in target/next month) ───
         Object.entries(recordsByLeadId).forEach(([leadId, records]) => {
             records.forEach((record, i) => {
-                const amEmail = (record.account_manager_email || "").toLowerCase();
-                if (!amMetrics[amEmail]) return;
+                let amEmail = (record.account_manager_email || "").toLowerCase();
+                if (!amMetrics[amEmail]) {
+                    const altEmail = amEmail.includes('@applywizz.com') ? amEmail.replace('@applywizz.com', '@applywizz.ai') : amEmail.replace('@applywizz.ai', '@applywizz.com');
+                    if (amMetrics[altEmail]) {
+                        amEmail = altEmail;
+                    } else {
+                        return;
+                    }
+                }
 
                 const extendedRenewalAt = record.extended_renewal_at;
                 if (!extendedRenewalAt) return;
