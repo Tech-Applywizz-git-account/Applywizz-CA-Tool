@@ -900,7 +900,7 @@ export function AccountsDashboard({ user, onLogout, isViewOnly = false }: Accoun
                       </TableCell>
                       <TableCell className="text-xs text-slate-500">{s.email || "—"}</TableCell>
                       <TableCell className="text-right font-bold text-cyan-700">${Number(s.sale_value || 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-xs text-slate-500">{s.closed_at ? new Date(s.closed_at).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{s.closed_at ? new Date(s.closed_at).toLocaleString("default", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</TableCell>
                       <TableCell className="text-center">
                         <Badge className={`border-none text-[10px] ${(s.finance_status || "").toLowerCase() === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                           {s.finance_status || "—"}

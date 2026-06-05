@@ -103,9 +103,11 @@ export async function GET(req: Request) {
         futureDate.setDate(futureDate.getDate() + 140);
         const fetchEndDate = futureDate.toISOString().split("T")[0] + "T23:59:59";
 
-        // Sales date range for the target month
-        const salesStartDate = `${startDate}T00:00:00`;
-        const salesEndDate = `${endDate}T23:59:59`;
+        // Sales date range for the target month (Shift timing: 20:00 to 19:59 next day)
+        const salesStartDate = `${startDate}T20:00:00`;
+        const endDateObj = new Date(`${endDate}T00:00:00`);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        const salesEndDate = `${endDateObj.toISOString().split("T")[0]}T19:59:59`;
 
         // Fetch in parallel: users, settings, CRM renewals, CRM all-sales
         const [usersResult, settingsResult, crmRenewalsResponse, crmSalesResponse] = await Promise.all([
@@ -338,20 +340,7 @@ export async function GET(req: Request) {
         // Filter sales where the assigned AM (via renewals lead_id lookup or fallback to account_assigned_email) matches an AM and closed_at is in target month
         allSalesRecords.forEach((sale: any) => {
             const leadId = (sale.lead_id || sale.awl_id || "").trim().toUpperCase();
-            let amEmail = "";
-
-            // Try to resolve the Account Manager email from renewals records grouped by lead_id
-            if (leadId && recordsByLeadId[leadId]) {
-                const matchingRecord = recordsByLeadId[leadId].find(r => r.account_manager_email);
-                if (matchingRecord) {
-                    amEmail = matchingRecord.account_manager_email.toLowerCase().trim();
-                }
-            }
-
-            // Fallback to account_assigned_email if not found in renewals database lookup
-            if (!amEmail) {
-                amEmail = (sale.account_assigned_email || "").toLowerCase().trim();
-            }
+            let amEmail = (sale.account_assigned_email || "").toLowerCase().trim();
 
             if (!amMetrics[amEmail]) {
                 const altEmail = amEmail.includes('@applywizz.com') ? amEmail.replace('@applywizz.com', '@applywizz.ai') : amEmail.replace('@applywizz.ai', '@applywizz.com');
