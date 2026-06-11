@@ -21,13 +21,15 @@ export default function Sidebar({ basePath }: SidebarProps) {
     { href: `${basePath}/clients`, label: "Clients Information", icon: Users },
     { href: `${basePath}/reports`, label: "Performance Reports", icon: BarChart2 },
     { href: `${basePath}/assessments`, label: "Assessment Analytics", icon: BarChart2 },
+    { href: "/dashboard", label: "Auto Assignment", icon: LayoutDashboard },
   ].filter(link => {
     if (basePath === "/team-lead-dashboard") {
       return (
         link.label === "CA Dashboard" ||
         link.label === "Clients Information" ||
         link.label === "Performance Reports" ||
-        link.label === "Assessment Analytics"
+        link.label === "Assessment Analytics" ||
+        link.label === "Auto Assignment"
       )
     }
     return true

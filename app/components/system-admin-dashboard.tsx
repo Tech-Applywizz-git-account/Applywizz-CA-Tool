@@ -5,6 +5,7 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -265,6 +266,11 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
             <p className="text-slate-600">User Management & System Administration</p>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/dashboard" passHref legacyBehavior>
+              <Button variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 hover:text-indigo-800">
+                Auto Assignment
+              </Button>
+            </Link>
             <Dialog open={shiftSettingOpen} onOpenChange={setShiftSettingOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">Shift Settings</Button>
