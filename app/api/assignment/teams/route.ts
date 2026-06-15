@@ -19,17 +19,37 @@ export interface TeamEntry {
 
 export async function GET() {
     try {
-        const { data, error } = await supabaseServer
-            .from('teams')
-            .select('id, name')
-            .order('name', { ascending: true });
+        // 1. Fetch active team lead IDs from users table
+        const { data: activeLeads, error: leadsError } = await supabaseServer
+            .from('users')
+            .select('id')
+            .eq('role', 'Team Lead')
+            .eq('isactive', true);
 
-        if (error) {
-            console.error("[Teams API] Error fetching teams:", error);
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        if (leadsError) {
+            console.error("[Teams API] Error fetching active team leads:", leadsError);
+            return NextResponse.json({ success: false, error: leadsError.message }, { status: 500 });
         }
 
-        return NextResponse.json(data || []);
+        // 2. Fetch all teams
+        const { data: allTeams, error: teamsError } = await supabaseServer
+            .from('teams')
+            .select('id, name, lead_id')
+            .order('name', { ascending: true });
+
+        if (teamsError) {
+            console.error("[Teams API] Error fetching teams:", teamsError);
+            return NextResponse.json({ success: false, error: teamsError.message }, { status: 500 });
+        }
+
+        // 3. Filter teams where lead_id is in the set of active lead IDs
+        const activeLeadIds = new Set((activeLeads || []).map(u => u.id));
+        const filteredTeams = (allTeams || []).filter(t => t.lead_id && activeLeadIds.has(t.lead_id));
+
+        // Return only id and name as expected by the frontend
+        const result = filteredTeams.map(t => ({ id: t.id, name: t.name }));
+
+        return NextResponse.json(result);
     } catch (err: any) {
         console.error("[Teams API Error]:", err);
         return NextResponse.json(
