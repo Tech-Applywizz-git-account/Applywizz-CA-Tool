@@ -19,17 +19,21 @@ export async function POST(req: Request) {
         const { applywizz_id, ca_email, reviewed_by, remarks } = body;
 
         if (!applywizz_id || typeof applywizz_id !== 'string' || !applywizz_id.trim()) {
-            return NextResponse.json(
+            const errorResponse = NextResponse.json(
                 { success: false, error: "Missing or invalid applywizz_id in request body" },
                 { status: 400 }
             );
+            errorResponse.headers.set("Access-Control-Allow-Origin", "*");
+            return errorResponse;
         }
 
         if (!ca_email || typeof ca_email !== 'string' || !ca_email.trim()) {
-            return NextResponse.json(
+            const errorResponse = NextResponse.json(
                 { success: false, error: "Missing or invalid ca_email in request body" },
                 { status: 400 }
             );
+            errorResponse.headers.set("Access-Control-Allow-Origin", "*");
+            return errorResponse;
         }
 
         const result = await approveOrReassignCA(
@@ -40,16 +44,30 @@ export async function POST(req: Request) {
             remarks
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             status: result.status
         });
+        response.headers.set("Access-Control-Allow-Origin", "*");
+        response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+        response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        return response;
     } catch (err: any) {
         console.error("[API approve] Approve API Error:", err);
         const status = err.message.includes("not found") ? 404 : 500;
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: err.message || "Internal server error" },
             { status }
         );
+        errorResponse.headers.set("Access-Control-Allow-Origin", "*");
+        return errorResponse;
     }
+}
+
+export async function OPTIONS() {
+    const response = new NextResponse(null, { status: 204 });
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return response;
 }

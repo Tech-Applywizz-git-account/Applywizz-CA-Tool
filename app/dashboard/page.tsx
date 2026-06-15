@@ -53,7 +53,7 @@ interface TeamEntry {
   name: string;
 }
 
-type SortField = 'utilization_percentage' | 'effective_load' | 'available_capacity' | 'productivity_average';
+type SortField = 'utilization_percentage' | 'effective_load' | 'available_capacity' | 'productivity_average' | 'deficit';
 type SortOrder = 'asc' | 'desc';
 
 export default function CapacityDashboard() {
@@ -138,6 +138,17 @@ export default function CapacityDashboard() {
 
   // Sorting handler
   const handleSort = (field: SortField) => {
+    if (field === 'deficit') {
+      // Toggle-off: clicking Deficit again resets to default
+      if (sortField === 'deficit') {
+        setSortField('utilization_percentage');
+        setSortOrder('desc');
+      } else {
+        setSortField('deficit');
+        setSortOrder('desc');
+      }
+      return;
+    }
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -174,6 +185,11 @@ export default function CapacityDashboard() {
       return matchesSearch && matchesDesignation && matchesUtilization && matchesTeam;
     })
     .sort((a, b) => {
+      if (sortField === 'deficit') {
+        const deficitA = a.min_capacity - a.effective_load;
+        const deficitB = b.min_capacity - b.effective_load;
+        return deficitB - deficitA; // always descending
+      }
       let valA = a[sortField] ?? 0;
       let valB = b[sortField] ?? 0;
       return sortOrder === 'asc' ? valA - valB : valB - valA;
@@ -469,6 +485,17 @@ export default function CapacityDashboard() {
                       </div>
                     </TableHead>
 
+                    <TableHead
+                      className={`text-slate-500 dark:text-slate-400 font-medium text-center cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 ${sortField === 'deficit' ? 'text-orange-600 dark:text-orange-400' : ''}`}
+                      onClick={() => handleSort('deficit')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={sortField === 'deficit' ? 'text-orange-600 dark:text-orange-400 font-semibold' : ''}>Deficit</span>
+                        <MetricInfoTooltip content={METRIC_TOOLTIPS.deficitToMin} />
+                        <ArrowUpDown className={`h-3 w-3 ${sortField === 'deficit' ? 'text-orange-500 dark:text-orange-400' : 'text-slate-400 dark:text-slate-500'}`} />
+                      </div>
+                    </TableHead>
+
                     {/* Utilization with tooltip + sort */}
                     <TableHead 
                       className="text-slate-500 dark:text-slate-400 font-medium text-center cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"
@@ -537,6 +564,17 @@ export default function CapacityDashboard() {
                         <TableCell className="text-center text-slate-500 dark:text-slate-400">{row.pending_assignments}</TableCell>
                         <TableCell className="text-center font-semibold text-slate-800 dark:text-slate-200">{row.effective_load}</TableCell>
                         <TableCell className="text-center font-semibold text-slate-700 dark:text-slate-300">{row.available_capacity}</TableCell>
+                        <TableCell className="text-center">
+                          {row.effective_load < row.min_capacity ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-500/30">
+                              ↑{(row.min_capacity - row.effective_load).toFixed(1)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                              OK
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className={cn("px-2 py-0.5 text-xs rounded-full font-bold", getUtilBadgeVariant(utilVal))}>
                             {utilVal}%

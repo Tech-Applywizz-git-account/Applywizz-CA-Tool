@@ -253,4 +253,10 @@ export const METRIC_TOOLTIPS = {
     formula: "Configured per CA in Capacity Management",
     example: "Max = 10 means no more than 10 clients",
   },
+  deficitToMin: {
+    title: "Deficit to Minimum",
+    meaning: "How far a CA's current effective load is below their minimum capacity target. CAs with a deficit are Priority 1 for new assignments — the engine fills the highest deficit first.",
+    formula: "Min Capacity − Effective Load  (only when Effective Load < Min)",
+    example: "Min = 6, Effective Load = 4.5 → Deficit = ↑1.5",
+  },
 } satisfies Record<string, MetricTooltipContent>;
