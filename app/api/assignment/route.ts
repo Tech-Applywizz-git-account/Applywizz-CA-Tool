@@ -22,7 +22,7 @@ export async function GET(req: Request) {
                 suggested_ca:suggested_ca_id (
                     name,
                     team_id,
-                    teams!inner (
+                    teams!users_team_id_fkey!inner (
                         name
                     )
                 )
