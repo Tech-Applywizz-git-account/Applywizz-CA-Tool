@@ -1,9 +1,11 @@
+// app\api\assignment\recommendation\[applywizzId]\route.ts
+
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { 
-    getAssignmentByApplyWizzId, 
+import {
+    getAssignmentByApplyWizzId,
     getCADashboardRowByEmail, 
     getAssignmentCandidates, 
     calculateBestCA 
@@ -28,28 +30,6 @@ export async function GET(req: Request, { params }: { params: { applywizzId: str
         }
 
         const normalizedId = applywizzId.trim().toUpperCase();
-
-        // Check if client exists in the clients database
-        const { data: clientRow, error: clientError } = await supabaseServer
-            .from('clients')
-            .select('id')
-            .eq('applywizz_id', normalizedId)
-            .maybeSingle();
-
-        if (clientError) {
-            console.error(`[API recommendationPreview] Client lookup error for ${normalizedId}:`, clientError);
-            return NextResponse.json(
-                { success: false, error: `Database lookup failed: ${clientError.message}` },
-                { status: 500 }
-            );
-        }
-
-        if (!clientRow) {
-            return NextResponse.json(
-                { success: false, error: `Client with ApplyWizz ID '${normalizedId}' does not exist in the clients table.` },
-                { status: 404 }
-            );
-        }
 
         // 1. Check if assignment exists in the database
         const assignment = await getAssignmentByApplyWizzId(supabaseServer, normalizedId);

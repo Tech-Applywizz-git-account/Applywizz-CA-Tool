@@ -184,34 +184,17 @@ export async function suggestBestCA(supabase: SupabaseClient, applywizzId: strin
     return existing as ClientAssignment;
   }
 
-  // Look up client by applywizz_id to retrieve the UUID client_id
-  const { data: clientRow, error: clientError } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('applywizz_id', normalizedId)
-    .maybeSingle();
-
-  if (clientError) {
-    console.error(`[AssignmentService] Client lookup error for ${normalizedId}:`, clientError);
-    throw new Error(`Failed to look up client: ${clientError.message}`);
-  }
-
-  if (!clientRow) {
-    throw new Error(`Client with ApplyWizz ID '${normalizedId}' does not exist in the clients table.`);
-  }
-
-  // Step 2: Load candidates
+  // Step 2: Load candidates (no clients table lookup required)
   const candidates = await getAssignmentCandidates(supabase);
 
-  // Step 3-5: Calculate best CA
+  // Step 3: Calculate best CA
   const selectedCA = calculateBestCA(candidates, normalizedId);
 
-  // Step 6: Insert recommendation with client_id link and suggested_ca_id link
+  // Step 4: Insert recommendation — only applywizz_id, suggested_ca_id, suggested_ca_email, status
   const { data: inserted, error: insertError } = await supabase
     .from('client_assignment_queue')
     .insert([
       {
-        client_id: clientRow.id,
         suggested_ca_id: selectedCA.ca_id,
         applywizz_id: normalizedId,
         suggested_ca_email: selectedCA.email,
