@@ -1,3 +1,5 @@
+// app\api\admin\capacity\route.ts
+
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
