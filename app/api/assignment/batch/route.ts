@@ -59,18 +59,23 @@ export async function POST(req: Request) {
             });
         }
 
-        // ── 2. Fetch team_ids for all suggested CAs in one query ─────────────
-        const caEmails = [...new Set(assignments.map((a) => a.suggested_ca_email).filter(Boolean))];
+        // ── 2. Fetch team_ids and system_names for all CAs in one query ─────────────
+        const caEmails = [...new Set([
+            ...assignments.map((a) => a.suggested_ca_email).filter(Boolean),
+            ...assignments.map((a) => a.final_ca_email).filter(Boolean)
+        ])];
 
         const { data: caUsers } = await supabaseServer
             .from("users")
-            .select("email, team_id")
+            .select("email, team_id, system_name")
             .in("email", caEmails);
 
-        // email → team_id
+        // email → team_id and system_name mappings
         const emailToTeamId = new Map<string, string>();
+        const emailToSystemName = new Map<string, string | null>();
         caUsers?.forEach((u) => {
             if (u.team_id) emailToTeamId.set(u.email, u.team_id);
+            emailToSystemName.set(u.email, u.system_name ?? null);
         });
 
         // ── 3. Fetch team lead info for all relevant teams in one query ───────
@@ -103,6 +108,8 @@ export async function POST(req: Request) {
                 status: a.status,
                 team_lead_email: tl?.email ?? null,
                 team_lead_name: tl?.name ?? null,
+                suggested_ca_system_name: a.suggested_ca_email ? (emailToSystemName.get(a.suggested_ca_email) ?? null) : null,
+                final_ca_system_name: a.final_ca_email ? (emailToSystemName.get(a.final_ca_email) ?? null) : null,
             };
         });
 
