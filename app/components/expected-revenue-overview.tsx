@@ -21,6 +21,7 @@ import { supabase } from "@/lib/supabaseClient"
 interface ExpectedRevenueOverviewProps {
   monthName: string;
   targetDate: Date;
+  basePath?: string;
 }
 
 interface EntryGroup {
@@ -40,7 +41,7 @@ interface EntryGroup {
   isMissedSubmission?: boolean;
 }
 
-export function ExpectedRevenueOverview({ monthName, targetDate }: ExpectedRevenueOverviewProps) {
+export function ExpectedRevenueOverview({ monthName, targetDate, basePath = "/cro-dashboard" }: ExpectedRevenueOverviewProps) {
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
@@ -501,7 +502,7 @@ export function ExpectedRevenueOverview({ monthName, targetDate }: ExpectedReven
                               <div className="flex flex-col">
                                 {g.id ? (
                                   <Link
-                                    href={`/cro-dashboard/sales/${g.id}`}
+                                    href={basePath === "/sales-head-dashboard" ? `/sales-head-dashboard/${g.id}` : `${basePath}/sales/${g.id}`}
                                     className={`font-bold leading-none hover:underline transition-colors flex items-center gap-1 ${g.isMissedSubmission ? 'text-red-900 hover:text-red-600' : 'text-slate-900 hover:text-orange-500'}`}
                                     onClick={(e) => e.stopPropagation()}
                                   >

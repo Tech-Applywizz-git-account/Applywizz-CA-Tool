@@ -3,20 +3,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabaseClient"
+import { supabase, supabaseCRM } from "@/lib/supabaseClient"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Plus, AlertTriangle } from "lucide-react"
+import { Calendar, Plus, AlertTriangle, ArrowUpDown } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { NewClientForm } from "./new-client-form"
 import { User, Users } from "lucide-react"
 import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useRef } from "react"
 
 
@@ -85,7 +86,33 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     const memberIds = teamMembers.map((m) => m.id)
     if (memberIds.length > 0) {
       const { data, error } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
-      if (!error && data) setClients(data)
+      if (!error && data) {
+        const leadIds = data.map((c: any) => c.applywizz_id).filter(Boolean);
+        const { data: crmData } = await supabaseCRM
+          .from("sales_closure")
+          .select("lead_id, extended_renewal_at, closed_at")
+          .in("lead_id", leadIds);
+          
+        if (crmData) {
+          const renewalMap = new Map();
+          const closedAtMap = new Map();
+          crmData.forEach((r: any) => {
+              if (r.extended_renewal_at && r.lead_id) {
+                  const currentClosed = new Date(r.closed_at || 0).getTime();
+                  if (!renewalMap.has(r.lead_id) || currentClosed > closedAtMap.get(r.lead_id)) {
+                      renewalMap.set(r.lead_id, r.extended_renewal_at);
+                      closedAtMap.set(r.lead_id, currentClosed);
+                  }
+              }
+          });
+          data.forEach((c: any) => {
+              if (c.applywizz_id) {
+                  c.renewal_date = renewalMap.get(c.applywizz_id) || null;
+              }
+          });
+        }
+        setClients(data)
+      }
     }
   }
 
@@ -116,7 +143,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         const apiPassword = process.env.NEXT_PUBLIC_APPLYWIZZ_API_PASSWORD;
         const authHeader = 'Basic ' + btoa(`${apiEmail}:${apiPassword}`);
         let baseUrl = process.env.NEXT_PUBLIC_APPLYWIZZ_API_URL;
-        
+
         if (!baseUrl) {
           applywizzErrorMsg = "NEXT_PUBLIC_APPLYWIZZ_API_URL environment variable is not defined in your deployment settings.";
         } else {
@@ -128,7 +155,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
           const searchRes = await fetch(`${baseUrl}/api/v1/leads/?search=${encodeURIComponent(currentClient.email)}`, {
             headers: { "Authorization": authHeader },
           });
-          
+
           if (searchRes.ok) {
             const contentType = searchRes.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
@@ -137,7 +164,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
               const searchData = await searchRes.json();
               if (searchData.results && searchData.results.length > 0) {
                 const internalId = searchData.results[0].id;
-                
+
                 // 2. Update the status using the internal ID
                 const res = await fetch(`${baseUrl}/api/v1/leads/${internalId}/`, {
                   method: "PATCH",
@@ -147,7 +174,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                   },
                   body: JSON.stringify({ status: newStatus }),
                 });
-                
+
                 if (res.ok) {
                   applywizzUpdated = true;
                 } else {
@@ -245,6 +272,32 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       const memberIds = members?.map((m) => m.id) || []
       if (memberIds.length > 0) {
         const { data: clientData } = await supabase.from("clients").select("*").in("assigned_ca_id", memberIds)
+        if (clientData) {
+          const leadIds = clientData.map(c => c.applywizz_id).filter(Boolean);
+          const { data: crmData } = await supabaseCRM
+            .from("sales_closure")
+            .select("lead_id, extended_renewal_at, closed_at")
+            .in("lead_id", leadIds);
+            
+          if (crmData) {
+            const renewalMap = new Map();
+            const closedAtMap = new Map();
+            crmData.forEach((r: any) => {
+                if (r.extended_renewal_at && r.lead_id) {
+                    const currentClosed = new Date(r.closed_at || 0).getTime();
+                    if (!renewalMap.has(r.lead_id) || currentClosed > closedAtMap.get(r.lead_id)) {
+                        renewalMap.set(r.lead_id, r.extended_renewal_at);
+                        closedAtMap.set(r.lead_id, currentClosed);
+                    }
+                }
+            });
+            clientData.forEach((c: any) => {
+                if (c.applywizz_id) {
+                    c.renewal_date = renewalMap.get(c.applywizz_id) || null;
+                }
+            });
+          }
+        }
         setClients(clientData || [])
       }
 
@@ -296,7 +349,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     selectedCA === "all"
       ? clients
       : clients.filter((c) => c.assigned_ca_id === selectedCA);
-  const [clientSortOrder, setClientSortOrder] = useState<"active-first" | "paused-first" | "started-first" | "completed-first" | "status-paused-first" | null>("active-first");
+  const [clientSortOrder, setClientSortOrder] = useState<"active-first" | "paused-first" | "started-first" | "completed-first" | "status-paused-first" | "renewal-asc" | "renewal-desc" | null>("active-first");
 
   const q = searchTerm.trim().toLowerCase();
 
@@ -316,6 +369,22 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
     if (clientListRef.current) {
       clientListRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  const getRenewalAlertColor = (renewalDateStr?: string | null) => {
+    if (!renewalDateStr) return "bg-white border-slate-200";
+    const renewalDate = new Date(renewalDateStr);
+    renewalDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const diffTime = renewalDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "bg-red-200 border-red-500 shadow-sm shadow-red-200"; // current renewal date
+    if (diffDays === 1) return "bg-orange-200 border-orange-500 shadow-sm shadow-orange-200"; // 1 day before
+    if (diffDays === 2) return "bg-yellow-200 border-yellow-500 shadow-sm shadow-yellow-200"; // 2 days before
+    return "bg-white border-slate-200"; // normal
   };
 
   // const filteredClients = !q
@@ -356,6 +425,33 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
         const bPaused = b.status === "Paused";
         if (aPaused === bPaused) return 0;
         return aPaused ? -1 : 1;
+      } else if (clientSortOrder === "renewal-asc" || clientSortOrder === "renewal-desc") {
+        // Active first priority
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+
+        const getPriority = (c: any) => {
+          if (!c.renewal_date) return 99;
+          const rDate = new Date(c.renewal_date);
+          rDate.setHours(0, 0, 0, 0);
+          const tDate = new Date();
+          tDate.setHours(0, 0, 0, 0);
+          const diff = Math.ceil((rDate.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diff === 0) return 1; // today
+          if (diff === 1) return 2; // tomorrow
+          if (diff === 2) return 3; // day after tomorrow
+          return 10; // others
+        };
+
+        const pA = getPriority(a);
+        const pB = getPriority(b);
+        if (pA !== pB) return pA - pB; // lower priority numbers appear first
+
+        if (!a.renewal_date && !b.renewal_date) return 0;
+        if (!a.renewal_date) return 1;
+        if (!b.renewal_date) return -1;
+        
+        const timeDiff = new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime();
+        return clientSortOrder === "renewal-asc" ? timeDiff : -timeDiff;
       }
       return 0;
     });
@@ -492,7 +588,7 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
                   <span className="text-xs font-semibold text-slate-700">{dateTo}</span>
                 </div>
               </div>
-              
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="p-0 rounded-full h-8 w-8 flex items-center justify-center bg-black hover:bg-black/80">
@@ -510,43 +606,43 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
 
           {/* Sticky Stats Cards */}
           <div className="grid grid-cols-7 gap-3">
-            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => scrollToElement("all-cas-section")}>
+            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => { setTimeout(() => scrollToElement("all-cas-section"), 100); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-blue-600 leading-tight">{stats.totalCAs}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Active CAs</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => scrollToElement("all-clients-section")}>
+            <Card className="cursor-pointer hover:bg-blue-50 transition-colors border-slate-100" onClick={() => { setTimeout(() => scrollToElement("all-clients-section"), 100); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-blue-600 leading-tight">{stats.totalClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Total Clients</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => handleSortClick("started-first")}>
+            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => { handleSortClick("started-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-blue-600 leading-tight">{stats.startedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Started</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-orange-50 transition-colors border-slate-100" onClick={() => handleSortClick("active-first")}>
+            <Card className="cursor-pointer hover:bg-orange-50 transition-colors border-slate-100" onClick={() => { handleSortClick("active-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-orange-600 leading-tight">{stats.activeClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Active Clients</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-green-50 transition-colors border-slate-100" onClick={() => handleSortClick("completed-first")}>
+            <Card className="cursor-pointer hover:bg-green-50 transition-colors border-slate-100" onClick={() => { handleSortClick("completed-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-green-600 leading-tight">{stats.completedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Completed</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-red-50 transition-colors border-slate-100" onClick={() => handleSortClick("paused-first")}>
+            <Card className="cursor-pointer hover:bg-red-50 transition-colors border-slate-100" onClick={() => { handleSortClick("paused-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-red-900 leading-tight">{stats.renewedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase leading-none">Non Renewed</div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => handleSortClick("status-paused-first")}>
+            <Card className="cursor-pointer hover:bg-slate-50 transition-colors border-slate-100" onClick={() => { handleSortClick("status-paused-first"); }}>
               <CardContent className="p-2 text-center">
                 <div className="text-lg font-bold text-slate-600 leading-tight">{stats.statusPausedClients}</div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Paused</div>
@@ -557,291 +653,308 @@ export function TeamLeadDashboard({ user, onLogout }: TeamLeadDashboardProps) {
       </div>
 
       <div className="p-4 pt-6 max-w-7xl mx-auto">
-
-        {selectedCAIncentive && (
-          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Incentive Details</h3>
-                  <p className="text-sm text-slate-600">Current performance and earnings</p>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">₹{selectedCAIncentive.incentive_amount}</div>
-                    <div className="text-sm text-slate-600">Current Incentive</div>
+            {selectedCAIncentive && (
+              <Card className="mb-6 bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">Incentive Details</h3>
+                      <p className="text-sm text-slate-600">Current performance and earnings</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">₹{selectedCAIncentive.incentive_amount}</div>
+                        <div className="text-sm text-slate-600">Current Incentive</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-green-600">{selectedCAIncentive.total_clients_completed}</div>
+                        <div className="text-sm text-slate-600">Completed Clients</div>
+                      </div>
+                      {selectedCAIncentive.badge && (
+                        <Badge variant="outline" className="text-sm px-3 py-1 bg-white">
+                          🏅 {selectedCAIncentive.badge}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-green-600">{selectedCAIncentive.total_clients_completed}</div>
-                    <div className="text-sm text-slate-600">Completed Clients</div>
+                </CardContent>
+              </Card>
+            )}
+            <Card id="all-clients-section" className="overflow-visible">
+              <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <CardTitle className="text-sm font-bold text-slate-700">{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleSortClick(clientSortOrder === "renewal-asc" ? "renewal-desc" : "renewal-asc")}
+                      className="h-7 text-xs flex items-center gap-1 bg-white hover:bg-slate-50"
+                    >
+                      Renewal Date
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  {selectedCAIncentive.badge && (
-                    <Badge variant="outline" className="text-sm px-3 py-1 bg-white">
-                      🏅 {selectedCAIncentive.badge}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        <Card id="all-clients-section" className="overflow-visible">
-          <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-bold text-slate-700">{selectedCA === "all" ? "All Clients" : "Clients for selected CA"}</CardTitle>
-              <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="h-7 text-xs px-3"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Client</Button>
-                </DialogTrigger>
+                  <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="h-7 text-xs px-3"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Client</Button>
+                    </DialogTrigger>
 
-                <Dialog open={editClientOpen} onOpenChange={setEditClientOpen}>
-                  <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden p-0">
-                    <DialogHeader>
-                      <DialogTitle>Edit Client</DialogTitle>
-                    </DialogHeader>
-                    <NewClientForm
-                      mode="edit"
-                      initialClient={clientToEdit}
-                      fetchClients={async () => {
-                        await fetchClients()
-                        setEditClientOpen(false)
-                      }}
-                      onClose={() => setEditClientOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
+                    <Dialog open={editClientOpen} onOpenChange={setEditClientOpen}>
+                      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden p-0">
+                        <DialogHeader>
+                          <DialogTitle>Edit Client</DialogTitle>
+                        </DialogHeader>
+                        <NewClientForm
+                          mode="edit"
+                          initialClient={clientToEdit}
+                          fetchClients={async () => {
+                            await fetchClients()
+                            setEditClientOpen(false)
+                          }}
+                          onClose={() => setEditClientOpen(false)}
+                        />
+                      </DialogContent>
+                    </Dialog>
 
 
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Add New Client</DialogTitle></DialogHeader>
-                  <NewClientForm fetchClients={fetchClients} />
-                </DialogContent>
-              </Dialog>
-              {/* Assign Client Dialog */}
-              <Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Assign Client to CA</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    {clientToAssign && (() => {
-                      const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
-                      return (
-                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <h4 className="font-semibold text-blue-900">Client: {clientToAssign.name}</h4>
-                          <div className="grid grid-cols-2 gap-4 mt-2">
-                            <div className="text-sm">
-                              <span className="font-medium text-blue-700">Current CA:</span>
-                              <div className="text-blue-600 mt-1">
-                                {currentCA ? (
-                                  <>
-                                    <div>{currentCA.name}</div>
-                                    <div className="text-xs text-blue-500">{currentCA.email}</div>
-                                  </>
-                                ) : (
-                                  <div className="text-red-600">Not assigned</div>
-                                )}
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Add New Client</DialogTitle></DialogHeader>
+                      <NewClientForm fetchClients={fetchClients} />
+                    </DialogContent>
+                  </Dialog>
+                  {/* Assign Client Dialog */}
+                  <Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Assign Client to CA</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {clientToAssign && (() => {
+                          const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+                          return (
+                            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <h4 className="font-semibold text-blue-900">Client: {clientToAssign.name}</h4>
+                              <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div className="text-sm">
+                                  <span className="font-medium text-blue-700">Current CA:</span>
+                                  <div className="text-blue-600 mt-1">
+                                    {currentCA ? (
+                                      <>
+                                        <div>{currentCA.name}</div>
+                                        <div className="text-xs text-blue-500">{currentCA.email}</div>
+                                      </>
+                                    ) : (
+                                      <div className="text-red-600">Not assigned</div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-green-700">New CA:</span>
+                                  <div className="text-green-600 mt-1">
+                                    <div>Select below →</div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                            <div className="text-sm">
-                              <span className="font-medium text-green-700">New CA:</span>
-                              <div className="text-green-600 mt-1">
-                                <div>Select below →</div>
-                              </div>
-                            </div>
+                          )
+                        })()}
+
+                        <div>
+                          <Label htmlFor="ca-select" className="text-slate-700">
+                            Select New CA from Your Team
+                          </Label>
+                          <Select onValueChange={(value) => {
+                            const selectedCA = availableCAs.find(ca => ca.id === value)
+                            if (selectedCA && clientToAssign) {
+                              // Show confirmation with both CA names
+                              const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
+                              const confirmMessage = `Are you sure you want to assign this client?\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${selectedCA.name}`
+
+                              if (window.confirm(confirmMessage)) {
+                                handleAssignClient(clientToAssign.id, value)
+                              }
+                            }
+                          }}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Choose a CA from your team..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableCAs.length > 0 ? (
+                                availableCAs.map((ca) => (
+                                  <SelectItem key={ca.id} value={ca.id}>
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-medium">{ca.name}</span>
+                                        <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
+                                          {ca.designation || "CA"}
+                                        </Badge>
+                                      </div>
+                                      <span className="text-xs text-slate-500">{ca.email}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-sm text-slate-500 text-center">
+                                  No active CAs available in your team
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent
+                ref={clientListRef}
+                className="max-h-[720px] overflow-y-auto pt-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent scroll-smooth"
+              >
+                <div className="space-y-4">
+                  {filteredClients.map((client) => (
+                    <div key={client.id} className={`flex items-center justify-between p-4 rounded-lg border transition-all ${getRenewalAlertColor(client.renewal_date)}`}>
+                      <div className="flex items-center gap-3">
+                        {client.status === "Started" && client.jobs_applied === 0 && <AlertTriangle className="h-5 w-5 text-red-500" />}
+                        <div>
+                          <Link
+                            href={`/team-lead-dashboard/client/${client.id}`}
+                            className="font-semibold text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer"
+                          >
+                            {client.name}
+                          </Link>
+                          <p className="text-sm text-slate-600">{client.date_assigned}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-8 text-center">
+                        <div>
+                          <div className="text-lg font-bold text-blue-600">{client.jobs_applied}</div>
+                          <div className="text-xs text-slate-600">Jobs Applied</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-blue-600">{client.emails_submitted}</div>
+                          <div className="text-xs text-slate-600">Emails Received</div>
+                        </div>
+                        <div>
+                          <div className={`text-sm font-semibold ${client.renewal_date ? (new Date(client.renewal_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0) <= 0 ? "text-red-700" : "text-slate-700") : "text-slate-700"}`}>
+                            {client.renewal_date ? new Date(client.renewal_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </div>
+                          <div className={`text-xs ${client.renewal_date && (new Date(client.renewal_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0) <= 0) ? "text-red-600 font-medium" : "text-slate-600"}`}>Renewal Date</div>
+                        </div>
+
+                        {/* Status badge (existing) */}
+                        <Badge
+                          className={
+                            client.status === "Not Started"
+                              ? "bg-red-500 text-white"
+                              : client.status === "Started"
+                                ? "bg-orange-500 text-white"
+                                : client.status === "Paused"
+                                  ? "bg-white text-black border border-slate-300"
+                                  : client.status === "Completed"
+                                    ? "bg-green-500 text-white"
+                                    : ""
+                          }
+                        >
+                          {client.status}
+                        </Badge>
+
+                        <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
+                          {client.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-purple-300"
+                          onClick={() => openAssignDialog(client)}
+                        >
+                          Assign
+                        </Button>
+                        {/* New: Toggle button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-blue-300"
+                          onClick={() => handleToggleActive(client.id, client.is_active)}
+                        >
+                          {client.is_active ? "Set Inactive" : "Set Active"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-slate-100"
+                          onClick={() => openEditDialog(client.id)}
+                          title="Edit client"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* All CA Card */}
+            <Card className="mt-6 overflow-visible" id="all-cas-section">
+              <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                  <Users className="h-4 w-4 text-blue-600" />
+                  All Career Associates (CAs)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-[400px] overflow-y-auto pt-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                <div className="space-y-4">
+                  {teamMembers.map((ca) => {
+                    const caClientsCount = clients.filter(c => c.assigned_ca_id === ca.id).length;
+                    return (
+                      <div key={ca.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">{ca.name}</h3>
+                            <p className="text-sm text-slate-600">{ca.email}</p>
                           </div>
                         </div>
-                      )
-                    })()}
-
-                    <div>
-                      <Label htmlFor="ca-select" className="text-slate-700">
-                        Select New CA from Your Team
-                      </Label>
-                      <Select onValueChange={(value) => {
-                        const selectedCA = availableCAs.find(ca => ca.id === value)
-                        if (selectedCA && clientToAssign) {
-                          // Show confirmation with both CA names
-                          const currentCA = teamMembers.find(m => m.id === clientToAssign.assigned_ca_id)
-                          const confirmMessage = `Are you sure you want to assign this client?\n\nFrom: ${currentCA?.name || "Unknown CA"}\nTo: ${selectedCA.name}`
-
-                          if (window.confirm(confirmMessage)) {
-                            handleAssignClient(clientToAssign.id, value)
-                          }
-                        }
-                      }}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Choose a CA from your team..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCAs.length > 0 ? (
-                            availableCAs.map((ca) => (
-                              <SelectItem key={ca.id} value={ca.id}>
-                                <div className="flex flex-col">
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium">{ca.name}</span>
-                                    <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
-                                      {ca.designation || "CA"}
-                                    </Badge>
-                                  </div>
-                                  <span className="text-xs text-slate-500">{ca.email}</span>
-                                </div>
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="p-2 text-sm text-slate-500 text-center">
-                              No active CAs available in your team
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardHeader>
-          <CardContent 
-            ref={clientListRef}
-            className="max-h-[720px] overflow-y-auto pt-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent scroll-smooth"
-          >
-            <div className="space-y-4">
-              {filteredClients.map((client) => (
-                <div key={client.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    {client.status === "Started" && client.jobs_applied === 0 && <AlertTriangle className="h-5 w-5 text-red-500" />}
-                    <div>
-                      <Link
-                        href={`/team-lead-dashboard/client/${client.id}`}
-                        className="font-semibold text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer"
-                      >
-                        {client.name}
-                      </Link>
-                      <p className="text-sm text-slate-600">{client.date_assigned}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-8 text-center">
-                    <div>
-                      <div className="text-lg font-bold text-blue-600">{client.jobs_applied}</div>
-                      <div className="text-xs text-slate-600">Jobs Applied</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-blue-600">{client.emails_submitted}</div>
-                      <div className="text-xs text-slate-600">Emails Received</div>
-                    </div>
-
-                    {/* Status badge (existing) */}
-                    <Badge
-                      className={
-                        client.status === "Not Started"
-                          ? "bg-red-500 text-white"
-                          : client.status === "Started"
-                            ? "bg-orange-500 text-white"
-                            : client.status === "Paused"
-                              ? "bg-white text-black border border-slate-300"
-                              : client.status === "Completed"
-                                ? "bg-green-500 text-white"
-                                : ""
-                      }
-                    >
-                      {client.status}
-                    </Badge>
-
-                    <Badge className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
-                      {client.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-purple-300"
-                      onClick={() => openAssignDialog(client)}
-                    >
-                      Assign
-                    </Button>
-                    {/* New: Toggle button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-blue-300"
-                      onClick={() => handleToggleActive(client.id, client.is_active)}
-                    >
-                      {client.is_active ? "Set Inactive" : "Set Active"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-slate-100"
-                      onClick={() => openEditDialog(client.id)}
-                      title="Edit client"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
+                        <div className="flex items-center gap-8">
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-blue-600">{caClientsCount}</div>
+                            <div className="text-xs text-slate-600">Assigned Clients</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-slate-800">{ca.designation || "CA"}</div>
+                            <div className="text-xs text-slate-600">Designation</div>
+                          </div>
+                          <Badge className={ca.isactive ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
+                            {ca.isactive ? "Active" : "Inactive"}
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={ca.isactive ? "bg-red-50 text-red-700 hover:bg-red-100 border-red-200" : "bg-green-50 text-green-700 hover:bg-green-100 border-green-200"}
+                            onClick={() => handleToggleCAActive(ca.id, ca.isactive)}
+                          >
+                            {ca.isactive ? "Set Inactive" : "Set Active"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {teamMembers.length === 0 && (
+                    <p className="text-center text-sm text-slate-500 py-4">No CAs found in your team.</p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        {/* All CA Card */}
-        <Card className="mt-6 overflow-visible" id="all-cas-section">
-          <CardHeader className="sticky top-[152px] z-30 bg-white border-b border-slate-100 shadow-sm rounded-t-xl px-4 py-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-700">
-              <Users className="h-4 w-4 text-blue-600" />
-              All Career Associates (CAs)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="max-h-[400px] overflow-y-auto pt-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-            <div className="space-y-4">
-              {teamMembers.map((ca) => {
-                const caClientsCount = clients.filter(c => c.assigned_ca_id === ca.id).length;
-                return (
-                  <div key={ca.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <User className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{ca.name}</h3>
-                        <p className="text-sm text-slate-600">{ca.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-8">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-blue-600">{caClientsCount}</div>
-                        <div className="text-xs text-slate-600">Assigned Clients</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-medium text-slate-800">{ca.designation || "CA"}</div>
-                        <div className="text-xs text-slate-600">Designation</div>
-                      </div>
-                      <Badge className={ca.isactive ? "bg-green-600 text-white" : "bg-red-900 text-white"}>
-                        {ca.isactive ? "Active" : "Inactive"}
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={ca.isactive ? "bg-red-50 text-red-700 hover:bg-red-100 border-red-200" : "bg-green-50 text-green-700 hover:bg-green-100 border-green-200"}
-                        onClick={() => handleToggleCAActive(ca.id, ca.isactive)}
-                      >
-                        {ca.isactive ? "Set Inactive" : "Set Active"}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-              {teamMembers.length === 0 && (
-                <p className="text-center text-sm text-slate-500 py-4">No CAs found in your team.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

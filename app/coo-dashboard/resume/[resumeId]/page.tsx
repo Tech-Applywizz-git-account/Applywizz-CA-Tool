@@ -28,11 +28,11 @@ export default function ResumeViewerPage({ params }: { params: { resumeId: strin
     if (!resumeUser) return <div className="p-6">Resume Rep not found.</div>
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            <div className="max-w-7xl mx-auto px-8 pt-4">
+        <div className="relative">
+            <div className="fixed top-6 left-6 z-[60]">
                 <button
                     onClick={() => router.back()}
-                    className="text-sm px-3 py-1.5 rounded bg-slate-200 hover:bg-slate-300 transition"
+                    className="bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm hover:bg-white px-3 py-1.5 rounded-lg flex items-center gap-2 font-bold text-slate-700 text-sm transition-all"
                 >
                     ← Back to Dashboard
                 </button>

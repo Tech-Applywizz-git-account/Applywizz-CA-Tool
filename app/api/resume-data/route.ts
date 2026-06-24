@@ -48,16 +48,21 @@ export async function GET(req: Request) {
                 .order("updated_at", { ascending: false })
         ]);
 
+        const queryStartOfMonth = new Date(year, mon - 2, 1);
+        const queryEndOfMonth = new Date(year, mon + 1, 0, 23, 59, 59, 999);
+        const queryStartISO = queryStartOfMonth.toISOString();
+        const queryEndISO = queryEndOfMonth.toISOString();
+
         // Fetch forage job simulation sales from CRM via API
         let forageSalesRaw: any[] = [];
         const crmApiUrl = (process.env.NEXT_PUBLIC_CRM_SYNC_URL || process.env.NEXT_PUBLIC_CRM_API_URL || "").replace(/^"|"$/g, '');
         try {
-            const forageRes = await fetch(`${crmApiUrl}/api/forage-sales?startDate=${startISO}&endDate=${endISO}&start_date=${startISO}&end_date=${endISO}&paidOnly=true`);
+            const forageRes = await fetch(`${crmApiUrl}/api/forage-sales?startDate=${queryStartISO}&endDate=${queryEndISO}&start_date=${queryStartISO}&end_date=${queryEndISO}&paidOnly=true`);
             if (forageRes.ok) {
                 const forageJson = await forageRes.json();
                 if (forageJson.success) forageSalesRaw = forageJson.data || [];
             }
-        } catch(e) {
+        } catch (e) {
             console.error("Failed to fetch forage sales from CRM", e);
         }
 
@@ -101,26 +106,36 @@ export async function GET(req: Request) {
         // Filter forage sales for this user
         const forageSalesList = (forageSalesRaw || []).filter((sale: any) => {
             if (!sale.forage_info || !sale.forage_info[0]) return false;
-            const sellerEmail = sale.forage_info[0].forage_sold_by_email?.toLowerCase();
-            return sellerEmail === email.toLowerCase();
+            const sellerEmailRaw = sale.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmailRaw) return false;
+            const targetEmail = email.toLowerCase();
+            const isMatch = sellerEmailRaw === targetEmail ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+            if (!isMatch) return false;
+
+            const saleDateRaw = sale.forage_info[0].forage_sold_ts || sale.closed_at || sale.created_at;
+            if (!saleDateRaw) return false;
+            const saleDate = new Date(saleDateRaw);
+            return !isNaN(saleDate.getTime()) && saleDate >= startOfMonth && saleDate <= endOfMonth;
         }).map((sale: any) => {
             const fInfo = sale.forage_info[0];
             const certs = parseInt(sale.forage_internship_certification || fInfo.forage_internship_certification || "0");
             const soldValue = parseFloat(fInfo.forage_sold_value || sale.forage_internship_sale_value || "0");
-            
+
             let baseTargetPrice = baseTier1;
             if (certs === 2) baseTargetPrice = baseTier2;
             else if (certs === 3) baseTargetPrice = baseTier3;
             else if (certs >= 4) baseTargetPrice = baseTier4;
 
             const isDiscounted = soldValue < baseTargetPrice;
-            
+
             // Calculate incentive for this specific row
             let incentiveUsd = 0;
             if (!isDiscounted && soldValue > 0) {
-               const extra = soldValue - baseTargetPrice;
-               const upsell = Math.floor(extra / 10) * 1;
-               incentiveUsd = forageBaseIncentiveUsd + upsell;
+                const extra = soldValue - baseTargetPrice;
+                const upsell = Math.floor(extra / 10) * 1;
+                incentiveUsd = forageBaseIncentiveUsd + upsell;
             }
 
             return {
@@ -132,7 +147,7 @@ export async function GET(req: Request) {
                 base_price_usd: baseTargetPrice,
                 is_discounted: isDiscounted,
                 earned_incentive_usd: incentiveUsd,
-                closed_at: sale.closed_at,
+                closed_at: fInfo.forage_sold_ts || sale.closed_at || sale.created_at,
             };
         });
 

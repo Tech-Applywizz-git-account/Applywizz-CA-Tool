@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { FileSpreadsheet, Plus } from "lucide-react"
 import { NewClientForm } from "./new-client-form"
@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { User, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -43,6 +44,57 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
   const [caPerformance1, setCaPerformance1] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [todayLeads, setTodayLeads] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<"dashboard" | "today-leads">("dashboard")
+  const [todayLeadsCount, setTodayLeadsCount] = useState(0)
+
+  // Leads date preset and filtering states
+  const [leadDatePreset, setLeadDatePreset] = useState<"today" | "yesterday" | "custom">("today")
+  const [leadStartDate, setLeadStartDate] = useState(new Date().toISOString().split("T")[0])
+  const [leadEndDate, setLeadEndDate] = useState(new Date().toISOString().split("T")[0])
+  const [leadSearchTerm, setLeadSearchTerm] = useState("")
+  const [leadStatusFilter, setLeadStatusFilter] = useState("all")
+  const [leadStageFilter, setLeadStageFilter] = useState("all")
+
+  // Dynamically compute unique statuses and stages from leads
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set<string>()
+    todayLeads.forEach(l => {
+      if (l.status) statuses.add(l.status)
+    })
+    return Array.from(statuses)
+  }, [todayLeads])
+
+  const uniqueStages = useMemo(() => {
+    const stages = new Set<string>()
+    todayLeads.forEach(l => {
+      if (l.current_stage) stages.add(l.current_stage)
+    })
+    return Array.from(stages)
+  }, [todayLeads])
+
+  // Filtered leads
+  const filteredTodayLeads = useMemo(() => {
+    return todayLeads.filter(lead => {
+      if (leadSearchTerm.trim()) {
+        const term = leadSearchTerm.toLowerCase()
+        const matchesSearch =
+          (lead.name && lead.name.toLowerCase().includes(term)) ||
+          (lead.email && lead.email.toLowerCase().includes(term)) ||
+          (lead.phone && lead.phone.toLowerCase().includes(term)) ||
+          (lead.city && lead.city.toLowerCase().includes(term)) ||
+          (lead.business_id && lead.business_id.toLowerCase().includes(term))
+        if (!matchesSearch) return false
+      }
+      if (leadStatusFilter !== "all" && lead.status !== leadStatusFilter) {
+        return false
+      }
+      if (leadStageFilter !== "all" && lead.current_stage !== leadStageFilter) {
+        return false
+      }
+      return true
+    })
+  }, [todayLeads, leadSearchTerm, leadStatusFilter, leadStageFilter])
 
   const [expandedCA, setExpandedCA] = useState<string | null>(null)
   const [caClients, setCaClients] = useState<Record<string, any[]>>({})
@@ -134,43 +186,43 @@ export function CRODashboard({ user, onLogout }: CRODashboardProps) {
     }
     fetchTeamLeads()
   }, [])
-// Fetch team mappings (team_id -> team_lead_name)
-useEffect(() => {
-  const fetchTeamMappings = async () => {
-    if (teamLeads.length === 0) return
-    
-    const { data: teams, error } = await supabase
-      .from("teams")
-      .select("id, lead_id")
-    
-    if (error || !teams) {
-      console.error("Error fetching teams:", error)
-      return
-    }
-    
-    // Create a mapping of team_id -> team_lead_name
-    const mappings: Record<string, string> = {}
-    teams.forEach(team => {
-      const teamLead = teamLeads.find(tl => tl.id === team.lead_id)
-      if (teamLead) {
-        mappings[team.id] = teamLead.name
+  // Fetch team mappings (team_id -> team_lead_name)
+  useEffect(() => {
+    const fetchTeamMappings = async () => {
+      if (teamLeads.length === 0) return
+
+      const { data: teams, error } = await supabase
+        .from("teams")
+        .select("id, lead_id")
+
+      if (error || !teams) {
+        console.error("Error fetching teams:", error)
+        return
       }
-    })
-    
-    setTeamMappings(mappings)
-  }
-  
-  fetchTeamMappings()
-}, [teamLeads])
+
+      // Create a mapping of team_id -> team_lead_name
+      const mappings: Record<string, string> = {}
+      teams.forEach(team => {
+        const teamLead = teamLeads.find(tl => tl.id === team.lead_id)
+        if (teamLead) {
+          mappings[team.id] = teamLead.name
+        }
+      })
+
+      setTeamMappings(mappings)
+    }
+
+    fetchTeamMappings()
+  }, [teamLeads])
   // --- Fetch CAs based on Team Lead ---
   useEffect(() => {
     const fetchCAs = async () => {
       setLoading(true)
       let query = supabase
-    .from("users")
-    .select("id, name, email, designation, team_id, isactive") // Ensure isactive is included
-    .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
-    // .eq("isactive", true); 
+        .from("users")
+        .select("id, name, email, designation, team_id, isactive") // Ensure isactive is included
+        .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
+      // .eq("isactive", true); 
 
       if (selectedTeamLead !== "all") {
         const { data: team, error: teamError } = await supabase
@@ -227,6 +279,56 @@ useEffect(() => {
     fetchClients()
   }, [cas, dateFrom, dateTo])
 
+  const fetchTodayLeadsCount = useCallback(async () => {
+    try {
+      const todayStr = new Date().toISOString().split("T")[0]
+      const res = await fetch(`/api/today-leads?startDate=${todayStr}&endDate=${todayStr}`, { cache: 'no-store' })
+      const data = await res.json()
+      if (data.success) {
+        setTodayLeadsCount(data.leads?.length || 0)
+      }
+    } catch (err) {
+      console.error("Error fetching today's leads count:", err)
+    }
+  }, [])
+
+  const fetchTodayLeads = useCallback(async () => {
+    try {
+      let url = "/api/today-leads"
+      const params = new URLSearchParams()
+      if (leadDatePreset === "today") {
+        const todayStr = new Date().toISOString().split("T")[0]
+        params.append("startDate", todayStr)
+        params.append("endDate", todayStr)
+      } else if (leadDatePreset === "yesterday") {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yesterdayStr = yesterday.toISOString().split("T")[0]
+        params.append("startDate", yesterdayStr)
+        params.append("endDate", yesterdayStr)
+      } else if (leadDatePreset === "custom") {
+        params.append("startDate", leadStartDate)
+        params.append("endDate", leadEndDate)
+      }
+      url += `?${params.toString()}`
+
+      const res = await fetch(url, { cache: 'no-store' })
+      const data = await res.json()
+      if (data.success) {
+        setTodayLeads(data.leads || [])
+        if (leadDatePreset === "today") {
+          setTodayLeadsCount(data.leads?.length || 0)
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching leads:", err)
+    }
+  }, [leadDatePreset, leadStartDate, leadEndDate])
+
+  useEffect(() => {
+    fetchTodayLeads()
+  }, [fetchTodayLeads])
+
   useEffect(() => {
     const fetchClients = async () => {
       const { data, error } = await supabase
@@ -235,7 +337,8 @@ useEffect(() => {
       if (!error && data) setClients1(data)
     }
     fetchClients()
-  }, [])
+    fetchTodayLeadsCount()
+  }, [fetchTodayLeadsCount])
 
   useEffect(() => {
     const fetchCAs = async () => {
@@ -420,7 +523,7 @@ useEffect(() => {
         const apiPassword = process.env.NEXT_PUBLIC_APPLYWIZZ_API_PASSWORD;
         const authHeader = 'Basic ' + btoa(`${apiEmail}:${apiPassword}`);
         let baseUrl = process.env.NEXT_PUBLIC_APPLYWIZZ_API_URL;
-        
+
         if (!baseUrl) {
           applywizzErrorMsg = "NEXT_PUBLIC_APPLYWIZZ_API_URL environment variable is not defined in your deployment settings.";
         } else {
@@ -432,7 +535,7 @@ useEffect(() => {
           const searchRes = await fetch(`${baseUrl}/api/v1/leads/?search=${encodeURIComponent(currentClient.email)}`, {
             headers: { "Authorization": authHeader },
           });
-          
+
           if (searchRes.ok) {
             const contentType = searchRes.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
@@ -441,7 +544,7 @@ useEffect(() => {
               const searchData = await searchRes.json();
               if (searchData.results && searchData.results.length > 0) {
                 const internalId = searchData.results[0].id;
-                
+
                 // 2. Update the status using the internal ID
                 const res = await fetch(`${baseUrl}/api/v1/leads/${internalId}/`, {
                   method: "PATCH",
@@ -451,7 +554,7 @@ useEffect(() => {
                   },
                   body: JSON.stringify({ status: newStatus }),
                 });
-                
+
                 if (res.ok) {
                   applywizzUpdated = true;
                 } else {
@@ -756,129 +859,140 @@ useEffect(() => {
   // }
   // Function to get team lead for a client
   // Add this helper function for sync team lead lookup
-const getTeamLeadForCASync = (ca: any) => {
-  if (!ca || !ca.team_id) return "Unknown Team"
-  
-  // Find the team lead using the team_id
-  const team = teamLeads.find(tl => {
-    // This assumes teamLeads have team_id, if not we need to fetch teams
-    return true // You'll need to adjust this based on your data structure
-  })
-  
-  return "Team Lead Name" // You'll need to adjust this based on your data
-}
-const getTeamLeadForClient = async (client: any) => {
-  // First, get the CA assigned to this client
-  const currentCA = cas.find(ca => ca.id === client.assigned_ca_id)
-  
-  if (!currentCA || !currentCA.team_id) {
-    return "Unknown Team"
+  const getTeamLeadForCASync = (ca: any) => {
+    if (!ca || !ca.team_id) return "Unknown Team"
+
+    // Find the team lead using the team_id
+    const team = teamLeads.find(tl => {
+      // This assumes teamLeads have team_id, if not we need to fetch teams
+      return true // You'll need to adjust this based on your data structure
+    })
+
+    return "Team Lead Name" // You'll need to adjust this based on your data
   }
+  const getTeamLeadForClient = async (client: any) => {
+    // First, get the CA assigned to this client
+    const currentCA = cas.find(ca => ca.id === client.assigned_ca_id)
 
-  // Get the team lead for this team
-  const { data: team, error } = await supabase
-    .from("teams")
-    .select("lead_id")
-    .eq("id", currentCA.team_id)
-    .single()
+    if (!currentCA || !currentCA.team_id) {
+      return "Unknown Team"
+    }
 
-  if (error || !team) {
-    return "Unknown Team"
+    // Get the team lead for this team
+    const { data: team, error } = await supabase
+      .from("teams")
+      .select("lead_id")
+      .eq("id", currentCA.team_id)
+      .single()
+
+    if (error || !team) {
+      return "Unknown Team"
+    }
+
+    // Find the team lead name
+    const teamLead = teamLeads.find(tl => tl.id === team.lead_id)
+    return teamLead?.name || "Unknown Team"
   }
+  // Handle assigning client to a different CA
+  const handleAssignClient = async (clientId: string, newCaId: string) => {
+    if (!clientToAssign) return
 
-  // Find the team lead name
-  const teamLead = teamLeads.find(tl => tl.id === team.lead_id)
-  return teamLead?.name || "Unknown Team"
-}
-// Handle assigning client to a different CA
-const handleAssignClient = async (clientId: string, newCaId: string) => {
-  if (!clientToAssign) return
+    // Get the current CA and new CA names for the alert
+    const currentCA = cas.find(ca => ca.id === clientToAssign.assigned_ca_id)
+    const newCA = availableCAs.find(ca => ca.id === newCaId)
 
-  // Get the current CA and new CA names for the alert
-  const currentCA = cas.find(ca => ca.id === clientToAssign.assigned_ca_id)
-  const newCA = availableCAs.find(ca => ca.id === newCaId)
+    const { error } = await supabase
+      .from("clients")
+      .update({ assigned_ca_id: newCaId, assigned_ca_name: newCA.name })
+      .eq("id", clientId)
 
-  const { error } = await supabase
-    .from("clients")
-    .update({ assigned_ca_id: newCaId,assigned_ca_name: newCA.name  })
-    .eq("id", clientId)
-
-  if (error) {
-    alert("Failed to assign client: " + error.message)
-    return
-  }
-
-  // Update local state
-  setClients1(prev => prev.map(c => 
-    c.id === clientId ? { ...c, assigned_ca_id: newCaId,assigned_ca_name: newCA.name } : c
-  ))
-  
-  // Update caClients if the client is in an expanded view
-  Object.keys(caClients).forEach(caId => {
-    setCaClients(prev => ({
-      ...prev,
-      [caId]: prev[caId]?.filter(c => c.id !== clientId) || []
-    }))
-  })
-
-  // Add to new CA's client list if expanded
-  if (caClients[newCaId]) {
-    setCaClients(prev => ({
-      ...prev,
-      [newCaId]: [...(prev[newCaId] || []), { ...clientToAssign, assigned_ca_id: newCaId }]
-    }))
-  }
-
-  setAssignClientOpen(false)
-  setClientToAssign(null)
-  
-  // Show detailed alert with CA names
-  alert(`✅ Client Successfully Reassigned\n\n📋 Client: ${clientToAssign.name}\n⬅️ From: ${currentCA?.name || "Unknown CA"}\n➡️ To: ${newCA?.name || "Unknown CA"}\n\nThe client has been moved to ${newCA?.name}'s dashboard.`)
-}
-
-const openAssignDialog = async (client: any) => {
-  // Find the current CA assigned to this client
-  const currentCA = cas.find(ca => ca.id === client.assigned_ca_id)
-  
-  if (!currentCA || !currentCA.team_id) {
-    alert("Cannot find current CA or team information for this client")
-    return
-  }
-
-  // Use your existing function to get the team lead name
-  const teamLeadName = await getTeamLeadForClient(client)
-
-  // Fetch active CAs from the same team as the current CA
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, name, email, team_id, designation, isactive")
-    .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
-    .eq("isactive", true)
-    .eq("team_id", currentCA.team_id)
-
-  if (error) {
-    console.error("Error fetching available CAs:", error)
-    return
-  }
-
-  // Set ALL state at once
-  setAvailableCAs(data || [])
-  setClientToAssign({ 
-    ...client, 
-    teamLeadName,
-    currentCA 
-  })
-  setAssignClientOpen(true)
-}
-  const handleReset = async () => {
-    let { data, error } = await supabase
-      .rpc('run_reset_button')
     if (error) {
-      console.error(error)
-      alert("Error resetting daily data: " + error.message)
-    } else {
-      console.log(data)
-      alert("Reset today's data successfully!" + JSON.stringify(data))
+      alert("Failed to assign client: " + error.message)
+      return
+    }
+
+    // Update local state
+    setClients1(prev => prev.map(c =>
+      c.id === clientId ? { ...c, assigned_ca_id: newCaId, assigned_ca_name: newCA.name } : c
+    ))
+
+    // Update caClients if the client is in an expanded view
+    Object.keys(caClients).forEach(caId => {
+      setCaClients(prev => ({
+        ...prev,
+        [caId]: prev[caId]?.filter(c => c.id !== clientId) || []
+      }))
+    })
+
+    // Add to new CA's client list if expanded
+    if (caClients[newCaId]) {
+      setCaClients(prev => ({
+        ...prev,
+        [newCaId]: [...(prev[newCaId] || []), { ...clientToAssign, assigned_ca_id: newCaId }]
+      }))
+    }
+
+    setAssignClientOpen(false)
+    setClientToAssign(null)
+
+    // Show detailed alert with CA names
+    alert(`✅ Client Successfully Reassigned\n\n📋 Client: ${clientToAssign.name}\n⬅️ From: ${currentCA?.name || "Unknown CA"}\n➡️ To: ${newCA?.name || "Unknown CA"}\n\nThe client has been moved to ${newCA?.name}'s dashboard.`)
+  }
+
+  const openAssignDialog = async (client: any) => {
+    // Find the current CA assigned to this client
+    const currentCA = cas.find(ca => ca.id === client.assigned_ca_id)
+
+    if (!currentCA || !currentCA.team_id) {
+      alert("Cannot find current CA or team information for this client")
+      return
+    }
+
+    // Use your existing function to get the team lead name
+    const teamLeadName = await getTeamLeadForClient(client)
+
+    // Fetch active CAs from the same team as the current CA
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, name, email, team_id, designation, isactive")
+      .in("role", ["CA", "Junior CA", "Career Associative Trainee"])
+      .eq("isactive", true)
+      .eq("team_id", currentCA.team_id)
+
+    if (error) {
+      console.error("Error fetching available CAs:", error)
+      return
+    }
+
+    // Set ALL state at once
+    setAvailableCAs(data || [])
+    setClientToAssign({
+      ...client,
+      teamLeadName,
+      currentCA
+    })
+    setAssignClientOpen(true)
+  }
+  const handleReset = async () => {
+    const confirmReset = window.confirm("Are you sure you want to reset today's daily data? This action cannot be undone.");
+    if (!confirmReset) return;
+
+    setIsResetting(true);
+    try {
+      let { data, error } = await supabase
+        .rpc('run_reset_button')
+      if (error) {
+        console.error(error)
+        alert("Error resetting daily data: " + error.message)
+      } else {
+        console.log(data)
+        alert("Reset today's data successfully!" + JSON.stringify(data))
+      }
+    } catch (err) {
+      console.error(err)
+      alert("An unexpected error occurred during reset.")
+    } finally {
+      setIsResetting(false);
     }
   }
 
@@ -966,104 +1080,106 @@ const openAssignDialog = async (client: any) => {
             </Button>
           </div>
         </div>
-        
-        
-{/* Enhanced Assign Client Dialog */}
-<Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Reassign Client</DialogTitle>
-    </DialogHeader>
-    <div className="space-y-4">
-      {clientToAssign && (() => {  {/* ADD THIS NULL CHECK */}
-        const currentCA = cas.find(ca => ca.id === clientToAssign.assigned_ca_id)
-        
-        return (
-          <div className="space-y-3">
-            <div className="p-3 bg-slate-50 rounded-lg border">
-              <h4 className="font-semibold text-slate-900 text-center mb-3">Client: {clientToAssign.name}</h4>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {/* Current CA */}
-                <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
-                  <div className="text-sm font-medium text-red-700 mb-2">Current CA</div>
-                  {currentCA ? (
-                    <div className="text-red-600">
-                      <div className="font-semibold">{currentCA.name}</div>
-                      <div className="text-xs text-red-500 mt-1">{currentCA.email}</div>
-                      <div className="text-xs text-red-400 mt-1">{currentCA.designation || "CA"}</div>
-                      <div className="text-xs text-red-400 mt-1">Team: {clientToAssign.teamLeadName || "Loading..."}</div>
+
+
+        {/* Enhanced Assign Client Dialog */}
+        <Dialog open={assignClientOpen} onOpenChange={setAssignClientOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reassign Client</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {clientToAssign && (() => {
+                {/* ADD THIS NULL CHECK */ }
+                const currentCA = cas.find(ca => ca.id === clientToAssign.assigned_ca_id)
+
+                return (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-slate-50 rounded-lg border">
+                      <h4 className="font-semibold text-slate-900 text-center mb-3">Client: {clientToAssign.name}</h4>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Current CA */}
+                        <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="text-sm font-medium text-red-700 mb-2">Current CA</div>
+                          {currentCA ? (
+                            <div className="text-red-600">
+                              <div className="font-semibold">{currentCA.name}</div>
+                              <div className="text-xs text-red-500 mt-1">{currentCA.email}</div>
+                              <div className="text-xs text-red-400 mt-1">{currentCA.designation || "CA"}</div>
+                              <div className="text-xs text-red-400 mt-1">Team: {clientToAssign.teamLeadName || "Loading..."}</div>
+                            </div>
+                          ) : (
+                            <div className="text-red-600 font-semibold">Not assigned</div>
+                          )}
+                        </div>
+
+                        {/* New CA */}
+                        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-sm font-medium text-green-700 mb-2">New CA</div>
+                          <div className="text-green-600 font-semibold">Select below</div>
+                          <div className="text-xs text-green-500 mt-1">Choose from {clientToAssign.teamLeadName || "same team"}</div>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-red-600 font-semibold">Not assigned</div>
-                  )}
-                </div>
-                
-                {/* New CA */}
-                <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="text-sm font-medium text-green-700 mb-2">New CA</div>
-                  <div className="text-green-600 font-semibold">Select below</div>
-                  <div className="text-xs text-green-500 mt-1">Choose from {clientToAssign.teamLeadName || "same team"}</div>
-                </div>
+                  </div>
+                )
+              })()}
+
+              {/* Move the Select outside the null check so it's always available */}
+              <div>
+                <Label htmlFor="ca-select" className="text-slate-700 block mb-2">
+                  Select New Career Associate from {clientToAssign?.teamLeadName || "Same Team"} {/* ADD OPTIONAL CHAINING */}
+                </Label>
+                <Select onValueChange={(value) => {
+                  const selectedCA = availableCAs.find(ca => ca.id === value)
+                  if (selectedCA && clientToAssign) {
+                    {/* ADD NULL CHECK */ }
+                    const currentCA = cas.find(ca => ca.id === clientToAssign.assigned_ca_id)
+
+                    const confirmMessage = `Confirm Client Reassignment\n\nClient: ${clientToAssign.name}\n\nFrom: ${currentCA?.name || "Not assigned"}\nTo: ${selectedCA.name}\n\nTeam: ${clientToAssign.teamLeadName || "Same Team"}\n\nClick OK to confirm.`
+
+                    if (window.confirm(confirmMessage)) {
+                      handleAssignClient(clientToAssign.id, value)
+                    }
+                  }
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a CA to assign..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCAs.length > 0 ? (
+                      availableCAs.map((ca) => (
+                        <SelectItem key={ca.id} value={ca.id}>
+                          <div className="flex flex-col">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{ca.name}</span>
+                              <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
+                                {ca.designation || "CA"}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-slate-500">{ca.email}</span>
+                            <span className="text-xs text-slate-400">Team: {clientToAssign?.teamLeadName || "Same Team"}</span> {/* ADD OPTIONAL CHAINING */}
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-2 text-sm text-slate-500 text-center">
+                        No active CAs available in {clientToAssign?.teamLeadName || "this team"} {/* ADD OPTIONAL CHAINING */}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
+                  Cancel
+                </Button>
               </div>
             </div>
-          </div>
-        )
-      })()}
-      
-      {/* Move the Select outside the null check so it's always available */}
-      <div>
-        <Label htmlFor="ca-select" className="text-slate-700 block mb-2">
-          Select New Career Associate from {clientToAssign?.teamLeadName || "Same Team"} {/* ADD OPTIONAL CHAINING */}
-        </Label>
-        <Select onValueChange={(value) => {
-          const selectedCA = availableCAs.find(ca => ca.id === value)
-          if (selectedCA && clientToAssign) {  {/* ADD NULL CHECK */}
-            const currentCA = cas.find(ca => ca.id === clientToAssign.assigned_ca_id)
-            
-            const confirmMessage = `Confirm Client Reassignment\n\nClient: ${clientToAssign.name}\n\nFrom: ${currentCA?.name || "Not assigned"}\nTo: ${selectedCA.name}\n\nTeam: ${clientToAssign.teamLeadName || "Same Team"}\n\nClick OK to confirm.`
-            
-            if (window.confirm(confirmMessage)) {
-              handleAssignClient(clientToAssign.id, value)
-            }
-          }
-        }}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a CA to assign..." />
-          </SelectTrigger>
-          <SelectContent>
-            {availableCAs.length > 0 ? (
-              availableCAs.map((ca) => (
-                <SelectItem key={ca.id} value={ca.id}>
-                  <div className="flex flex-col">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{ca.name}</span>
-                      <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">
-                        {ca.designation || "CA"}
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-slate-500">{ca.email}</span>
-                    <span className="text-xs text-slate-400">Team: {clientToAssign?.teamLeadName || "Same Team"}</span> {/* ADD OPTIONAL CHAINING */}
-                  </div>
-                </SelectItem>
-              ))
-            ) : (
-              <div className="p-2 text-sm text-slate-500 text-center">
-                No active CAs available in {clientToAssign?.teamLeadName || "this team"} {/* ADD OPTIONAL CHAINING */}
-              </div>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-      
-      <div className="flex justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={() => setAssignClientOpen(false)}>
-          Cancel
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+          </DialogContent>
+        </Dialog>
         {/* Filters */}
         <div className="flex gap-4 mb-6">
           <div>
@@ -1177,7 +1293,7 @@ const openAssignDialog = async (client: any) => {
                       <Checkbox
                         id={`month-${m.value}`}
                         checked={visibleMonths.includes(m.value)}
-                        onCheckedChange={(checked) => {
+                        onCheckedChange={(checked: boolean) => {
                           if (checked) {
                             setVisibleMonths((prev) => [...prev, m.value]);
                           } else {
@@ -1229,7 +1345,7 @@ const openAssignDialog = async (client: any) => {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-8 gap-4 mb-6">
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{totalCAs}</div>
@@ -1323,466 +1439,503 @@ const openAssignDialog = async (client: any) => {
               <div className="text-sm text-slate-600">Submission Rate</div>
             </CardContent>
           </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition bg-indigo-50/10 border-indigo-100" onClick={() => setActiveTab("today-leads")}>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-indigo-600">{todayLeadsCount}</div>
+              <div className="text-sm text-slate-600">Leads Today</div>
+            </CardContent>
+          </Card>
         </div>
 
-
-     {dateFrom === new Date().toISOString().split("T")[0] && dateTo === new Date().toISOString().split("T")[0] &&
-  <>
-
-    {
-      loading && (
-        <div className="text-center my-4 text-blue-600 font-semibold text-lg">
-          Loading...
+        {/* Tab Selection */}
+        <div className="flex border-b border-slate-200 mb-6 gap-6">
+          <button
+            onClick={() => setActiveTab("dashboard")}
+            className={`pb-3 text-sm font-bold transition-all border-b-2 ${activeTab === "dashboard"
+              ? "border-indigo-600 text-indigo-600 font-extrabold"
+              : "border-transparent text-slate-500 hover:text-slate-750"
+              }`}
+          >
+            📊 Dashboard Overview
+          </button>
+          <button
+            onClick={() => setActiveTab("today-leads")}
+            className={`pb-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${activeTab === "today-leads"
+              ? "border-indigo-600 text-indigo-600 font-extrabold"
+              : "border-transparent text-slate-500 hover:text-slate-750"
+              }`}
+          >
+            📋 No. of Leads
+            <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-none font-bold text-[10px] px-1.5 py-0.5">
+              {todayLeads.length}
+            </Badge>
+          </button>
         </div>
-      )
-    }
 
-    {/* CA List */}
-    {!loading && (
-      <div className="space-y-6">
-        {/* Active CAs Container */}
-        <Card>
-          <CardHeader className="bg-green-50 border-b">
-            <CardTitle className="flex items-center gap-2 text-green-700">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              Active Career Associates ({filteredCAPerformance.filter((ca: any) => ca.isactive).length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="space-y-3 p-4">
-              {filteredCAPerformance
-                .filter((ca: any) => ca.isactive)
-                .map((ca: any) => (
-                  <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
-                    {/* CA Card Summary */}
-                    <div
-                      className="flex items-center justify-between p-4 cursor-pointer"
-                      onClick={() => fetchClientsForCA(ca.id)}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{ca.name}</h3>
-                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
-                            Active
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
-                        <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* CA Active/Inactive Toggle Button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async (e) => {
-                            e.stopPropagation(); // Prevent expanding the card
-                            
-                            const newStatus = !ca.isactive;
+        {activeTab === "dashboard" && (
+          <>
 
-                            // Update CA's isactive status in the database
-                            const { error } = await supabase
-                              .from("users")
-                              .update({ isactive: newStatus })
-                              .eq("id", ca.id);
 
-                            if (error) {
-                              alert("Failed to update CA status: " + error.message);
-                              return;
-                            }
+            {dateFrom === new Date().toISOString().split("T")[0] && dateTo === new Date().toISOString().split("T")[0] &&
+              <>
 
-                            // Update local state to reflect the change immediately
-                            setCas((prevCAs) => 
-                              prevCAs.map((prevCa) => 
-                                prevCa.id === ca.id ? { ...prevCa, isactive: newStatus } : prevCa
-                              )
-                            );
-
-                            // Also update the caPerformance state if needed
-                            setCaPerformance((prev) => ({
-                              ...prev,
-                              [ca.id]: { ...prev[ca.id], isactive: newStatus }
-                            }));
-
-                            alert(`CA status updated to ${newStatus ? "Active" : "Inactive"}`);
-                          }}
-                        >
-                          Set Inactive
-                        </Button>
-
-                        <Link href={`/cro-dashboard/ca/${ca.id}`} className="inline-block">
-                          <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
-                            Go to Dashboard
-                          </Button>
-                        </Link>
-                      </div>
+                {
+                  loading && (
+                    <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+                      Loading...
                     </div>
+                  )
+                }
 
-                    {/* Expanded Clients Section */}
-                    {expandedCA === ca.id && (
-                      <div className="p-4 bg-slate-50 border-t">
-                        {caClients[ca.id]?.length > 0 ? (
-                          <ul className="space-y-2">
-                            {caClients[ca.id].map((client) => (
-                              <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
-                                <div className="flex gap-4 items-center">
-                                  <Link href={`/cro-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
-                                    {client.name}
-                                  </Link>
-                                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                                    <span className="inline-flex items-center gap-1">
-                                      <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
-                                    </span>
+                {/* CA List */}
+                {!loading && (
+                  <div className="space-y-6">
+                    {/* Active CAs Container */}
+                    <Card>
+                      <CardHeader className="bg-green-50 border-b">
+                        <CardTitle className="flex items-center gap-2 text-green-700">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          Active Career Associates ({filteredCAPerformance.filter((ca: any) => ca.isactive).length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="space-y-3 p-4">
+                          {filteredCAPerformance
+                            .filter((ca: any) => ca.isactive)
+                            .map((ca: any) => (
+                              <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
+                                {/* CA Card Summary */}
+                                <div
+                                  className="flex items-center justify-between p-4 cursor-pointer"
+                                  onClick={() => fetchClientsForCA(ca.id)}
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-semibold">{ca.name}</h3>
+                                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
+                                        Active
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                                  </div>
+                                  <div className="flex gap-4">
+                                    <Badge variant="secondary">Email Received: {ca.emails_submitted}</Badge>
+                                    <Badge variant="secondary">Jobs Applied: {ca.jobs_applied}</Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {/* CA Active/Inactive Toggle Button */}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={async (e) => {
+                                        e.stopPropagation(); // Prevent expanding the card
+
+                                        const newStatus = !ca.isactive;
+
+                                        // Update CA's isactive status in the database
+                                        const { error } = await supabase
+                                          .from("users")
+                                          .update({ isactive: newStatus })
+                                          .eq("id", ca.id);
+
+                                        if (error) {
+                                          alert("Failed to update CA status: " + error.message);
+                                          return;
+                                        }
+
+                                        // Update local state to reflect the change immediately
+                                        setCas((prevCAs) =>
+                                          prevCAs.map((prevCa) =>
+                                            prevCa.id === ca.id ? { ...prevCa, isactive: newStatus } : prevCa
+                                          )
+                                        );
+
+                                        // Also update the caPerformance state if needed
+                                        setCaPerformance((prev) => ({
+                                          ...prev,
+                                          [ca.id]: { ...prev[ca.id], isactive: newStatus }
+                                        }));
+
+                                        alert(`CA status updated to ${newStatus ? "Active" : "Inactive"}`);
+                                      }}
+                                    >
+                                      Set Inactive
+                                    </Button>
+
+                                    <Link href={`/cro-dashboard/ca/${ca.id}`} className="inline-block">
+                                      <Button variant="ghost" size="sm" className="flex items-center bg-blue-300">
+                                        Go to Dashboard
+                                      </Button>
+                                    </Link>
                                   </div>
                                 </div>
-                                <Badge
-                                  className={
-                                    client.status === "Not Started"
-                                      ? "bg-red-500 text-white"
-                                      : client.status === "Started"
-                                        ? "bg-orange-500 text-white"
-                                        : client.status === "Paused"
-                                          ? "bg-white text-black border border-slate-300"
-                                          : client.status === "Completed"
-                                            ? "bg-green-500 text-white"
-                                            : ""
-                                  }
-                                >
-                                  {client.status}
-                                </Badge>
-                                <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
-                                <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
-                                <Badge
-                                  className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}
-                                >
-                                  {client.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                                {/* In the client list - add this button along with the existing buttons */}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="bg-purple-300"
-                                  onClick={() => openAssignDialog(client)}
-                                >
-                                  Assign
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="bg-blue-300"
-                                  onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
-                                >
-                                  {client.is_active ? "Set Inactive" : "Set Active"}
-                                </Button>
 
-                                {/* Confirmation Dialog */}
-                                <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Confirm Status Change</DialogTitle>
-                                    </DialogHeader>
-                                    <p>
-                                      Are you sure you want to{" "}
-                                      <span className="font-semibold">
-                                        {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
-                                      </span>
-                                      ?
-                                    </p>
-                                    <div className="flex justify-end gap-2 mt-4">
-                                      <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
-                                      <Button
-                                        className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
-                                        onClick={() => {
-                                          if (confirmClient) {
-                                            handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
-                                            setConfirmClient(null)
-                                          }
-                                        }}
-                                      >
-                                        {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
-                                      </Button>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </li>
+                                {/* Expanded Clients Section */}
+                                {expandedCA === ca.id && (
+                                  <div className="p-4 bg-slate-50 border-t">
+                                    {caClients[ca.id]?.length > 0 ? (
+                                      <ul className="space-y-2">
+                                        {caClients[ca.id].map((client) => (
+                                          <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
+                                            <div className="flex gap-4 items-center">
+                                              <Link href={`/cro-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
+                                                {client.name}
+                                              </Link>
+                                              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                                <span className="inline-flex items-center gap-1">
+                                                  <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <Badge
+                                              className={
+                                                client.status === "Not Started"
+                                                  ? "bg-red-500 text-white"
+                                                  : client.status === "Started"
+                                                    ? "bg-orange-500 text-white"
+                                                    : client.status === "Paused"
+                                                      ? "bg-white text-black border border-slate-300"
+                                                      : client.status === "Completed"
+                                                        ? "bg-green-500 text-white"
+                                                        : ""
+                                              }
+                                            >
+                                              {client.status}
+                                            </Badge>
+                                            <Badge variant="secondary">Emails Received: {client.emails_submitted}</Badge>
+                                            <Badge variant="secondary">Jobs Applied: {client.jobs_applied}</Badge>
+                                            <Badge
+                                              className={client.is_active ? "bg-green-600 text-white" : "bg-red-900 text-white"}
+                                            >
+                                              {client.is_active ? "Active" : "Inactive"}
+                                            </Badge>
+                                            {/* In the client list - add this button along with the existing buttons */}
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="bg-purple-300"
+                                              onClick={() => openAssignDialog(client)}
+                                            >
+                                              Assign
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="bg-blue-300"
+                                              onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
+                                            >
+                                              {client.is_active ? "Set Inactive" : "Set Active"}
+                                            </Button>
+
+                                            {/* Confirmation Dialog */}
+                                            <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
+                                              <DialogContent>
+                                                <DialogHeader>
+                                                  <DialogTitle>Confirm Status Change</DialogTitle>
+                                                </DialogHeader>
+                                                <p>
+                                                  Are you sure you want to{" "}
+                                                  <span className="font-semibold">
+                                                    {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
+                                                  </span>
+                                                  ?
+                                                </p>
+                                                <div className="flex justify-end gap-2 mt-4">
+                                                  <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
+                                                  <Button
+                                                    className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                                    onClick={() => {
+                                                      if (confirmClient) {
+                                                        handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
+                                                        setConfirmClient(null)
+                                                      }
+                                                    }}
+                                                  >
+                                                    {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
+                                                  </Button>
+                                                </div>
+                                              </DialogContent>
+                                            </Dialog>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-sm text-slate-500">No clients assigned.</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             ))}
-                          </ul>
-                        ) : (
-                          <p className="text-sm text-slate-500">No clients assigned.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Inactive CAs Container */}
-        <Card>
-          <CardHeader className="bg-gray-50 border-b">
-            <CardTitle className="flex items-center gap-2 text-gray-600">
-              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-              Inactive Career Associates ({filteredCAPerformance.filter((ca: any) => !ca.isactive).length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="space-y-3 p-4">
-              {filteredCAPerformance
-                .filter((ca: any) => !ca.isactive)
-                .map((ca: any) => (
-                  <div key={ca.id} className="flex flex-col border rounded-lg bg-gray-50">
-                    {/* CA Card Summary */}
-                    <div
-                      className="flex items-center justify-between p-4 cursor-pointer"
-                      onClick={() => fetchClientsForCA(ca.id)}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-600">{ca.name}</h3>
-                          <Badge variant="outline" className="bg-gray-200 text-gray-600 border-gray-300">
-                            Inactive
-                          </Badge>
                         </div>
-                        <p className="text-sm text-gray-500">{ca.designation || "CA"} • {ca.email}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <Badge variant="secondary" className="bg-gray-200 text-gray-600">Email Received: {ca.emails_submitted}</Badge>
-                        <Badge variant="secondary" className="bg-gray-200 text-gray-600">Jobs Applied: {ca.jobs_applied}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* CA Active/Inactive Toggle Button */}
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={async (e) => {
-                            e.stopPropagation(); // Prevent expanding the card
-                            
-                            const newStatus = !ca.isactive;
+                      </CardContent>
+                    </Card>
 
-                            // Update CA's isactive status in the database
-                            const { error } = await supabase
-                              .from("users")
-                              .update({ isactive: newStatus })
-                              .eq("id", ca.id);
+                    {/* Inactive CAs Container */}
+                    <Card>
+                      <CardHeader className="bg-gray-50 border-b">
+                        <CardTitle className="flex items-center gap-2 text-gray-600">
+                          <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                          Inactive Career Associates ({filteredCAPerformance.filter((ca: any) => !ca.isactive).length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="space-y-3 p-4">
+                          {filteredCAPerformance
+                            .filter((ca: any) => !ca.isactive)
+                            .map((ca: any) => (
+                              <div key={ca.id} className="flex flex-col border rounded-lg bg-gray-50">
+                                {/* CA Card Summary */}
+                                <div
+                                  className="flex items-center justify-between p-4 cursor-pointer"
+                                  onClick={() => fetchClientsForCA(ca.id)}
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-semibold text-gray-600">{ca.name}</h3>
+                                      <Badge variant="outline" className="bg-gray-200 text-gray-600 border-gray-300">
+                                        Inactive
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-500">{ca.designation || "CA"} • {ca.email}</p>
+                                  </div>
+                                  <div className="flex gap-4">
+                                    <Badge variant="secondary" className="bg-gray-200 text-gray-600">Email Received: {ca.emails_submitted}</Badge>
+                                    <Badge variant="secondary" className="bg-gray-200 text-gray-600">Jobs Applied: {ca.jobs_applied}</Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {/* CA Active/Inactive Toggle Button */}
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={async (e) => {
+                                        e.stopPropagation(); // Prevent expanding the card
 
-                            if (error) {
-                              alert("Failed to update CA status: " + error.message);
-                              return;
-                            }
+                                        const newStatus = !ca.isactive;
 
-                            // Update local state to reflect the change immediately
-                            setCas((prevCAs) => 
-                              prevCAs.map((prevCa) => 
-                                prevCa.id === ca.id ? { ...prevCa, isactive: newStatus } : prevCa
-                              )
-                            );
+                                        // Update CA's isactive status in the database
+                                        const { error } = await supabase
+                                          .from("users")
+                                          .update({ isactive: newStatus })
+                                          .eq("id", ca.id);
 
-                            // Also update the caPerformance state if needed
-                            setCaPerformance((prev) => ({
-                              ...prev,
-                              [ca.id]: { ...prev[ca.id], isactive: newStatus }
-                            }));
+                                        if (error) {
+                                          alert("Failed to update CA status: " + error.message);
+                                          return;
+                                        }
 
-                            alert(`CA status updated to ${newStatus ? "Active" : "Inactive"}`);
-                          }}
-                        >
-                          Set Active
-                        </Button>
+                                        // Update local state to reflect the change immediately
+                                        setCas((prevCAs) =>
+                                          prevCAs.map((prevCa) =>
+                                            prevCa.id === ca.id ? { ...prevCa, isactive: newStatus } : prevCa
+                                          )
+                                        );
 
-                        <Link href={`/cro-dashboard/ca/${ca.id}`} className="inline-block">
-                          <Button variant="ghost" size="sm" className="flex items-center bg-gray-300 text-gray-700">
-                            Go to Dashboard
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
+                                        // Also update the caPerformance state if needed
+                                        setCaPerformance((prev) => ({
+                                          ...prev,
+                                          [ca.id]: { ...prev[ca.id], isactive: newStatus }
+                                        }));
 
-                    {/* Expanded Clients Section */}
-                    {expandedCA === ca.id && (
-                      <div className="p-4 bg-gray-100 border-t">
-                        {caClients[ca.id]?.length > 0 ? (
-                          <ul className="space-y-2">
-                            {caClients[ca.id].map((client) => (
-                              <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
-                                <div className="flex gap-4 items-center">
-                                  <Link href={`/cro-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
-                                    {client.name}
-                                  </Link>
-                                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                    <span className="inline-flex items-center gap-1">
-                                      <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
-                                    </span>
+                                        alert(`CA status updated to ${newStatus ? "Active" : "Inactive"}`);
+                                      }}
+                                    >
+                                      Set Active
+                                    </Button>
+
+                                    <Link href={`/cro-dashboard/ca/${ca.id}`} className="inline-block">
+                                      <Button variant="ghost" size="sm" className="flex items-center bg-gray-300 text-gray-700">
+                                        Go to Dashboard
+                                      </Button>
+                                    </Link>
                                   </div>
                                 </div>
-                                <Badge
-                                  className={
-                                    client.status === "Not Started"
-                                      ? "bg-red-300 text-white"
-                                      : client.status === "Started"
-                                        ? "bg-orange-300 text-white"
-                                        : client.status === "Paused"
-                                          ? "bg-gray-100 text-gray-600 border border-gray-300"
-                                          : client.status === "Completed"
-                                            ? "bg-green-300 text-white"
-                                            : ""
-                                  }
-                                >
-                                  {client.status}
-                                </Badge>
-                                <Badge variant="secondary" className="bg-gray-200 text-gray-600">Emails Received: {client.emails_submitted}</Badge>
-                                <Badge variant="secondary" className="bg-gray-200 text-gray-600">Jobs Applied: {client.jobs_applied}</Badge>
-                                <Badge
-                                  className={client.is_active ? "bg-green-400 text-white" : "bg-red-700 text-white"}
-                                >
-                                  {client.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="bg-gray-300 text-gray-700"
-                                  onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
-                                >
-                                  {client.is_active ? "Set Inactive" : "Set Active"}
-                                </Button>
 
-                                {/* Confirmation Dialog */}
-                                <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Confirm Status Change</DialogTitle>
-                                    </DialogHeader>
-                                    <p>
-                                      Are you sure you want to{" "}
-                                      <span className="font-semibold">
-                                        {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
-                                      </span>
-                                      ?
-                                    </p>
-                                    <div className="flex justify-end gap-2 mt-4">
-                                      <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
-                                      <Button
-                                        className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
-                                        onClick={() => {
-                                          if (confirmClient) {
-                                            handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
-                                            setConfirmClient(null)
-                                          }
-                                        }}
-                                      >
-                                        {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
-                                      </Button>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </li>
+                                {/* Expanded Clients Section */}
+                                {expandedCA === ca.id && (
+                                  <div className="p-4 bg-gray-100 border-t">
+                                    {caClients[ca.id]?.length > 0 ? (
+                                      <ul className="space-y-2">
+                                        {caClients[ca.id].map((client) => (
+                                          <li key={client.id} className="flex justify-between p-2 bg-white rounded border">
+                                            <div className="flex gap-4 items-center">
+                                              <Link href={`/cro-dashboard/client/${client.id}`} className="w-56 truncate font-medium text-blue-600 hover:text-blue-800 hover:underline mr-16">
+                                                {client.name}
+                                              </Link>
+                                              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                                <span className="inline-flex items-center gap-1">
+                                                  <span className="font-semibold">Time Taken:</span> {calcDurationLabel(client.start_time, client.end_time)}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <Badge
+                                              className={
+                                                client.status === "Not Started"
+                                                  ? "bg-red-300 text-white"
+                                                  : client.status === "Started"
+                                                    ? "bg-orange-300 text-white"
+                                                    : client.status === "Paused"
+                                                      ? "bg-gray-100 text-gray-600 border border-gray-300"
+                                                      : client.status === "Completed"
+                                                        ? "bg-green-300 text-white"
+                                                        : ""
+                                              }
+                                            >
+                                              {client.status}
+                                            </Badge>
+                                            <Badge variant="secondary" className="bg-gray-200 text-gray-600">Emails Received: {client.emails_submitted}</Badge>
+                                            <Badge variant="secondary" className="bg-gray-200 text-gray-600">Jobs Applied: {client.jobs_applied}</Badge>
+                                            <Badge
+                                              className={client.is_active ? "bg-green-400 text-white" : "bg-red-700 text-white"}
+                                            >
+                                              {client.is_active ? "Active" : "Inactive"}
+                                            </Badge>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="bg-gray-300 text-gray-700"
+                                              onClick={() => setConfirmClient({ id: client.id, isActive: client.is_active, caId: ca.id })}
+                                            >
+                                              {client.is_active ? "Set Inactive" : "Set Active"}
+                                            </Button>
+
+                                            {/* Confirmation Dialog */}
+                                            <Dialog open={!!confirmClient} onOpenChange={() => setConfirmClient(null)}>
+                                              <DialogContent>
+                                                <DialogHeader>
+                                                  <DialogTitle>Confirm Status Change</DialogTitle>
+                                                </DialogHeader>
+                                                <p>
+                                                  Are you sure you want to{" "}
+                                                  <span className="font-semibold">
+                                                    {confirmClient?.isActive ? "set this client as Inactive" : "set this client as Active"}
+                                                  </span>
+                                                  ?
+                                                </p>
+                                                <div className="flex justify-end gap-2 mt-4">
+                                                  <Button variant="outline" onClick={() => setConfirmClient(null)}>Cancel</Button>
+                                                  <Button
+                                                    className={confirmClient?.isActive ? "bg-red-500 text-white" : "bg-green-500 text-white"}
+                                                    onClick={() => {
+                                                      if (confirmClient) {
+                                                        handleToggleActive(confirmClient.id, confirmClient.isActive, confirmClient.caId)
+                                                        setConfirmClient(null)
+                                                      }
+                                                    }}
+                                                  >
+                                                    {confirmClient?.isActive ? "Yes, Set Inactive" : "Yes, Set Active"}
+                                                  </Button>
+                                                </div>
+                                              </DialogContent>
+                                            </Dialog>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-sm text-gray-500">No clients assigned.</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             ))}
-                          </ul>
-                        ) : (
-                          <p className="text-sm text-gray-500">No clients assigned.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )}
-
-  </>
-}
-      {(dateFrom !== new Date().toISOString().split("T")[0] || dateTo !== new Date().toISOString().split("T")[0]) &&
-  <>
-
-    {
-      loading && (
-        <div className="text-center my-4 text-blue-600 font-semibold text-lg">
-          Loading...
-        </div>
-      )
-    }
-
-    {/* CA List */}
-    {!loading && (
-      <div className="space-y-6">
-        {/* Active CAs Container */}
-        <Card>
-          <CardHeader className="bg-green-50 border-b">
-            <CardTitle className="flex items-center gap-2 text-green-700">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              Active Career Associates ({filteredCAPerformance1.filter((ca: any) => ca.isactive).length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="space-y-3 p-4">
-              {filteredCAPerformance1
-                .filter((ca: any) => ca.isactive)
-                .map((ca: any) => (
-                  <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
-                    <div className="flex items-center justify-between p-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{ca.name}</h3>
-                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
-                            Active
-                          </Badge>
                         </div>
-                        <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <Badge variant="secondary">Total profiles: {ca.totalProfiles}</Badge>
-                        <Badge variant="secondary">Incentives: {ca.incentives}</Badge>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
+                )}
 
-        {/* Inactive CAs Container */}
-        <Card>
-          <CardHeader className="bg-gray-50 border-b">
-            <CardTitle className="flex items-center gap-2 text-gray-600">
-              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-              Inactive Career Associates ({filteredCAPerformance1.filter((ca: any) => !ca.isactive).length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="space-y-3 p-4">
-              {filteredCAPerformance1
-                .filter((ca: any) => !ca.isactive)
-                .map((ca: any) => (
-                  <div key={ca.id} className="flex flex-col border rounded-lg bg-gray-50">
-                    <div className="flex items-center justify-between p-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-600">{ca.name}</h3>
-                          <Badge variant="outline" className="bg-gray-200 text-gray-600 border-gray-300">
-                            Inactive
-                          </Badge>
+              </>
+            }
+            {(dateFrom !== new Date().toISOString().split("T")[0] || dateTo !== new Date().toISOString().split("T")[0]) &&
+              <>
+
+                {
+                  loading && (
+                    <div className="text-center my-4 text-blue-600 font-semibold text-lg">
+                      Loading...
+                    </div>
+                  )
+                }
+
+                {/* CA List */}
+                {!loading && (
+                  <div className="space-y-6">
+                    {/* Active CAs Container */}
+                    <Card>
+                      <CardHeader className="bg-green-50 border-b">
+                        <CardTitle className="flex items-center gap-2 text-green-700">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          Active Career Associates ({filteredCAPerformance1.filter((ca: any) => ca.isactive).length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="space-y-3 p-4">
+                          {filteredCAPerformance1
+                            .filter((ca: any) => ca.isactive)
+                            .map((ca: any) => (
+                              <div key={ca.id} className="flex flex-col border rounded-lg bg-white">
+                                <div className="flex items-center justify-between p-4">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-semibold">{ca.name}</h3>
+                                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
+                                        Active
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-slate-600">{ca.designation || "CA"} • {ca.email}</p>
+                                  </div>
+                                  <div className="flex gap-4">
+                                    <Badge variant="secondary">Total profiles: {ca.totalProfiles}</Badge>
+                                    <Badge variant="secondary">Incentives: {ca.incentives}</Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                         </div>
-                        <p className="text-sm text-gray-500">{ca.designation || "CA"} • {ca.email}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <Badge variant="secondary" className="bg-gray-200 text-gray-600">Total profiles: {ca.totalProfiles}</Badge>
-                        <Badge variant="secondary" className="bg-gray-200 text-gray-600">Incentives: {ca.incentives}</Badge>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )}
+                      </CardContent>
+                    </Card>
 
-  </>
-}
+                    {/* Inactive CAs Container */}
+                    <Card>
+                      <CardHeader className="bg-gray-50 border-b">
+                        <CardTitle className="flex items-center gap-2 text-gray-600">
+                          <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                          Inactive Career Associates ({filteredCAPerformance1.filter((ca: any) => !ca.isactive).length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="space-y-3 p-4">
+                          {filteredCAPerformance1
+                            .filter((ca: any) => !ca.isactive)
+                            .map((ca: any) => (
+                              <div key={ca.id} className="flex flex-col border rounded-lg bg-gray-50">
+                                <div className="flex items-center justify-between p-4">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-semibold text-gray-600">{ca.name}</h3>
+                                      <Badge variant="outline" className="bg-gray-200 text-gray-600 border-gray-300">
+                                        Inactive
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-500">{ca.designation || "CA"} • {ca.email}</p>
+                                  </div>
+                                  <div className="flex gap-4">
+                                    <Badge variant="secondary" className="bg-gray-200 text-gray-600">Total profiles: {ca.totalProfiles}</Badge>
+                                    <Badge variant="secondary" className="bg-gray-200 text-gray-600">Incentives: {ca.incentives}</Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+              </>
+            }
+          </>
+        )}
       </div>
       {isResetting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -1812,7 +1965,159 @@ const openAssignDialog = async (client: any) => {
     `}</style>
         </div>
       )}
+
+      {activeTab === "today-leads" && (
+        <Card className="mb-6">
+          <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+            <CardTitle className="text-lg font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              📋 No. of Leads ({filteredTodayLeads.length})
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={fetchTodayLeads} className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-semibold shadow-sm">
+              🔄 Refresh Leads
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {/* Lead Filters Panel */}
+            <div className="bg-slate-50 p-4 rounded-xl mb-6 border border-slate-100 flex flex-wrap gap-4 items-end">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Date Preset</span>
+                <Select value={leadDatePreset} onValueChange={(val: any) => setLeadDatePreset(val)}>
+                  <SelectTrigger className="w-40 h-9 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="custom">Custom Date Range</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {leadDatePreset === "custom" && (
+                <>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Start Date</span>
+                    <Input
+                      type="date"
+                      value={leadStartDate}
+                      onChange={(e) => setLeadStartDate(e.target.value)}
+                      className="w-40 h-9 text-xs bg-white border-slate-200"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">End Date</span>
+                    <Input
+                      type="date"
+                      value={leadEndDate}
+                      onChange={(e) => setLeadEndDate(e.target.value)}
+                      className="w-40 h-9 text-xs bg-white border-slate-200"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex flex-col flex-1 min-w-[200px]">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Search Leads</span>
+                <Input
+                  placeholder="Search by name, email, phone, city, id..."
+                  value={leadSearchTerm}
+                  onChange={(e) => setLeadSearchTerm(e.target.value)}
+                  className="h-9 text-xs bg-white border-slate-200"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</span>
+                <Select value={leadStatusFilter} onValueChange={setLeadStatusFilter}>
+                  <SelectTrigger className="w-36 h-9 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {uniqueStatuses.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Stage</span>
+                <Select value={leadStageFilter} onValueChange={setLeadStageFilter}>
+                  <SelectTrigger className="w-36 h-9 text-xs bg-white border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Stages</SelectItem>
+                    {uniqueStages.map((sg) => (
+                      <SelectItem key={sg} value={sg}>
+                        {sg}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setLeadSearchTerm("")
+                  setLeadStatusFilter("all")
+                  setLeadStageFilter("all")
+                  setLeadDatePreset("today")
+                }}
+                className="h-9 text-xs font-semibold text-slate-500 hover:text-slate-700"
+              >
+                Reset Filters
+              </Button>
+            </div>
+
+            {filteredTodayLeads.length === 0 ? (
+              <p className="text-center text-slate-500 font-medium py-12">No leads match the active filters.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lead ID / Name</TableHead>
+                      <TableHead>Email / Phone</TableHead>
+                      <TableHead>City</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Current Stage</TableHead>
+                      <TableHead>Created At (IST)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTodayLeads.map((lead) => (
+                      <TableRow key={lead.id}>
+                        <TableCell>
+                          <div className="font-bold text-slate-800">{lead.name}</div>
+                          <Badge variant="outline" className="font-mono text-xs">{lead.business_id || "N/A"}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-slate-700 font-medium">{lead.email}</div>
+                          <div className="text-xs text-slate-400">{lead.phone || "No Phone"}</div>
+                        </TableCell>
+                        <TableCell className="text-slate-600 font-medium">{lead.city || "—"}</TableCell>
+                        <TableCell>
+                          <Badge className="bg-slate-100 text-slate-700 font-bold border-none uppercase text-[10px]">{lead.status || "N/A"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-slate-800 font-bold text-xs">{lead.current_stage || "Prospect"}</TableCell>
+                        <TableCell className="text-xs text-slate-500 font-medium">
+                          {lead.created_at ? new Date(lead.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
-
 }

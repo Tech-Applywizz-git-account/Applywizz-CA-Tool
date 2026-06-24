@@ -1,4 +1,6 @@
 export const dynamic = "force-dynamic";
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -12,13 +14,16 @@ const supabaseCrm = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY_CRM || ""
 );
 
-function getWorkingDays(year: number, month: number) {
+function getWorkingDays(year: number, month: number, excludedDatesList: string[] = []) {
     let days = 0;
     const date = new Date(year, month, 1);
     while (date.getMonth() === month) {
         const day = date.getDay();
         if (day !== 0 && day !== 6) {
-            days++;
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            if (!excludedDatesList.includes(dateStr)) {
+                days++;
+            }
         }
         date.setDate(date.getDate() + 1);
     }
@@ -44,13 +49,16 @@ export async function GET(req: Request) {
         const startDate = new Date(year, month, 1, 0, 0, 0);
         const endDate = new Date(year, month + 1, 0, 23, 59, 59);
 
-        const workingDaysCount = getWorkingDays(year, month);
-        const baselineTarget = workingDaysCount * 3;
-
         // Fetch settings
         const { data: settingsData } = await supabaseAdmin
             .from("resume_settings")
             .select("key, value");
+
+        const excludedDatesSetting = settingsData?.find(s => s.key === `resume_excluded_dates_${periodStr}`);
+        const excludedDatesList: string[] = excludedDatesSetting?.value ? JSON.parse(excludedDatesSetting.value) : [];
+
+        const workingDaysCount = getWorkingDays(year, month, excludedDatesList);
+        const baselineTarget = workingDaysCount * 3;
 
         const getSetting = (key: string, defVal: number) => {
             if (!settingsData) return defVal;
@@ -112,24 +120,33 @@ export async function GET(req: Request) {
         const activeEmails = resumeTeam.map(u => u.email.toLowerCase());
         const allMemberEmails = activeEmails;
 
-        // Fetch Resumes from CRM
-        const { data: resumeData } = await supabaseCrm
-            .from("resume_progress")
-            .select("assigned_to_email, status, updated_at")
-            .gte("updated_at", startDate.toISOString())
-            .lte("updated_at", endDate.toISOString())
-            .eq("status", "completed");
+        const crmApiUrl = (process.env.NEXT_PUBLIC_CRM_SYNC_URL || process.env.NEXT_PUBLIC_CRM_API_URL || "").replace(/^"|"$/g, '');
+
+        // Fetch Resumes from CRM API
+        let resumeData: any[] = [];
+        try {
+            const resumeRes = await fetch(`${crmApiUrl}/api/resume-progress?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`);
+            if (resumeRes.ok) {
+                const resumeJson = await resumeRes.json();
+                if (resumeJson.success) resumeData = resumeJson.data || [];
+            }
+        } catch (e) {
+            console.error("Failed to fetch resume data from CRM", e);
+        }
+
+        // Wider query window to capture forage sales where closed_at and forage_sold_ts differ by month boundary
+        const queryStartDate = new Date(year, month - 1, 1, 0, 0, 0); // Previous month start
+        const queryEndDate = new Date(year, month + 2, 0, 23, 59, 59); // Next month end
 
         // Fetch sales data from unified all-sales CRM API (contains forage_info)
         let salesData: any[] = [];
-        const crmApiUrl = (process.env.NEXT_PUBLIC_CRM_SYNC_URL || process.env.NEXT_PUBLIC_CRM_API_URL || "").replace(/^"|"$/g, '');
         try {
-            const salesRes = await fetch(`${crmApiUrl}/api/incentive-data/all-sales?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`);
+            const salesRes = await fetch(`${crmApiUrl}/api/incentive-data/all-sales?startDate=${queryStartDate.toISOString()}&endDate=${queryEndDate.toISOString()}`);
             if (salesRes.ok) {
                 const salesJson = await salesRes.json();
                 if (salesJson.success) salesData = salesJson.data || [];
             }
-        } catch(e) {
+        } catch (e) {
             console.error("Failed to fetch sales data from CRM", e);
         }
 
@@ -150,11 +167,23 @@ export async function GET(req: Request) {
 
         for (const sale of salesData || []) {
             if (!sale.forage_info || !sale.forage_info[0]) continue;
-            
+
             const fInfo = sale.forage_info[0];
-            const sellerEmail = fInfo.forage_sold_by_email?.toLowerCase();
-            
-            if (!sellerEmail || !activeEmails.includes(sellerEmail)) continue;
+            const rawSellerEmail = fInfo.forage_sold_by_email?.toLowerCase();
+            if (!rawSellerEmail) continue;
+
+            const sellerEmail = activeEmails.find((e: string) =>
+                e === rawSellerEmail ||
+                e === rawSellerEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                e === rawSellerEmail.replace('@applywizz.ai', '@applywizz.com')
+            );
+            if (!sellerEmail) continue;
+
+            // Determine date of sale based on forage_sold_ts first, falling back to closed_at
+            const saleDateRaw = fInfo.forage_sold_ts || sale.closed_at || sale.created_at;
+            if (!saleDateRaw) continue;
+            const saleDate = new Date(saleDateRaw);
+            if (isNaN(saleDate.getTime()) || saleDate < startDate || saleDate > endDate) continue;
 
             const certs = parseInt(sale.forage_internship_certification || fInfo.forage_internship_certification || "0");
             const soldValue = parseFloat(fInfo.forage_sold_value || sale.forage_internship_sale_value || "0");
@@ -172,16 +201,16 @@ export async function GET(req: Request) {
                 // Calculation: $3 Base + $1 for every $10 extra
                 const extraRevenue = soldValue - baseTargetPrice;
                 const upsellIncentive = Math.floor(extraRevenue / 10) * 1;
-                
+
                 const repIncentiveUSD = forageBaseUSD + upsellIncentive;
-                
+
                 if (!forageStatsByEmail[sellerEmail]) {
                     forageStatsByEmail[sellerEmail] = { totalUSD: 0, directIncentiveUSD: 0 };
                 }
-                
+
                 forageStatsByEmail[sellerEmail].totalUSD += soldValue;
                 forageStatsByEmail[sellerEmail].directIncentiveUSD += repIncentiveUSD;
-                
+
                 totalTeamSplitUSD += forageTeamUSD;
             }
         }
@@ -194,8 +223,21 @@ export async function GET(req: Request) {
             for (const sale of salesData || []) {
                 if (!sale.forage_info || !sale.forage_info[0]) continue;
                 const fInfo = sale.forage_info[0];
-                const sellerEmail = fInfo.forage_sold_by_email?.toLowerCase();
-                if (!sellerEmail || !activeEmails.includes(sellerEmail)) continue;
+                const rawSellerEmail = fInfo.forage_sold_by_email?.toLowerCase();
+                if (!rawSellerEmail) continue;
+
+                const sellerEmail = activeEmails.find((e: string) =>
+                    e === rawSellerEmail ||
+                    e === rawSellerEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                    e === rawSellerEmail.replace('@applywizz.ai', '@applywizz.com')
+                );
+                if (!sellerEmail) continue;
+
+                // Determine date of sale based on forage_sold_ts first, falling back to closed_at
+                const saleDateRaw = fInfo.forage_sold_ts || sale.closed_at || sale.created_at;
+                if (!saleDateRaw) continue;
+                const saleDate = new Date(saleDateRaw);
+                if (isNaN(saleDate.getTime()) || saleDate < startDate || saleDate > endDate) continue;
 
                 const certs = parseInt(sale.forage_internship_certification || fInfo.forage_internship_certification || "0");
                 const soldValue = parseFloat(fInfo.forage_sold_value || sale.forage_internship_sale_value || "0");
@@ -221,7 +263,7 @@ export async function GET(req: Request) {
 
         for (const user of resumeTeam) {
             const email = user.email.toLowerCase();
-            
+
             // Resume calculation
             const completedResumes = resumeCountsByEmail[email] || 0;
             let extraResumes = completedResumes - baselineTarget;
@@ -270,7 +312,7 @@ export async function GET(req: Request) {
                 ...(user.incentive_amount || {}),
                 [periodStr]: totalIncentiveINR
             };
-            
+
             userUpdates.push(
                 supabaseAdmin.from("users").update({ incentive_amount: updatedIncentives }).eq("id", user.id)
             );
@@ -284,22 +326,40 @@ export async function GET(req: Request) {
             if (upsertError) {
                 return NextResponse.json({ error: "Failed to save to database", details: upsertError }, { status: 500 });
             }
-            
+
             // Parallel update all users JSON payloads
             if (userUpdates.length > 0) {
                 await Promise.all(userUpdates);
             }
-            
+
             // Delete incentives for inactive or ineligible members (like Head)
             await supabaseAdmin.from("resume_incentives").delete().eq("period", periodStr).not("email", "in", `(${activeEmails.join(",")})`);
         }
 
         const filteredResumeData = (resumeData || []).filter(r => r.assigned_to_email && allMemberEmails.includes(r.assigned_to_email.toLowerCase()));
-        const filteredSalesData = (salesData || []).filter(s => {
-            if (!s.forage_info || !s.forage_info[0]) return false;
-            const sellerEmail = s.forage_info[0].forage_sold_by_email?.toLowerCase();
-            return sellerEmail && allMemberEmails.includes(sellerEmail);
-        });
+        const filteredSalesData = (salesData || [])
+            .filter(s => {
+                if (!s.forage_info || !s.forage_info[0]) return false;
+                const rawSellerEmail = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+                if (!rawSellerEmail) return false;
+                const sellerEmail = allMemberEmails.find((e: string) =>
+                    e === rawSellerEmail ||
+                    e === rawSellerEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                    e === rawSellerEmail.replace('@applywizz.ai', '@applywizz.com')
+                );
+                if (!sellerEmail) return false;
+
+                const saleDateRaw = s.forage_info[0].forage_sold_ts || s.closed_at || s.created_at;
+                if (!saleDateRaw) return false;
+                const saleDate = new Date(saleDateRaw);
+                return !isNaN(saleDate.getTime()) && saleDate >= startDate && saleDate <= endDate;
+            })
+            .map(s => {
+                return {
+                    ...s,
+                    closed_at: s.forage_info[0].forage_sold_ts || s.closed_at || s.created_at
+                };
+            });
 
         // Global metrics including trainees
         const totalDeptResumes = filteredResumeData.length;

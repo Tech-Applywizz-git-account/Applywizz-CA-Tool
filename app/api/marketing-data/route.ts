@@ -10,10 +10,10 @@ const supabaseMain = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder'
 );
 
-const supabaseCRM = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL_CRM || 'https://placeholder.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY_CRM || 'placeholder'
-);
+// const supabaseCRM = createClient(
+//     process.env.NEXT_PUBLIC_SUPABASE_URL_CRM || 'https://placeholder.supabase.co',
+//     process.env.SUPABASE_SERVICE_ROLE_KEY_CRM || 'placeholder'
+// );
 
 const supabaseJobBoard = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL_JOB_BOARD || 'https://placeholder.supabase.co',
@@ -39,16 +39,18 @@ export async function GET(req: Request) {
         const [yearStr, monthStr] = month.split("-");
         const year = parseInt(yearStr);
         const mon = parseInt(monthStr);
+
+        // Build exact IST timezone boundaries (+05:30) to prevent UTC Vercel spillover
         const startOfMonth = new Date(year, mon - 1, 1);
         const endOfMonth = new Date(year, mon, 0, 23, 59, 59, 999);
-        const startISO = startOfMonth.toISOString();
-        const endISO = endOfMonth.toISOString();
+        const lastDay = endOfMonth.getDate();
+        const startISO = `${year}-${String(mon).padStart(2, '0')}-01T00:00:00.000+05:30`;
+        const endISO = `${year}-${String(mon).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`;
 
         // Period string like "April 2026"
         const periodStr = startOfMonth.toLocaleString("default", { month: "long", year: "numeric" });
 
         const startDateStr = `${year}-${String(mon).padStart(2, '0')}-01`;
-        const lastDay = new Date(year, mon, 0).getDate();
         const endDateStr = `${year}-${String(mon).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         const crmApiUrl = process.env.NEXT_PUBLIC_CRM_API_URL;
 
@@ -176,36 +178,8 @@ export async function GET(req: Request) {
             };
         }
 
-        // Process CRM fresh sales — strict historical audit for each lead
-        const allFetchedSales = crmMonthSales.data || [];
-        const monthCandidates = allFetchedSales.filter((s: any) => parseFloat(s.sale_value || s.application_sale_value || '0') > 0);
+        // Process CRM fresh sales — logic removed as per user request
         const freshSales: any[] = [];
-
-        if (monthCandidates.length > 0) {
-            const uniqueLeadIds = Array.from(new Set(monthCandidates.map((s: any) => s.lead_id)));
-
-            // Historical Audit: Check for ANY prior sales for these lead_ids
-            const { data: historicalData } = await supabaseCRM.from("sales_closure")
-                .select("lead_id")
-                .in("lead_id", uniqueLeadIds)
-                .lt("closed_at", startISO);
-
-            const leadsWithPriorHistory = new Set<string>();
-            if (historicalData) {
-                historicalData.forEach(h => leadsWithPriorHistory.add(h.lead_id));
-            }
-
-            const processedInMonth = new Set();
-            // Must be the first time in THIS month AND have no history PRIOR to this month
-            monthCandidates.forEach((sale: any) => {
-                if (!leadsWithPriorHistory.has(sale.lead_id) && !processedInMonth.has(sale.lead_id)) {
-                    freshSales.push(sale);
-                    processedInMonth.add(sale.lead_id);
-                }
-            });
-        }
-
-        freshSales.sort((a: any, b: any) => new Date(b.closed_at).getTime() - new Date(a.closed_at).getTime());
 
         // Process Job Board — deduplicate by jb_id
         const jbRaw = jbResult.data || [];

@@ -1,10 +1,11 @@
+//app/components/Sidebar.tsx
+
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, BarChart2, PanelLeftClose, PanelLeftOpen, TrendingUp } from "lucide-react"
+import { cn } from "@/lib/utils" // if you don’t have this, replace cn(...) with a template string
+import { LayoutDashboard, Users, TrendingUp, BarChart2 } from "lucide-react"
 
 type SidebarProps = {
   basePath: "/cro-dashboard" | "/ceo-dashboard" | "/coo-dashboard" | "/cpo-dashboard" | "/team-lead-dashboard"
@@ -18,6 +19,7 @@ export default function Sidebar({ basePath }: SidebarProps) {
     { href: `${basePath}/marketing`, label: "Marketing Dashboard", icon: TrendingUp },
     { href: `${basePath}/resume`, label: "Resume Dashboard", icon: TrendingUp },
     { href: `${basePath}/tech`, label: "Tech Dashboard", icon: TrendingUp },
+    { href: `${basePath}/accounts`, label: "Accounts Dashboard", icon: TrendingUp },
     { href: `${basePath}/clients`, label: "Clients Information", icon: Users },
     { href: `${basePath}/reports`, label: "Performance Reports", icon: BarChart2 },
     { href: `${basePath}/assessments`, label: "Assessment Analytics", icon: BarChart2 },

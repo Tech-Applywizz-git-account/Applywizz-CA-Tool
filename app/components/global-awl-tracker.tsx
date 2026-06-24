@@ -294,7 +294,7 @@ export function GlobalAwlTracker({ monthName, targetDate, salesReps = [], basePa
                       <TableCell className="text-xs font-semibold text-slate-500 pl-6">{r.shiftDate}</TableCell>
                       <TableCell>
                         {r.repId ? (
-                          <Link href={`${basePath}/sales/${r.repId}`}>
+                          <Link href={basePath === "/sales-head-dashboard" ? `/sales-head-dashboard/${r.repId}` : `${basePath}/sales/${r.repId}`}>
                             <p className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer">{r.repName}</p>
                           </Link>
                         ) : (

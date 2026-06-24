@@ -4,7 +4,7 @@
  
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { supabase } from "@/lib/supabaseClient"
+import { supabase, supabaseCRM } from "@/lib/supabaseClient"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -35,6 +35,8 @@ type Client = {
   experience: number | null
   visa_type: string | null
   sponsorship: boolean | null
+  renewal_date?: string | null
+  applywizz_id?: string | null
 }
  
 type ClientsListProps = {
@@ -152,7 +154,7 @@ export default function ClientsList({
         id, name, email, status, assigned_ca_id, assigned_ca_name, work_done_by,
         team_id, emails_required, emails_submitted, jobs_applied,
         date_assigned, last_update, team_lead_name, created_at, client_designation,
-        experience, visa_type, sponsorship, is_active,
+        experience, visa_type, sponsorship, is_active, applywizz_id,
         work_done_user:users!clients_work_done_by_fkey ( id, name )
       `, { count: "exact" })
  
@@ -187,9 +189,37 @@ export default function ClientsList({
       setLoading(false)
       return
     }
+    
+    let clientsData = data as Client[];
+
+    if (clientsData && clientsData.length > 0) {
+      const leadIds = clientsData.map(c => c.applywizz_id).filter(Boolean);
+      const { data: crmData } = await supabaseCRM
+          .from("sales_closure")
+          .select("lead_id, extended_renewal_at, closed_at")
+          .in("lead_id", leadIds);
+          
+      if (crmData) {
+        const renewalMap = new Map();
+        const closedAtMap = new Map();
+        crmData.forEach((r: any) => {
+            if (r.extended_renewal_at && r.lead_id) {
+                const currentClosed = new Date(r.closed_at || 0).getTime();
+                if (!renewalMap.has(r.lead_id) || currentClosed > closedAtMap.get(r.lead_id)) {
+                    renewalMap.set(r.lead_id, r.extended_renewal_at);
+                    closedAtMap.set(r.lead_id, currentClosed);
+                }
+            }
+        });
+        clientsData = clientsData.map(c => ({
+            ...c,
+            renewal_date: c.applywizz_id ? (renewalMap.get(c.applywizz_id) || null) : null
+        }));
+      }
+    }
  
     setTotal(count || 0)
-    setClients((data as Client[]) || [])
+    setClients(clientsData || [])
     setLoading(false)
   }, [teamId, teamIds, assignedCAId, status, active, sortKey, sortDir, from, to, q, pageSize])
  
@@ -330,6 +360,11 @@ export default function ClientsList({
                 </button>
               </TableHead>
  
+              {/* Renewal Date */}
+              <TableHead className="w-[120px] text-center">
+                <span className="font-medium">Renewal Date</span>
+              </TableHead>
+
               {/* Work Done By */}
               <TableHead className="w-[150px] text-center">
                 <button className="inline-flex items-center gap-1 justify-center font-medium w-full" onClick={() => toggleSort("work_done_ca_name")}>
@@ -472,6 +507,13 @@ export default function ClientsList({
                     <div className="text-slate-900">{c.date_assigned ?? "—"}</div>
                   </TableCell>
  
+                  {/* Renewal Date */}
+                  <TableCell className="text-center">
+                    <div className="text-slate-900">
+                      {c.renewal_date ? new Date(c.renewal_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                    </div>
+                  </TableCell>
+
                   {/* Work Done By */}
                   <TableCell className="text-center">
                     <div className="text-slate-900">

@@ -3,7 +3,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { supabase } from "@/lib/supabaseClient"
+import { supabase, supabaseCRM } from "@/lib/supabaseClient"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -41,6 +41,7 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [assignedCA, setAssignedCA] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [renewalDate, setRenewalDate] = useState<string | null>(null)
   const [monthOffset, setMonthOffset] = useState(0)
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -124,6 +125,21 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
             .eq("id", data.assigned_ca_id)
             .single()
           setAssignedCA(caData)
+        }
+
+        // Fetch renewal date from CRM using applywizz_id
+        if (data.applywizz_id) {
+          const { data: crmData } = await supabaseCRM
+            .from("sales_closure")
+            .select("extended_renewal_at")
+            .eq("lead_id", data.applywizz_id)
+            .order("closed_at", { ascending: false })
+            .limit(1)
+            .single()
+            
+          if (crmData?.extended_renewal_at) {
+            setRenewalDate(crmData.extended_renewal_at)
+          }
         }
 
         // Fetch oldest date_assigned from work_history_profiles for Client Onboarding Date via API
@@ -417,6 +433,14 @@ export function ClientDashboard({ clientId }: ClientDashboardProps) {
                 <p className="text-sm text-slate-700 font-semibold">
                   {onboardingDate 
                     ? new Date(onboardingDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) 
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Renewal Date</p>
+                <p className="text-sm text-slate-700 font-semibold">
+                  {renewalDate 
+                    ? new Date(renewalDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) 
                     : "—"}
                 </p>
               </div>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { CROMarketingDashboard } from "../../components/cro-marketing-dashboard"
 import RoleShell from "../../components/RoleShell"
 
-export default function COOMarketingPage() {
+export default function CEOMarketingPage() {
     const router = useRouter()
     const [user, setUser] = useState<any>(null)
 
@@ -26,8 +26,8 @@ export default function COOMarketingPage() {
     if (!user) return null
 
     return (
-        <RoleShell basePath="/coo-dashboard">
-            <CROMarketingDashboard basePath="/coo-dashboard" user={user} onLogout={handleLogout} />
+        <RoleShell basePath="/ceo-dashboard">
+            <CROMarketingDashboard basePath="/ceo-dashboard" user={user} onLogout={handleLogout} />
         </RoleShell>
     )
 }

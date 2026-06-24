@@ -23,8 +23,14 @@ export async function GET(req: Request) {
         const targetDate = periodParam ? new Date(`1 ${periodParam}`) : new Date();
         const startTargetMonth = startOfMonth(targetDate);
         const endTargetMonth = endOfMonth(targetDate);
-        const startISO = startTargetMonth.toISOString();
-        const endISO = endTargetMonth.toISOString();
+
+        const year = startTargetMonth.getFullYear();
+        const mon = startTargetMonth.getMonth() + 1;
+        const lastDay = endTargetMonth.getDate();
+
+        const startISO = `${year}-${String(mon).padStart(2, '0')}-01T00:00:00.000+05:30`;
+        const endISO = `${year}-${String(mon).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`;
+
         const periodStr = format(startTargetMonth, "MMMM yyyy"); // e.g. "March 2026"
 
         const keysToFetch = [
@@ -113,6 +119,8 @@ export async function GET(req: Request) {
             return NextResponse.json({ success: true, message: "No active marketing users found.", data: [] });
         }
 
+        const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
         // --- 2. FRESH SALES VERIFICATION ---
         // A sale is "fresh" if it's the FIRST sale for that lead_id ever.
         const allFetchedSales = crmSalesResult.data || [];
@@ -153,15 +161,15 @@ export async function GET(req: Request) {
             }
         }
 
-        const totalJobBoardPoolInr = jobBoardSalesCount * jbSlabRateInr;
-        const individualJobBoardInr = totalJobBoardPoolInr / teamSize;
+        const totalJobBoardPoolInr = round2(jobBoardSalesCount * jbSlabRateInr);
+        const individualJobBoardInr = round2(totalJobBoardPoolInr / teamSize);
 
         // --- 4. SKILL PASSPORT CALCULATION ---
         const spRaw = spMonthPayments.data || [];
         const uniqueSpSales = new Set(spRaw.map((s: any) => s.lead_ref).filter(Boolean));
         const skillPassportSalesCount = uniqueSpSales.size;
-        const totalSkillPassportPoolInr = skillPassportSalesCount * spRateInr;
-        const individualSkillPassportInr = totalSkillPassportPoolInr / teamSize;
+        const totalSkillPassportPoolInr = round2(skillPassportSalesCount * spRateInr);
+        const individualSkillPassportInr = round2(totalSkillPassportPoolInr / teamSize);
 
         // --- 5. INFLUENCER SALES CALCULATION ---
         let influencerPaidCount = 0;
@@ -181,9 +189,9 @@ export async function GET(req: Request) {
             }
         }
 
-        const influencerPoolUsd = (influencerPaidCount * influencerPaidRate) + (influencerUnpaidCount * influencerUnpaidRate);
-        const influencerPoolInr = influencerPoolUsd * conversionRate;
-        const individualInfluencerInr = influencerPoolInr / teamSize;
+        const influencerPoolUsd = round2((influencerPaidCount * influencerPaidRate) + (influencerUnpaidCount * influencerUnpaidRate));
+        const influencerPoolInr = round2(influencerPoolUsd * conversionRate);
+        const individualInfluencerInr = round2(influencerPoolInr / teamSize);
 
         // --- 6. CLEANUP STALE RECORDS ---
         // Delete any existing records for this period that are NOT in the current marketingTeam
@@ -202,9 +210,9 @@ export async function GET(req: Request) {
         }
 
         // --- 7. SUMMARIZE & SAVE ---
-        const totalPoolUsd = freshSalesCount * 3;
-        const individualShareUsd = totalPoolUsd / teamSize;
-        const individualShareInr = individualShareUsd * conversionRate;
+        const totalPoolUsd = round2(freshSalesCount * 3);
+        const individualShareUsd = round2(totalPoolUsd / teamSize);
+        const individualShareInr = round2(individualShareUsd * conversionRate);
 
         const upsertData = marketingTeam.map(user => ({
             email: user.email,
@@ -238,7 +246,7 @@ export async function GET(req: Request) {
 
         // Parallel update user profiles
         await Promise.all(marketingTeam.map(user => {
-            const totalMktIncentive = individualShareInr + individualJobBoardInr + individualSkillPassportInr + individualInfluencerInr;
+            const totalMktIncentive = round2(individualShareInr + individualJobBoardInr + individualSkillPassportInr + individualInfluencerInr);
             const updatedIncentives = {
                 ...(user.incentive_amount || {}),
                 [periodStr]: totalMktIncentive

@@ -117,7 +117,7 @@ export function CroTechDashboard({ basePath, user, onLogout }: CroTechDashboardP
                         const insight = backendInsights[emailKey] || {};
                         const periodIncentive = insight.poolIncentiveInr || incentives[targetMonthStr] || 0;
                         const isTraineeRep = (u.designation || "").toLowerCase().includes("trainee") || (u.role || "").toLowerCase().includes("trainee");
-                        
+
                         return {
                             id: u.id,
                             name: u.name || u.email,
@@ -390,21 +390,21 @@ export function CroTechDashboard({ basePath, user, onLogout }: CroTechDashboardP
                         <CardContent className="pt-3 relative z-10 pb-5">
                             <div className="flex flex-col mb-2">
                                 <span className="text-[28px] font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-800 tracking-tighter leading-none drop-shadow-sm mt-1">
-                                    ₹{sumIncentives.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    ₹{sumIncentives.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                             </div>
                             <div className="grid grid-cols-3 gap-2 mt-3">
                                 <div className="bg-white/60 rounded p-2 border border-emerald-200/60 shadow-sm flex flex-col justify-center">
                                     <p className="text-[9px] uppercase font-bold text-slate-500 tracking-widest">Portfolio Payout</p>
-                                    <p className="text-indigo-700 font-bold text-sm">₹{(portfolioPoolUsd * conversionRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                    <p className="text-indigo-700 font-bold text-sm">₹{(portfolioPoolUsd * conversionRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                                 <div className="bg-white/60 rounded p-2 border border-indigo-200/60 shadow-sm flex flex-col justify-center">
                                     <p className="text-[9px] uppercase font-bold text-indigo-600 tracking-widest">Github Payout</p>
-                                    <p className="text-indigo-700 font-bold text-sm">₹{(githubPoolUsd * conversionRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                    <p className="text-indigo-700 font-bold text-sm">₹{(githubPoolUsd * conversionRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                                 <div className="bg-amber-50/60 rounded p-2 border border-amber-200/60 shadow-sm flex flex-col justify-center">
                                     <p className="text-[9px] uppercase font-bold text-amber-600 tracking-widest">Git Repo Sales</p>
-                                    <p className="text-amber-700 font-bold text-sm">₹{(globalGitSalesYieldUsd * conversionRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                    <p className="text-amber-700 font-bold text-sm">₹{(globalGitSalesYieldUsd * conversionRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                             </div>
 
@@ -416,11 +416,11 @@ export function CroTechDashboard({ basePath, user, onLogout }: CroTechDashboardP
                                 <div className="space-y-1.5">
                                     <div className="flex justify-between text-[10px] text-blue-900/70 font-medium font-mono">
                                         <span>Global Master Pool ({totalPortfolios} Ports × ${portfolioRateUSD}) + ({totalGithubs} Git × ${githubRateUSD})</span>
-                                        <span>${totalPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                        <span>${totalPoolUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="flex justify-between text-[10px] text-blue-900/70 font-medium font-mono">
                                         <span>Base Equal Split (${totalPoolUsd.toLocaleString()} ÷ {globalActiveRepsCount || 1} Active Reps) × ₹{conversionRate}</span>
-                                        <span>₹{individualShareInr.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                        <span>₹{individualShareInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="text-[9px] text-blue-800/50 italic mt-2 border-t border-blue-100 pt-2 leading-relaxed">
                                         * Note: The base equal split represents the guaranteed yield for placed members. Individual Git Repo Commissions are layered continuously on top per-rep dynamically.
@@ -639,22 +639,22 @@ export function CroTechDashboard({ basePath, user, onLogout }: CroTechDashboardP
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="font-bold text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100/50 w-fit ml-auto">
-                                                        ₹{(rep.portfolioPoolInr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                        ₹{(rep.portfolioPoolInr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="font-bold text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100/50 w-fit ml-auto">
-                                                        ₹{(rep.githubPoolInr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                        ₹{(rep.githubPoolInr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="font-bold text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100/50 w-fit ml-auto">
-                                                        ₹{(rep.gitSalesInr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                        ₹{(rep.gitSalesInr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="font-black text-base text-indigo-700 tracking-tight">
-                                                        ₹{(rep.totalCombinedInr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                        ₹{(rep.totalCombinedInr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right pr-6">
@@ -718,9 +718,9 @@ export function CroTechDashboard({ basePath, user, onLogout }: CroTechDashboardP
                                                 </TableCell>
                                                 <TableCell className="text-right pr-6">
                                                     <div className="flex items-center justify-end gap-2">
-                                                         <div className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 italic">
-                                                             Trainee (No Dashboard)
-                                                         </div>
+                                                        <div className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 italic">
+                                                            Trainee (No Dashboard)
+                                                        </div>
                                                         <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200 text-xs h-7" onClick={() => handlePromoteTrainee(rep.id)}>
                                                             Promote to Associate
                                                         </Button>

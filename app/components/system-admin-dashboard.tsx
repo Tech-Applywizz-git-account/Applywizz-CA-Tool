@@ -492,6 +492,8 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="Resume Associate">Resume Associate</SelectItem>
                       <SelectItem value="Technical Head">Technical Head</SelectItem>
                       <SelectItem value="Technical Associate">Technical Associate</SelectItem>
+                      <SelectItem value="Accounts Associate">Accounts Associate</SelectItem>
+                      <SelectItem value="Accounts Managers Head">Accounts Managers Head</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -576,6 +578,8 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="Resume Associate">Resume Associate</SelectItem>
                             <SelectItem value="Technical Head">Technical Head</SelectItem>
                             <SelectItem value="Technical Associate">Technical Associate</SelectItem>
+                            <SelectItem value="Accounts Associate">Accounts Associate</SelectItem>
+                            <SelectItem value="Accounts Managers Head">Accounts Managers Head</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -597,6 +601,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                             <SelectItem value="Marketing">Marketing</SelectItem>
                             <SelectItem value="Resume">Resume</SelectItem>
                             <SelectItem value="Tech">Tech</SelectItem>
+                            <SelectItem value="Accounts">Accounts</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -813,6 +818,8 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="Resume Associate">Resume Associate</SelectItem>
                       <SelectItem value="Technical Head">Technical Head</SelectItem>
                       <SelectItem value="Technical Associate">Technical Associate</SelectItem>
+                      <SelectItem value="Accounts Associate">Accounts Associate</SelectItem>
+                      <SelectItem value="Accounts Managers Head">Accounts Managers Head</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -834,6 +841,7 @@ export function SystemAdminDashboard({ user, onLogout }: SystemAdminDashboardPro
                       <SelectItem value="Marketing">Marketing</SelectItem>
                       <SelectItem value="Resume">Resume</SelectItem>
                       <SelectItem value="Tech">Tech</SelectItem>
+                      <SelectItem value="Accounts">Accounts</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

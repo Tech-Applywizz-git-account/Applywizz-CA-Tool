@@ -10,9 +10,12 @@ import { supabase } from "@/lib/supabaseClient"
 interface SalesSubmissionFormProps {
   user: any;
   viewerMode?: boolean;
+  initialEditSub?: any;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissionFormProps) {
+export function SalesSubmissionForm({ user, viewerMode = false, initialEditSub, onSuccess, onCancel }: SalesSubmissionFormProps) {
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [onboardingFile, setOnboardingFile] = useState<File | null>(null)
@@ -21,6 +24,20 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
   const [existingPaymentUrl, setExistingPaymentUrl] = useState("")
   const [existingOnboardingUrl, setExistingOnboardingUrl] = useState("")
   const [filterMonth, setFilterMonth] = useState<string>("All")
+  const [blinkSection, setBlinkSection] = useState<string | null>(null)
+
+  const triggerBlink = (sectionId: string) => {
+    setBlinkSection(sectionId)
+    setTimeout(() => {
+      const element = document.getElementById(sectionId)
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }, 100)
+    setTimeout(() => {
+      setBlinkSection(null)
+    }, 2000)
+  }
 
   const fetchSubmittedAwls = async () => {
     try {
@@ -53,22 +70,28 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
           <title>Sales Submission - ${sub.awl_id}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap');
-            body { font-family: 'Outfit', system-ui, sans-serif; color: #1e293b; padding: 40px; margin: 0; background: #f8fafc; }
-            .page { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 10px; border: 1px solid #e2e8f0; }
-            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
-            .title { font-size: 24px; font-weight: 900; margin: 0; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.02em; }
-            .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 600; }
-            .section { margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
-            .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #4f46e5; border-bottom: 2px solid #e0e7ff; padding-bottom: 6px; margin-bottom: 12px; letter-spacing: 0.05em; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-            .field { margin-bottom: 8px; }
-            .label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px; letter-spacing: 0.05em; }
-            .value { font-size: 13px; font-weight: 600; color: #0f172a; }
-            .screenshot { margin-top: 10px; max-width: 100%; max-height: 400px; object-fit: contain; border: 2px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-            .page-break { page-break-before: always; }
+            @page { margin: 10mm; size: A4; }
+            body { font-family: 'Outfit', system-ui, sans-serif; color: #1e293b; padding: 6px 10px; margin: 0; background: #f8fafc; font-size: 13px; }
+            .page { background: white; padding: 10px 14px; border-radius: 8px; margin: 0 auto; border: 1px solid #e2e8f0; max-width: 800px; }
+            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .title { font-size: 16px; font-weight: 900; margin: 0; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.02em; }
+            .subtitle { font-size: 14px; color: #64748b; margin: 0; font-weight: 600; }
+            .section { margin-bottom: 4px; background: #f8fafc; padding: 5px 7px; border-radius: 5px; border: 1px solid #e2e8f0; }
+            .section-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #4f46e5; border-bottom: 1px solid #e0e7ff; padding-bottom: 2px; margin-bottom: 3px; letter-spacing: 0.04em; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+            .field { margin-bottom: 0; page-break-inside: avoid; }
+            .label { font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 1px; line-height: 1.3; display: block; }
+            .value { font-size: 12px; font-weight: 400; color: #4338ca; line-height: 1.2; padding: 2px 4px; background: #f1f5f9; border-radius: 3px; display: block; word-break: break-word; }
+            .full-width { grid-column: 1 / -1; }
+            .screenshot { margin-top: 8px; max-width: 100%; max-height: 280px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 4px; }
+            .signature-block { display: flex; justify-content: flex-end; margin-top: 15px; page-break-inside: avoid; }
+            .signature-field { width: 220px; text-align: center; border-top: 1.5px solid #94a3b8; padding-top: 4px; }
+            .signature-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; }
+            .signature-value { font-size: 13px; font-weight: 600; color: #1e1b4b; margin-bottom: 2px; }
             @media print {
-              body { background: white; padding: 0; }
-              .page { box-shadow: none; border: none; padding: 0; margin-bottom: 0; border-radius: 0; }
+              body { background: white; padding: 0; margin: 0; }
+              .page { box-shadow: none; border: none; padding: 6px 0; margin: 0; max-width: 100%; }
+              .screenshot { max-height: 260px; }
             }
           </style>
         </head>
@@ -79,88 +102,93 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
               <p class="subtitle">Submitted by ${sub.rep_name} (${sub.rep_email}) on ${new Date(sub.created_at).toLocaleString()}</p>
             </div>
 
-          <div class="section">
-            <div class="section-title">Client Identity & Contact</div>
-            <div class="grid">
-              <div class="field"><div class="label">AWL-ID</div><div class="value">${sub.awl_id}</div></div>
-              <div class="field"><div class="label">Client Full Name</div><div class="value">${sub.client_name}</div></div>
-              <div class="field"><div class="label">Phone Number</div><div class="value">${sub.phone}</div></div>
-              <div class="field"><div class="label">WhatsApp Number</div><div class="value">${sub.whatsapp}</div></div>
-              <div class="field"><div class="label">Primary Email Address</div><div class="value">${sub.primary_email}</div></div>
-              <div class="field"><div class="label">Applications Email Address</div><div class="value">${sub.apps_email || 'N/A'}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Sale Specifics</div>
-            <div class="grid">
-              <div class="field"><div class="label">Date of Sale</div><div class="value">${new Date(sub.sale_date).toLocaleDateString()}</div></div>
-              <div class="field"><div class="label">Preferred Job Market</div><div class="value">${sub.job_market}</div></div>
-              <div class="field"><div class="label">Digital Resume Needed?</div><div class="value">${sub.digital_resume || 'N/A'}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Financials & Payment</div>
-            <div class="grid">
-              <div class="field"><div class="label">Total Sale Value</div><div class="value">$${sub.sale_value}</div></div>
-              <div class="field"><div class="label">Resume Amount</div><div class="value">$${sub.resume_amount || '0'}</div></div>
-              <div class="field"><div class="label">Subscription Amount</div><div class="value">$${sub.subscription_amount || '0'}</div></div>
-              <div class="field"><div class="label">Subscription Duration</div><div class="value">${sub.subscription_duration || 'N/A'}</div></div>
-              <div class="field"><div class="label">Payment Method</div><div class="value">${sub.payment_method}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Roles & Promises</div>
-            <div class="grid">
-              <div class="field"><div class="label">Primary Role</div><div class="value">${sub.primary_role || 'N/A'}</div></div>
-              <div class="field"><div class="label">Alternate Roles</div><div class="value">${sub.alternate_roles || 'N/A'}</div></div>
-              <div class="field" style="grid-column: span 2;"><div class="label">Was the client clearly informed about: Delivery timelines of resume and start of process, Job market realities, No guaranteed placement policy, Account management process</div><div class="value">${sub.client_informed || 'N/A'}</div></div>
-              <div class="field"><div class="label">Were any special promises made?</div><div class="value">${sub.special_promises || 'N/A'}</div></div>
-              ${sub.special_promises === 'Yes' ? `<div class="field" style="grid-column: span 2;"><div class="label">If yes, specify:</div><div class="value">${sub.special_promises_specify || 'N/A'}</div></div>` : ''}
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Onboarding</div>
-            <div class="grid">
-              <div class="field" style="grid-column: span 2;"><div class="label">Has the client completed the onboarding form?</div><div class="value">${sub.onboarding_completed ? 'Yes' : 'No'}</div></div>
-              <div class="field" style="grid-column: span 2;"><div class="label">Onboarding completed after follow-up?</div><div class="value">${sub.onboarding_after_followup || 'N/A'}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Additional Info & Signature</div>
-            <div class="grid">
-              <div class="field" style="grid-column: span 2;"><div class="label">Additional notes for account manager</div><div class="value">${sub.additional_notes || 'None'}</div></div>
-              <div class="field"><div class="label">Full Name (Signature)</div><div class="value">${sub.rep_signature || 'N/A'}</div></div>
-            </div>
-          </div>
-          ${(sub.payment_screenshot_url || sub.onboarding_screenshot_url) ? `
-            <div class="section" style="margin-top: 20px;">
-              <div class="section-title">Attachments</div>
-            </div>
-            
-            ${sub.payment_screenshot_url ? `
             <div class="section">
-              <div class="section-title">Payment Screenshot</div>
-              <img class="screenshot" src="${sub.payment_screenshot_url}" alt="Payment Screenshot" />
+              <div class="section-title">Client Identity & Contact</div>
+              <div class="grid">
+                <div class="field"><div class="label">AWL-ID</div><div class="value">${sub.awl_id}</div></div>
+                <div class="field"><div class="label">Client Full Name</div><div class="value">${sub.client_name}</div></div>
+                <div class="field"><div class="label">Phone Number</div><div class="value">${sub.phone}</div></div>
+                <div class="field"><div class="label">WhatsApp Number</div><div class="value">${sub.whatsapp}</div></div>
+                <div class="field"><div class="label">Primary Email Address</div><div class="value">${sub.primary_email}</div></div>
+                <div class="field"><div class="label">Applications Email Address</div><div class="value">${sub.apps_email || 'N/A'}</div></div>
+              </div>
             </div>
-            ` : ''}
 
-            ${sub.onboarding_screenshot_url ? `
             <div class="section">
-              <div class="section-title">Onboarding Screenshot</div>
-              <img class="screenshot" src="${sub.onboarding_screenshot_url}" alt="Onboarding Screenshot" />
+              <div class="section-title">Sale Specifics</div>
+              <div class="grid">
+                <div class="field"><div class="label">Date of Sale</div><div class="value">${new Date(sub.sale_date).toLocaleDateString()}</div></div>
+                <div class="field"><div class="label">Preferred Job Market</div><div class="value">${sub.job_market}</div></div>
+                <div class="field"><div class="label">Digital Resume Needed?</div><div class="value">${sub.digital_resume || 'N/A'}</div></div>
+              </div>
             </div>
+
+            <div class="section">
+              <div class="section-title">Financials & Payment</div>
+              <div class="grid">
+                <div class="field"><div class="label">Total Sale Value</div><div class="value">$${sub.sale_value}</div></div>
+                <div class="field"><div class="label">Resume Amount</div><div class="value">$${sub.resume_amount || '0'}</div></div>
+                <div class="field"><div class="label">Subscription Amount</div><div class="value">$${sub.subscription_amount || '0'}</div></div>
+                <div class="field"><div class="label">Subscription Duration</div><div class="value">${sub.subscription_duration || 'N/A'}</div></div>
+                <div class="field"><div class="label">Payment Method</div><div class="value">${sub.payment_method}</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Roles & Promises</div>
+              <div class="grid">
+                <div class="field"><div class="label">Primary Role</div><div class="value">${sub.primary_role || 'N/A'}</div></div>
+                <div class="field"><div class="label">Alternate Roles</div><div class="value">${sub.alternate_roles || 'N/A'}</div></div>
+                <div class="field"><div class="label">Were any special promises made?</div><div class="value">${sub.special_promises || 'N/A'}</div></div>
+                ${sub.special_promises === 'Yes' ? `<div class="field full-width"><div class="label">If yes, specify:</div><div class="value">${sub.special_promises_specify || 'N/A'}</div></div>` : ''}
+                <div class="field full-width"><div class="label">Was the client clearly informed about: Delivery timelines of resume and start of process, Job market realities, No guaranteed placement policy, Account management process</div><div class="value">${sub.client_informed || 'N/A'}</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Onboarding</div>
+              <div class="grid">
+                <div class="field"><div class="label">Has the client completed the onboarding form?</div><div class="value">${sub.onboarding_completed ? 'Yes' : 'No'}</div></div>
+                <div class="field"><div class="label">Onboarding completed after follow-up?</div><div class="value">${sub.onboarding_after_followup || 'N/A'}</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Additional Info & Signature</div>
+              <div class="grid">
+                <div class="field full-width"><div class="label">Additional notes for account manager</div><div class="value">${sub.additional_notes || 'None'}</div></div>
+              </div>
+              <div class="signature-block">
+                <div class="signature-field">
+                  <div class="signature-value">${sub.rep_signature || 'N/A'}</div>
+                  <div class="signature-label">Full Name (Signature)</div>
+                </div>
+              </div>
+            </div>
+
+            ${(sub.payment_screenshot_url || sub.onboarding_screenshot_url) ? `
+              ${sub.payment_screenshot_url ? `
+              <div class="page-break"></div>
+              <div class="section" style="margin-top:20px;">
+                <div class="section-title">Payment Screenshot</div>
+                <img class="screenshot" src="${sub.payment_screenshot_url}" alt="Payment Screenshot" />
+              </div>
+              ` : ''}
+
+              ${sub.onboarding_screenshot_url ? `
+              <div class="page-break"></div>
+              <div class="section" style="margin-top:20px;">
+                <div class="section-title">Onboarding Screenshot</div>
+                <img class="screenshot" src="${sub.onboarding_screenshot_url}" alt="Onboarding Screenshot" />
+              </div>
+              ` : ''}
             ` : ''}
-          ` : ''}
           </div>
 
           <script>
             setTimeout(() => {
               window.print();
+              window.close();
             }, 500);
           </script>
         </body>
@@ -264,48 +292,170 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  useEffect(() => {
+    if (initialEditSub) {
+      handleEdit(initialEditSub)
+    }
+  }, [initialEditSub])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Explicit Validation for dropdowns, numbers, and file
+    // Section 1: Client Identity & Contact Validation
     const awlRegex = /^AWL-\d+$/
-    if (!awlRegex.test(formData.awl_id.trim())) return alert("AWL-ID must be in the format AWL-1234 (must be capitalized)")
-    if (!formData.client_name.trim()) return alert("Please enter the Client Full Name")
-
+    if (!awlRegex.test(formData.awl_id.trim())) {
+      alert("Validation Error in Client Identity & Contact: AWL-ID must be in the format AWL-1234 (must be capitalized)")
+      triggerBlink("sec-client-identity")
+      return
+    }
+    if (!formData.client_name.trim()) {
+      alert("Validation Error in Client Identity & Contact: Please enter the Client Full Name")
+      triggerBlink("sec-client-identity")
+      return
+    }
     const phoneRegex = /^[+]?[\d\s-]{7,15}$/
-    if (!phoneRegex.test(formData.phone)) return alert("Please enter a valid Phone Number (7-15 digits, optional + prefix)")
-    if (!phoneRegex.test(formData.whatsapp)) return alert("Please enter a valid WhatsApp Number (7-15 digits, optional + prefix)")
+    if (!phoneRegex.test(formData.phone)) {
+      alert("Validation Error in Client Identity & Contact: Please enter a valid Phone Number (7-15 digits, optional + prefix)")
+      triggerBlink("sec-client-identity")
+      return
+    }
+    if (!phoneRegex.test(formData.whatsapp)) {
+      alert("Validation Error in Client Identity & Contact: Please enter a valid WhatsApp Number (7-15 digits, optional + prefix)")
+      triggerBlink("sec-client-identity")
+      return
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.primary_email.trim())) {
+      alert("Validation Error in Client Identity & Contact: Please enter a valid Primary Email Address")
+      triggerBlink("sec-client-identity")
+      return
+    }
+    if (formData.apps_email && formData.apps_email.trim() && !emailRegex.test(formData.apps_email.trim())) {
+      alert("Validation Error in Client Identity & Contact: Please enter a valid Dedicated Applications Email Address")
+      triggerBlink("sec-client-identity")
+      return
+    }
 
-    if (!formData.primary_email.trim()) return alert("Please enter the Primary Email Address")
-    if (!formData.sale_date) return alert("Please select a Date of Sale")
+    // Section 2: Sale Specifics Validation
+    if (!formData.sale_date) {
+      alert("Validation Error in Sale Specifics: Please select a Date of Sale")
+      triggerBlink("sec-sale-specifics")
+      return
+    }
+    if (!formData.job_market) {
+      alert("Validation Error in Sale Specifics: Please select a Preferred Job Market")
+      triggerBlink("sec-sale-specifics")
+      return
+    }
+    if (formData.job_market === "Other" && !jobMarketOther.trim()) {
+      alert("Validation Error in Sale Specifics: Please specify the Preferred Job Market")
+      triggerBlink("sec-sale-specifics")
+      return
+    }
+    if (Number(formData.sale_value) <= 0) {
+      alert("Validation Error in Sale Specifics: Total Sale Value must be greater than 0")
+      triggerBlink("sec-sale-specifics")
+      return
+    }
+    if (!formData.digital_resume) {
+      alert("Validation Error in Sale Specifics: Please select whether a Digital Resume is needed")
+      triggerBlink("sec-sale-specifics")
+      return
+    }
 
-    if (!formData.job_market) return alert("Please select a Preferred Job Market")
-    if (formData.job_market === "Other" && !jobMarketOther.trim()) return alert("Please specify the Preferred Job Market")
-    if (Number(formData.sale_value) <= 0) return alert("Total Sale Value must be greater than 0")
+    // Section 3: Financials & Payment Validation
+    if (Number(formData.resume_amount) < 0 || formData.resume_amount === "") {
+      alert("Validation Error in Financials & Payment: Please enter a valid Resume Amount (can be 0)")
+      triggerBlink("sec-financials")
+      return
+    }
+    if (Number(formData.subscription_amount) < 0 || formData.subscription_amount === "") {
+      alert("Validation Error in Financials & Payment: Please enter a valid Subscription Amount (can be 0)")
+      triggerBlink("sec-financials")
+      return
+    }
+    if (!formData.subscription_duration) {
+      alert("Validation Error in Financials & Payment: Please select a Subscription Duration")
+      triggerBlink("sec-financials")
+      return
+    }
+    if (formData.subscription_duration === "Other" && !formData.subscription_duration_other.trim()) {
+      alert("Validation Error in Financials & Payment: Please specify Subscription Duration")
+      triggerBlink("sec-financials")
+      return
+    }
+    if (!formData.payment_method) {
+      alert("Validation Error in Financials & Payment: Please select a Payment Method")
+      triggerBlink("sec-financials")
+      return
+    }
+    if (formData.payment_method === "Other" && !formData.payment_method_other.trim()) {
+      alert("Validation Error in Financials & Payment: Please specify Payment Method")
+      triggerBlink("sec-financials")
+      return
+    }
+    if (!file && !existingPaymentUrl) {
+      alert("Validation Error in Financials & Payment: Please upload a Payment Screenshot")
+      triggerBlink("sec-financials")
+      return
+    }
 
-    if (!formData.digital_resume) return alert("Please select whether a Digital Resume is needed")
-    if (Number(formData.resume_amount) < 0 || formData.resume_amount === "") return alert("Please enter a valid Resume Amount (can be 0)")
-    if (Number(formData.subscription_amount) < 0 || formData.subscription_amount === "") return alert("Please enter a valid Subscription Amount (can be 0)")
-
-    if (!formData.subscription_duration) return alert("Please select a Subscription Duration")
-    if (formData.subscription_duration === "Other" && !formData.subscription_duration_other.trim()) return alert("Please specify Subscription Duration")
-    if (!formData.payment_method) return alert("Please select a Payment Method")
-    if (formData.payment_method === "Other" && !formData.payment_method_other.trim()) return alert("Please specify Payment Method")
-    if (!file && !existingPaymentUrl) return alert("Please upload a Payment Screenshot")
-
-    if (!formData.onboarding_completed) return alert("Please specify if onboarding is completed")
-    if (formData.onboarding_completed === "No" && !formData.onboarding_after_followup) return alert("Please specify if onboarding was completed after follow-up")
-
+    // Section 4: Onboarding Validation
+    if (!formData.onboarding_completed) {
+      alert("Validation Error in Onboarding: Please specify if onboarding is completed")
+      triggerBlink("sec-onboarding")
+      return
+    }
+    if (formData.onboarding_completed === "No" && !formData.onboarding_after_followup) {
+      alert("Validation Error in Onboarding: Please specify if onboarding was completed after follow-up")
+      triggerBlink("sec-onboarding")
+      return
+    }
     const needsScreenshot = formData.onboarding_completed === "Yes" || formData.onboarding_after_followup === "Yes"
-    if (needsScreenshot && !onboardingFile) return alert("Please upload Onboarding Screenshot")
+    if (needsScreenshot && !onboardingFile && !existingOnboardingUrl) {
+      alert("Validation Error in Onboarding: Please upload Onboarding Screenshot")
+      triggerBlink("sec-onboarding")
+      return
+    }
 
-    if (!formData.primary_role.trim()) return alert("Please enter Primary Role")
-    if (!formData.alternate_roles.trim()) return alert("Please enter Alternate Roles")
-    if (!formData.client_informed) return alert("Please specify if client was informed")
-    if (!formData.special_promises) return alert("Please specify if special promises were made")
-    if (formData.special_promises === "Yes" && !formData.special_promises_specify.trim()) return alert("Please specify the special promises made")
-    if (!formData.additional_notes.trim()) return alert("Please enter additional notes for account manager")
-    if (!formData.rep_signature.trim()) return alert("Please provide your Full Name as signature")
+    // Section 5: Roles & Promises Validation
+    if (!formData.primary_role.trim()) {
+      alert("Validation Error in Roles & Promises: Please enter Primary Role")
+      triggerBlink("sec-roles-promises")
+      return
+    }
+    if (!formData.alternate_roles.trim()) {
+      alert("Validation Error in Roles & Promises: Please enter Alternate Roles")
+      triggerBlink("sec-roles-promises")
+      return
+    }
+    if (!formData.client_informed) {
+      alert("Validation Error in Roles & Promises: Please specify if client was informed")
+      triggerBlink("sec-roles-promises")
+      return
+    }
+    if (!formData.special_promises) {
+      alert("Validation Error in Roles & Promises: Please specify if special promises were made")
+      triggerBlink("sec-roles-promises")
+      return
+    }
+    if (formData.special_promises === "Yes" && !formData.special_promises_specify.trim()) {
+      alert("Validation Error in Roles & Promises: Please specify the special promises made")
+      triggerBlink("sec-roles-promises")
+      return
+    }
+
+    // Section 6: Additional Info & Signature Validation
+    if (!formData.additional_notes.trim()) {
+      alert("Validation Error in Additional Info & Signature: Please enter additional notes for account manager")
+      triggerBlink("sec-additional-info")
+      return
+    }
+    if (!formData.rep_signature.trim()) {
+      alert("Validation Error in Additional Info & Signature: Please provide your Full Name as signature")
+      triggerBlink("sec-additional-info")
+      return
+    }
 
     setLoading(true)
 
@@ -372,6 +522,7 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
           .eq('id', editId)
         if (error) throw error
         alert("Sales Success Form Updated Successfully!")
+        if (onSuccess) onSuccess()
       } else {
         const { error } = await supabase.from('sales_success_submissions').insert([submission])
         if (error) throw error
@@ -403,6 +554,24 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes section-blink {
+          0%, 100% {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            background-color: rgba(239, 68, 68, 0);
+          }
+          50% {
+            outline: 3px solid rgb(239, 68, 68);
+            outline-offset: 2px;
+            background-color: rgba(239, 68, 68, 0.05);
+          }
+        }
+        .animate-section-blink {
+          animation: section-blink 0.8s ease-in-out 2;
+        }
+      `}} />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
@@ -417,345 +586,336 @@ export function SalesSubmissionForm({ user, viewerMode = false }: SalesSubmissio
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        <div className="flex-1 w-full">
-          <Card className="border border-slate-200 shadow-md">
-            <form onSubmit={handleSubmit}>
-              <CardContent className="p-6 md:p-8 space-y-8">
-                {/* Section 1: Client Info */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Client Identity & Contact</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">AWL-ID</label>
-                      <Input disabled={viewerMode} required placeholder="e.g. AWL-12345" value={formData.awl_id} onChange={e => handleChange("awl_id", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Client Full Name</label>
-                      <Input disabled={viewerMode} required placeholder="John Doe" value={formData.client_name} onChange={e => handleChange("client_name", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Phone Number</label>
-                      <Input disabled={viewerMode} required placeholder="+1 234 567 8900" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">WhatsApp Number</label>
-                      <Input disabled={viewerMode} required placeholder="+1 234 567 8900" value={formData.whatsapp} onChange={e => handleChange("whatsapp", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Primary Email Address</label>
-                      <Input disabled={viewerMode} required type="email" placeholder="client@example.com" value={formData.primary_email} onChange={e => handleChange("primary_email", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Applications Email Address</label>
-                      <Input disabled={viewerMode} type="email" placeholder="apps@example.com" value={formData.apps_email} onChange={e => handleChange("apps_email", e.target.value)} />
-                    </div>
+      <Card className="border border-slate-200 shadow-md">
+        <form onSubmit={handleSubmit}>
+          <CardContent className="p-6 md:p-8 space-y-8">
+            {/* Section 1: Client Info */}
+            <div
+              id="sec-client-identity"
+              className={`space-y-4 p-4 rounded-xl border border-slate-100 transition-all duration-300 ${blinkSection === "sec-client-identity" ? "animate-section-blink bg-red-50/20" : "bg-slate-50/30"
+                }`}
+            >
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Client Identity & Contact</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">AWL-ID *</label>
+                  <Input disabled={viewerMode} required placeholder="e.g. AWL-12345" value={formData.awl_id} onChange={e => handleChange("awl_id", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Client Full Name *</label>
+                  <Input disabled={viewerMode} required placeholder="John Doe" value={formData.client_name} onChange={e => handleChange("client_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Phone Number *</label>
+                  <Input disabled={viewerMode} required placeholder="+1 234 567 8900" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">WhatsApp Number *</label>
+                  <Input disabled={viewerMode} required placeholder="+1 234 567 8900" value={formData.whatsapp} onChange={e => handleChange("whatsapp", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Primary Email Address *</label>
+                  <Input disabled={viewerMode} required type="email" placeholder="client@example.com" value={formData.primary_email} onChange={e => handleChange("primary_email", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Applications Email Address</label>
+                  <Input disabled={viewerMode} type="email" placeholder="apps@example.com" value={formData.apps_email} onChange={e => handleChange("apps_email", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Sale Details */}
+            <div
+              id="sec-sale-specifics"
+              className={`space-y-4 p-4 rounded-xl border border-slate-100 transition-all duration-300 ${blinkSection === "sec-sale-specifics" ? "animate-section-blink bg-red-50/20" : "bg-slate-50/30"
+                }`}
+            >
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Sale Specifics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Date of Sale *</label>
+                  <Input disabled={viewerMode} required type="date" value={formData.sale_date} onChange={e => handleChange("sale_date", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Preferred Job Market *</label>
+                  <Select disabled={viewerMode} value={formData.job_market} onValueChange={v => handleChange("job_market", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Market" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USA">USA</SelectItem>
+                      <SelectItem value="Canada">Canada</SelectItem>
+                      <SelectItem value="Europe">Europe</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.job_market === "Other" && (
+                    <Input disabled={viewerMode} className="mt-2" placeholder="Specify Job Market" value={jobMarketOther} onChange={e => setJobMarketOther(e.target.value)} />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Total Sale Value (USD) *</label>
+                  <Input disabled={viewerMode} required type="number" step="0.01" placeholder="0.00" value={formData.sale_value} onChange={e => handleChange("sale_value", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Digital Resume Needed? *</label>
+                  <Select disabled={viewerMode} value={formData.digital_resume} onValueChange={v => handleChange("digital_resume", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Yes / No" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Financial Breakdowns & Payment */}
+            <div
+              id="sec-financials"
+              className={`space-y-4 p-4 rounded-xl border border-slate-100 transition-all duration-300 ${blinkSection === "sec-financials" ? "animate-section-blink bg-red-50/20" : "bg-slate-50/30"
+                }`}
+            >
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Financials & Payment</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Resume Amount (USD) *</label>
+                  <Input disabled={viewerMode} required type="number" step="0.01" placeholder="0.00" value={formData.resume_amount} onChange={e => handleChange("resume_amount", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Subscription Amount (Only Enter Per month) *</label>
+                  <Input disabled={viewerMode} required type="number" step="0.01" placeholder="0.00" value={formData.subscription_amount} onChange={e => handleChange("subscription_amount", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Subscription Duration *</label>
+                  <Select disabled={viewerMode} value={formData.subscription_duration} onValueChange={v => handleChange("subscription_duration", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Duration" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1 Month">1 Month</SelectItem>
+                      <SelectItem value="2 Months">2 Months</SelectItem>
+                      <SelectItem value="3 Months">3 Months</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.subscription_duration === "Other" && (
+                    <Input disabled={viewerMode} className="mt-2" placeholder="Specify Duration" value={formData.subscription_duration_other} onChange={e => handleChange("subscription_duration_other", e.target.value)} />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Payment Method *</label>
+                  <Select disabled={viewerMode} required value={formData.payment_method} onValueChange={v => handleChange("payment_method", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Method" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Nas io">Nas io</SelectItem>
+                      <SelectItem value="PayPal">PayPal</SelectItem>
+                      <SelectItem value="Amex">Amex</SelectItem>
+                      <SelectItem value="Zelle">Zelle</SelectItem>
+                      <SelectItem value="Razorpay">Razorpay</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.payment_method === "Other" && (
+                    <Input disabled={viewerMode} className="mt-2" placeholder="Specify Method" value={formData.payment_method_other} onChange={e => handleChange("payment_method_other", e.target.value)} />
+                  )}
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-600">Payment Screenshot (Max 10MB) *</label>
+                  <div className="flex items-center gap-3">
+                    <Input disabled={viewerMode}
+                      id="screenshot-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const selectedFile = e.target.files?.[0] || null;
+                        if (selectedFile && !selectedFile.type.startsWith("image/")) {
+                          alert("Please upload image files only.");
+                          e.target.value = "";
+                          setFile(null);
+                        } else if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
+                          alert("File size exceeds 10MB limit.");
+                          e.target.value = "";
+                          setFile(null);
+                        } else {
+                          setFile(selectedFile);
+                        }
+                      }}
+                    />
+                    <label htmlFor="screenshot-upload" className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm font-semibold text-slate-600 transition-colors w-full">
+                      <UploadCloud className="h-4 w-4" /> {file ? file.name : "Upload Receipt/Screenshot"}
+                    </label>
                   </div>
+                  {existingPaymentUrl && (
+                    <div className="mt-1 text-xs text-indigo-600 flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Current screenshot uploaded. <a href={existingPaymentUrl} target="_blank" rel="noreferrer" className="underline font-bold hover:text-indigo-800">View Screenshot</a></span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Onboarding */}
+            <div
+              id="sec-onboarding"
+              className={`space-y-4 p-4 rounded-xl border border-slate-100 transition-all duration-300 ${blinkSection === "sec-onboarding" ? "animate-section-blink bg-red-50/20" : "bg-slate-50/30"
+                }`}
+            >
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Onboarding</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Has the client completed the onboarding form? *</label>
+                  <Select disabled={viewerMode} value={formData.onboarding_completed} onValueChange={v => handleChange("onboarding_completed", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Section 2: Sale Details */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Sale Specifics</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Date of Sale</label>
-                      <Input disabled={viewerMode} required type="date" value={formData.sale_date} onChange={e => handleChange("sale_date", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Preferred Job Market</label>
-                      <Select disabled={viewerMode} value={formData.job_market} onValueChange={v => handleChange("job_market", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Market" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USA">USA</SelectItem>
-                          <SelectItem value="Canada">Canada</SelectItem>
-                          <SelectItem value="Europe">Europe</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {formData.job_market === "Other" && (
-                        <Input disabled={viewerMode} className="mt-2" placeholder="Specify Job Market" value={jobMarketOther} onChange={e => setJobMarketOther(e.target.value)} />
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Total Sale Value (USD)</label>
-                      <Input disabled={viewerMode} required type="number" step="0.01" placeholder="0.00" value={formData.sale_value} onChange={e => handleChange("sale_value", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Digital Resume Needed?</label>
-                      <Select disabled={viewerMode} value={formData.digital_resume} onValueChange={v => handleChange("digital_resume", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Yes / No" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 3: Financial Breakdowns & Payment */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Financials & Payment</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Resume Amount (USD)</label>
-                      <Input disabled={viewerMode} required type="number" step="0.01" placeholder="0.00" value={formData.resume_amount} onChange={e => handleChange("resume_amount", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Subscription Amount (Only Enter Per month)</label>
-                      <Input disabled={viewerMode} required type="number" step="0.01" placeholder="0.00" value={formData.subscription_amount} onChange={e => handleChange("subscription_amount", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Subscription Duration</label>
-                      <Select disabled={viewerMode} value={formData.subscription_duration} onValueChange={v => handleChange("subscription_duration", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Duration" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1 Month">1 Month</SelectItem>
-                          <SelectItem value="2 Months">2 Months</SelectItem>
-                          <SelectItem value="3 Months">3 Months</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {formData.subscription_duration === "Other" && (
-                        <Input disabled={viewerMode} className="mt-2" placeholder="Specify Duration" value={formData.subscription_duration_other} onChange={e => handleChange("subscription_duration_other", e.target.value)} />
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Payment Method</label>
-                      <Select disabled={viewerMode} required value={formData.payment_method} onValueChange={v => handleChange("payment_method", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Method" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Nas io">Nas io</SelectItem>
-                          <SelectItem value="PayPal">PayPal</SelectItem>
-                          <SelectItem value="Amex">Amex</SelectItem>
-                          <SelectItem value="Zelle">Zelle</SelectItem>
-                          <SelectItem value="Razorpay">Razorpay</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {formData.payment_method === "Other" && (
-                        <Input disabled={viewerMode} className="mt-2" placeholder="Specify Method" value={formData.payment_method_other} onChange={e => handleChange("payment_method_other", e.target.value)} />
-                      )}
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-bold text-slate-600">Payment Screenshot (Max 10MB)</label>
-                      <div className="flex items-center gap-3">
-                        <Input disabled={viewerMode}
-                          id="screenshot-upload"
-                          type="file"
-                          accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                          className="hidden"
-                          onChange={(e) => {
-                            const selectedFile = e.target.files?.[0] || null;
-                            if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
-                              alert("File size exceeds 10MB limit.");
-                              e.target.value = "";
-                              setFile(null);
-                            } else {
-                              setFile(selectedFile);
-                            }
-                          }}
-                        />
-                        <label htmlFor="screenshot-upload" className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm font-semibold text-slate-600 transition-colors w-full">
-                          <UploadCloud className="h-4 w-4" /> {file ? file.name : "Upload Receipt/Screenshot"}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 4: Onboarding */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Onboarding</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Has the client completed the onboarding form?</label>
-                      <Select disabled={viewerMode} value={formData.onboarding_completed} onValueChange={v => handleChange("onboarding_completed", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.onboarding_completed === "No" && (
-                      <div className="space-y-2 bg-red-50 p-4 rounded-xl border border-red-100">
-                        <p className="text-xs font-bold text-red-600 mb-2">⚠️ Client must complete onboarding immediately before submission proceeds</p>
-                        <label className="text-xs font-bold text-slate-600">Onboarding completed after follow-up?</label>
-                        <Select disabled={viewerMode} value={formData.onboarding_after_followup} onValueChange={v => handleChange("onboarding_after_followup", v)}>
-                          <SelectTrigger className="bg-white [&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Yes">Yes</SelectItem>
-                            <SelectItem value="No">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {(formData.onboarding_completed === "Yes" || formData.onboarding_after_followup === "Yes") && (
-                      <div className="space-y-2 mt-2">
-                        <label className="text-xs font-bold text-slate-600">Onboarding form completion screenshot uploaded? (Max 10MB)</label>
-                        <div className="flex items-center gap-3">
-                          <Input disabled={viewerMode}
-                            id="onboarding-upload"
-                            type="file"
-                            accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,video/*,audio/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const selectedFile = e.target.files?.[0] || null;
-                              if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
-                                alert("File size exceeds 10MB limit.");
-                                e.target.value = "";
-                                setOnboardingFile(null);
-                              } else {
-                                setOnboardingFile(selectedFile);
-                              }
-                            }}
-                          />
-                          <label htmlFor="onboarding-upload" className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm font-semibold text-slate-600 transition-colors w-full md:w-1/2">
-                            <UploadCloud className="h-4 w-4" /> {onboardingFile ? onboardingFile.name : "Upload File"}
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Section 5: Roles & Promises */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Roles & Promises</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Primary Role</label>
-                      <Input disabled={viewerMode} required placeholder="Enter primary role" value={formData.primary_role} onChange={e => handleChange("primary_role", e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Alternate Roles</label>
-                      <Input disabled={viewerMode} required placeholder="Enter alternate roles" value={formData.alternate_roles} onChange={e => handleChange("alternate_roles", e.target.value)} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-bold text-slate-600">Was the client clearly informed about: Delivery timelines of resume and start of process, Job market realities, No guaranteed placement policy, Account management process</label>
-                      <Select disabled={viewerMode} value={formData.client_informed} onValueChange={v => handleChange("client_informed", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Were any special promises made?</label>
-                      <Select disabled={viewerMode} value={formData.special_promises} onValueChange={v => handleChange("special_promises", v)}>
-                        <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {formData.special_promises === "Yes" && (
-                        <Input disabled={viewerMode} className="mt-2" placeholder="Specify special promises" value={formData.special_promises_specify} onChange={e => handleChange("special_promises_specify", e.target.value)} />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 6: Additional Info & Signature */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Additional Info & Signature</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-600">Additional notes for account manager:</label>
-                      <Input disabled={viewerMode} placeholder="Enter any additional notes" value={formData.additional_notes} onChange={e => handleChange("additional_notes", e.target.value)} />
-                    </div>
-                    <div className="space-y-2 md:w-1/2">
-                      <label className="text-xs font-bold text-slate-600">Full Name (Signature)</label>
-                      <Input disabled={viewerMode} required placeholder="Enter your full name" value={formData.rep_signature} onChange={e => handleChange("rep_signature", e.target.value)} />
-                    </div>
-                  </div>
-                </div>
-
-                {!viewerMode && (
-                  <div className="pt-4 flex justify-end gap-3">
-                    {editId && (
-                      <Button type="button" onClick={() => {
-                        setEditId(null);
-                        setExistingPaymentUrl("");
-                        setExistingOnboardingUrl("");
-                        setFormData({
-                          awl_id: "", client_name: "", phone: "", whatsapp: "", primary_email: "", apps_email: "",
-                          sale_date: new Date().toISOString().split('T')[0], job_market: "", sale_value: "", digital_resume: "",
-                          resume_amount: "", subscription_amount: "", subscription_duration: "", subscription_duration_other: "", payment_method: "", payment_method_other: "",
-                          onboarding_completed: "", onboarding_after_followup: "", primary_role: "", alternate_roles: "", client_informed: "", special_promises: "", special_promises_specify: "", additional_notes: "", rep_signature: ""
-                        });
-                        setJobMarketOther("");
-                        setFile(null);
-                        setOnboardingFile(null);
-                      }} disabled={loading} className="bg-slate-200 text-slate-700 font-bold h-12 px-8 rounded-xl hover:bg-slate-300 transition-all">
-                        Cancel Edit
-                      </Button>
-                    )}
-                    <Button type="submit" disabled={loading} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold h-12 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all">
-                      {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
-                      {loading ? (editId ? "Updating..." : "Submitting...") : (editId ? "Update Sales Record" : "Submit Sales Record")}
-                    </Button>
+                {formData.onboarding_completed === "No" && (
+                  <div className="space-y-2 bg-red-50 p-4 rounded-xl border border-red-100">
+                    <p className="text-xs font-bold text-red-600 mb-2">⚠️ Client must complete onboarding immediately before submission proceeds</p>
+                    <label className="text-xs font-bold text-slate-600">Onboarding completed after follow-up? *</label>
+                    <Select disabled={viewerMode} value={formData.onboarding_after_followup} onValueChange={v => handleChange("onboarding_after_followup", v)}>
+                      <SelectTrigger className="bg-white [&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Yes">Yes</SelectItem>
+                        <SelectItem value="No">No</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
-              </CardContent>
-            </form>
-          </Card>
-        </div>
 
-        <div className="w-full lg:w-[350px] shrink-0">
-          <Card className="border border-slate-200 shadow-md sticky top-6">
-            <CardHeader className="bg-slate-50/50 border-b pb-4">
-              <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center justify-between">
-                <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-indigo-500" /> Recent</span>
-              </CardTitle>
-            </CardHeader>
-            <div className="p-3 border-b bg-white">
-              <Select value={filterMonth} onValueChange={setFilterMonth}>
-                <SelectTrigger className="h-8 text-xs font-bold [&>svg]:hidden"><SelectValue placeholder="Filter Month" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Months</SelectItem>
-                  {availableMonths.map(m => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <CardContent className="p-0">
-              {filteredSubmissions.length === 0 ? (
-                <div className="p-6 text-center text-sm text-slate-500 font-medium">No submissions found.</div>
-              ) : (
-                <div className="divide-y divide-slate-100 max-h-[600px] overflow-auto">
-                  {filteredSubmissions.map((sub, idx) => (
-                    <div key={idx} className="p-4 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-black font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">{sub.awl_id}</span>
-                        <span className="text-[10px] text-slate-400 font-bold">{new Date(sub.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-bold text-slate-800 truncate pr-2">{sub.client_name}</div>
-                        <div className="flex gap-2">
-                          {!sub.is_edited && !viewerMode && (
-                            <Button size="sm" variant="ghost" onClick={() => handleEdit(sub)} className="h-7 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                              Edit
-                            </Button>
-                          )}
-                          <Button size="sm" variant="ghost" onClick={() => generatePDF(sub)} className="h-7 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                            <Download className="h-3.5 w-3.5 mr-1" /> PDF
-                          </Button>
-                        </div>
-                      </div>
+                {(formData.onboarding_completed === "Yes" || formData.onboarding_after_followup === "Yes") && (
+                  <div className="space-y-2 mt-2">
+                    <label className="text-xs font-bold text-slate-600">Onboarding form completion screenshot uploaded? (Max 10MB) *</label>
+                    <div className="flex items-center gap-3">
+                      <Input disabled={viewerMode}
+                        id="onboarding-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const selectedFile = e.target.files?.[0] || null;
+                          if (selectedFile && !selectedFile.type.startsWith("image/")) {
+                            alert("Please upload image files only.");
+                            e.target.value = "";
+                            setOnboardingFile(null);
+                          } else if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
+                            alert("File size exceeds 10MB limit.");
+                            e.target.value = "";
+                            setOnboardingFile(null);
+                          } else {
+                            setOnboardingFile(selectedFile);
+                          }
+                        }}
+                      />
+                      <label htmlFor="onboarding-upload" className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm font-semibold text-slate-600 transition-colors w-full md:w-1/2">
+                        <UploadCloud className="h-4 w-4" /> {onboardingFile ? onboardingFile.name : "Upload File"}
+                      </label>
                     </div>
-                  ))}
+                    {existingOnboardingUrl && (
+                      <div className="mt-1 text-xs text-indigo-600 flex items-center gap-1.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Current screenshot uploaded. <a href={existingOnboardingUrl} target="_blank" rel="noreferrer" className="underline font-bold hover:text-indigo-800">View Screenshot</a></span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Section 5: Roles & Promises */}
+            <div
+              id="sec-roles-promises"
+              className={`space-y-4 p-4 rounded-xl border border-slate-100 transition-all duration-300 ${blinkSection === "sec-roles-promises" ? "animate-section-blink bg-red-50/20" : "bg-slate-50/30"
+                }`}
+            >
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Roles & Promises</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Primary Role *</label>
+                  <Input disabled={viewerMode} required placeholder="Enter primary role" value={formData.primary_role} onChange={e => handleChange("primary_role", e.target.value)} />
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Alternate Roles *</label>
+                  <Input disabled={viewerMode} required placeholder="Enter alternate roles" value={formData.alternate_roles} onChange={e => handleChange("alternate_roles", e.target.value)} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-600">Was the client clearly informed about: Delivery timelines of resume and start of process, Job market realities, No guaranteed placement policy, Account management process *</label>
+                  <Select disabled={viewerMode} value={formData.client_informed} onValueChange={v => handleChange("client_informed", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Were any special promises made? *</label>
+                  <Select disabled={viewerMode} value={formData.special_promises} onValueChange={v => handleChange("special_promises", v)}>
+                    <SelectTrigger className="[&>svg]:hidden"><SelectValue placeholder="Select Yes/No" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.special_promises === "Yes" && (
+                    <Input disabled={viewerMode} className="mt-2" placeholder="Specify special promises" value={formData.special_promises_specify} onChange={e => handleChange("special_promises_specify", e.target.value)} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 6: Additional Info & Signature */}
+            <div
+              id="sec-additional-info"
+              className={`space-y-4 p-4 rounded-xl border border-slate-100 transition-all duration-300 ${blinkSection === "sec-additional-info" ? "animate-section-blink bg-red-50/20" : "bg-slate-50/30"
+                }`}
+            >
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-2">Additional Info & Signature</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600">Additional notes for account manager: *</label>
+                  <Input disabled={viewerMode} placeholder="Enter any additional notes" value={formData.additional_notes} onChange={e => handleChange("additional_notes", e.target.value)} />
+                </div>
+                <div className="space-y-2 md:w-1/2">
+                  <label className="text-xs font-bold text-slate-600">Full Name (Signature) *</label>
+                  <Input disabled={viewerMode} required placeholder="Enter your full name" value={formData.rep_signature} onChange={e => handleChange("rep_signature", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {!viewerMode && (
+              <div className="pt-4 flex justify-end gap-3">
+                {editId && (
+                  <Button type="button" onClick={() => {
+                    setEditId(null);
+                    if (onCancel) onCancel();
+                    setExistingPaymentUrl("");
+                    setExistingOnboardingUrl("");
+                    setFormData({
+                      awl_id: "", client_name: "", phone: "", whatsapp: "", primary_email: "", apps_email: "",
+                      sale_date: new Date().toISOString().split('T')[0], job_market: "", sale_value: "", digital_resume: "",
+                      resume_amount: "", subscription_amount: "", subscription_duration: "", subscription_duration_other: "", payment_method: "", payment_method_other: "",
+                      onboarding_completed: "", onboarding_after_followup: "", primary_role: "", alternate_roles: "", client_informed: "", special_promises: "", special_promises_specify: "", additional_notes: "", rep_signature: ""
+                    });
+                    setJobMarketOther("");
+                    setFile(null);
+                    setOnboardingFile(null);
+                  }} disabled={loading} className="bg-slate-200 text-slate-700 font-bold h-12 px-8 rounded-xl hover:bg-slate-300 transition-all">
+                    Cancel Edit
+                  </Button>
+                )}
+                <Button type="submit" disabled={loading} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold h-12 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all">
+                  {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
+                  {loading ? (editId ? "Updating..." : "Submitting...") : (editId ? "Update Sales Record" : "Submit Sales Record")}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </form>
+      </Card>
     </div>
   )
 }

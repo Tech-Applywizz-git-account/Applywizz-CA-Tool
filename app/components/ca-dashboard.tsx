@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Users, UserCheck, TrendingUp, Award, Calendar, User, Upload, FileCheck, X, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
-import { supabase } from "@/lib/supabaseClient"
+import { supabase, supabaseCRM } from "@/lib/supabaseClient"
 import { useEffect, useState, useMemo, useRef } from "react"
 import Papa from "papaparse"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -1106,8 +1106,9 @@ const { data, error } = await supabase
           </Card>
         )}
 
-        {/* Dashboard Split View */}
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
+
+            {/* Dashboard Split View */}
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
 
           {/* top Card: Performance Snapshot */}
           <PermissionOverlay show={shouldShowOverlay || isOnBehalfMode}>
@@ -1251,8 +1252,10 @@ const { data, error } = await supabase
               </CardContent>
             </Card>
           </PermissionOverlay>
-          {/* bottom Card: Client List */}
-          <Card>
+
+
+        {/* bottom Card: Client List */}
+        <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -1499,7 +1502,6 @@ const { data, error } = await supabase
             </CardContent>
           </Card>
         </PermissionOverlay>
-      </div>
 
       {/* Action Dialog Form */}
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
@@ -1761,6 +1763,7 @@ const { data, error } = await supabase
         </DialogContent>
       </Dialog>
     </div>
+  </div>
   )
 }
 

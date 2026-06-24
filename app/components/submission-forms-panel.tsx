@@ -4,43 +4,129 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Search, Download, ExternalLink, Loader2, FileText, Calendar, DollarSign, Briefcase, Eye } from "lucide-react"
+import { Search, Download, ExternalLink, Loader2, FileText, Calendar, DollarSign, Briefcase, Eye, Trash2, ChevronLeft, ChevronRight, Filter, Edit } from "lucide-react"
 import { supabase } from "@/lib/supabaseClient"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SalesSubmissionForm } from "./sales-submission-form"
+import Link from "next/link"
 
-export function SubmissionFormsPanel() {
+export function SubmissionFormsPanel({
+  repEmail,
+  monthOffset,
+  hideHeader = false,
+  viewerMode = false,
+  basePath = "/cro-dashboard"
+}: {
+  repEmail?: string;
+  monthOffset?: number;
+  hideHeader?: boolean;
+  viewerMode?: boolean;
+  basePath?: string;
+}) {
   const [submissions, setSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [userMap, setUserMap] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data } = await supabase
+        .from("users")
+        .select("id, email")
+        .in("role", ["BDT", "BDA", "SBDA", "BDT-P"])
+      if (data) {
+        const map: Record<string, string> = {}
+        data.forEach(u => {
+          if (u.email) map[u.email.toLowerCase()] = u.id
+        })
+        setUserMap(map)
+      }
+    }
+    fetchUsers()
+  }, [])
   const [search, setSearch] = useState("")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
+  // Edit Dialog State
+  const [editingSub, setEditingSub] = useState<any>(null)
+
+  const handleCloseEdit = () => {
+    setEditingSub(null)
+  }
+
+  const isFormEdited = (sub: any) => {
+    return sub.is_edited === true || sub.rep_signature?.includes('[EDITED]')
+  }
+
+  // Filters & Pagination State
+  const [repFilter, setRepFilter] = useState("All")
+  const [marketFilter, setMarketFilter] = useState("All")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, repFilter, marketFilter, startDate, endDate, monthOffset])
+
+  const handleDelete = async (id: string, awlId: string) => {
+    const ok = window.confirm(`Are you absolutely sure you want to delete this submission for AWL ID: ${awlId}? This action cannot be undone.`)
+    if (!ok) return
+    try {
+      const { error } = await supabase.from('sales_success_submissions').delete().eq('id', id)
+      if (error) throw error
+      alert("Submission deleted successfully!")
+      fetchSubmissions()
+    } catch (err: any) {
+      console.error(err)
+      alert("Failed to delete submission: " + err.message)
+    }
+  }
+
   useEffect(() => {
     fetchSubmissions()
-  }, [])
+  }, [repEmail, monthOffset])
 
   const fetchSubmissions = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('sales_success_submissions')
         .select('*')
-        .order('created_at', { ascending: false })
-      
+
+      if (repEmail) {
+        query = query.eq('rep_email', repEmail)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+
       if (error) {
-         if (error.code === '42P01') {
-            console.warn("Table sales_success_submissions does not exist yet. Please run the SQL setup.")
-            setSubmissions([])
-         } else {
-            console.error(error)
-         }
+        if (error.code === '42P01') {
+          console.warn("Table sales_success_submissions does not exist yet. Please run the SQL setup.")
+          setSubmissions([])
+        } else {
+          console.error(error)
+        }
       } else {
-         setSubmissions(data || [])
+        setSubmissions(data || [])
       }
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
     }
+  }
+
+  const isFiltered = !!(search || repFilter !== "All" || marketFilter !== "All" || startDate || endDate)
+
+  const handleClearFilters = () => {
+    setSearch("")
+    setRepFilter("All")
+    setMarketFilter("All")
+    setStartDate("")
+    setEndDate("")
+    setCurrentPage(1)
   }
 
   const generatePDF = (sub: any) => {
@@ -54,22 +140,28 @@ export function SubmissionFormsPanel() {
           <title>Sales Submission - ${sub.awl_id}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap');
-            body { font-family: 'Outfit', system-ui, sans-serif; color: #1e293b; padding: 40px; margin: 0; background: #f8fafc; }
-            .page { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 10px; border: 1px solid #e2e8f0; }
-            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
-            .title { font-size: 24px; font-weight: 900; margin: 0; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.02em; }
-            .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 600; }
-            .section { margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
-            .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #4f46e5; border-bottom: 2px solid #e0e7ff; padding-bottom: 6px; margin-bottom: 12px; letter-spacing: 0.05em; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-            .field { margin-bottom: 8px; }
-            .label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px; letter-spacing: 0.05em; }
-            .value { font-size: 13px; font-weight: 600; color: #0f172a; }
-            .screenshot { margin-top: 10px; max-width: 100%; max-height: 400px; object-fit: contain; border: 2px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-            .page-break { page-break-before: always; }
+            @page { margin: 10mm; size: A4; }
+            body { font-family: 'Outfit', system-ui, sans-serif; color: #1e293b; padding: 6px 10px; margin: 0; background: #f8fafc; font-size: 13px; }
+            .page { background: white; padding: 10px 14px; border-radius: 8px; margin: 0 auto; border: 1px solid #e2e8f0; max-width: 800px; }
+            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .title { font-size: 16px; font-weight: 900; margin: 0; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.02em; }
+            .subtitle { font-size: 14px; color: #64748b; margin: 0; font-weight: 600; }
+            .section { margin-bottom: 4px; background: #f8fafc; padding: 5px 7px; border-radius: 5px; border: 1px solid #e2e8f0; }
+            .section-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #4f46e5; border-bottom: 1px solid #e0e7ff; padding-bottom: 2px; margin-bottom: 3px; letter-spacing: 0.04em; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+            .field { margin-bottom: 0; page-break-inside: avoid; }
+            .label { font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 1px; line-height: 1.3; display: block; }
+            .value { font-size: 12px; font-weight: 400; color: #4338ca; line-height: 1.2; padding: 2px 4px; background: #f1f5f9; border-radius: 3px; display: block; word-break: break-word; }
+            .full-width { grid-column: 1 / -1; }
+            .screenshot { margin-top: 8px; max-width: 100%; max-height: 280px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 4px; }
+            .signature-block { display: flex; justify-content: flex-end; margin-top: 15px; page-break-inside: avoid; }
+            .signature-field { width: 220px; text-align: center; border-top: 1.5px solid #94a3b8; padding-top: 4px; }
+            .signature-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; }
+            .signature-value { font-size: 13px; font-weight: 600; color: #1e1b4b; margin-bottom: 2px; }
             @media print {
-              body { background: white; padding: 0; }
-              .page { box-shadow: none; border: none; padding: 0; margin-bottom: 0; border-radius: 0; }
+              body { background: white; padding: 0; margin: 0; }
+              .page { box-shadow: none; border: none; padding: 6px 0; margin: 0; max-width: 100%; }
+              .screenshot { max-height: 260px; }
             }
           </style>
         </head>
@@ -80,91 +172,93 @@ export function SubmissionFormsPanel() {
               <p class="subtitle">Submitted by ${sub.rep_name} (${sub.rep_email}) on ${new Date(sub.created_at).toLocaleString()}</p>
             </div>
 
-          <div class="section">
-            <div class="section-title">Client Identity & Contact</div>
-            <div class="grid">
-              <div class="field"><div class="label">AWL-ID</div><div class="value">${sub.awl_id}</div></div>
-              <div class="field"><div class="label">Client Full Name</div><div class="value">${sub.client_name}</div></div>
-              <div class="field"><div class="label">Phone Number</div><div class="value">${sub.phone}</div></div>
-              <div class="field"><div class="label">WhatsApp Number</div><div class="value">${sub.whatsapp}</div></div>
-              <div class="field"><div class="label">Primary Email Address</div><div class="value">${sub.primary_email}</div></div>
-              <div class="field"><div class="label">Applications Email Address</div><div class="value">${sub.apps_email || 'N/A'}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Sale Specifics</div>
-            <div class="grid">
-              <div class="field"><div class="label">Date of Sale</div><div class="value">${new Date(sub.sale_date).toLocaleDateString()}</div></div>
-              <div class="field"><div class="label">Preferred Job Market</div><div class="value">${sub.job_market}</div></div>
-              <div class="field"><div class="label">Digital Resume Needed?</div><div class="value">${sub.digital_resume || 'N/A'}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Financials & Payment</div>
-            <div class="grid">
-              <div class="field"><div class="label">Total Sale Value</div><div class="value">$${sub.sale_value}</div></div>
-              <div class="field"><div class="label">Resume Amount</div><div class="value">$${sub.resume_amount || '0'}</div></div>
-              <div class="field"><div class="label">Subscription Amount</div><div class="value">$${sub.subscription_amount || '0'}</div></div>
-              <div class="field"><div class="label">Subscription Duration</div><div class="value">${sub.subscription_duration || 'N/A'}</div></div>
-              <div class="field"><div class="label">Payment Method</div><div class="value">${sub.payment_method}</div></div>
-            </div>
-          </div>
-          <div class="section">
-            <div class="section-title">Roles & Promises</div>
-            <div class="grid">
-              <div class="field"><div class="label">Primary Role</div><div class="value">${sub.primary_role || 'N/A'}</div></div>
-              <div class="field"><div class="label">Alternate Roles</div><div class="value">${sub.alternate_roles || 'N/A'}</div></div>
-              <div class="field" style="grid-column: span 2;"><div class="label">Was the client clearly informed about: Delivery timelines of resume and start of process, Job market realities, No guaranteed placement policy, Account management process</div><div class="value">${sub.client_informed || 'N/A'}</div></div>
-              <div class="field"><div class="label">Were any special promises made?</div><div class="value">${sub.special_promises || 'N/A'}</div></div>
-              ${sub.special_promises === 'Yes' ? `<div class="field" style="grid-column: span 2;"><div class="label">If yes, specify:</div><div class="value">${sub.special_promises_specify || 'N/A'}</div></div>` : ''}
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Onboarding</div>
-            <div class="grid">
-              <div class="field" style="grid-column: span 2;"><div class="label">Has the client completed the onboarding form?</div><div class="value">${sub.onboarding_completed ? 'Yes' : 'No'}</div></div>
-              <div class="field" style="grid-column: span 2;"><div class="label">Onboarding completed after follow-up?</div><div class="value">${sub.onboarding_after_followup || 'N/A'}</div></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Additional Info & Signature</div>
-            <div class="grid">
-              <div class="field" style="grid-column: span 2;"><div class="label">Additional notes for account manager</div><div class="value">${sub.additional_notes || 'None'}</div></div>
-              <div class="field"><div class="label">Full Name (Signature)</div><div class="value">${sub.rep_signature || 'N/A'}</div></div>
-            </div>
-          </div>
-          </div>
-
-          ${(sub.payment_screenshot_url || sub.onboarding_screenshot_url) ? `
-          <div class="page page-break">
-            <div class="header">
-              <h1 class="title">Attachments</h1>
-              <p class="subtitle">Sales Success Record - ${sub.awl_id}</p>
-            </div>
-            
-            ${sub.payment_screenshot_url ? `
             <div class="section">
-              <div class="section-title">Payment Screenshot</div>
-              <img class="screenshot" src="${sub.payment_screenshot_url}" alt="Payment Screenshot" />
+              <div class="section-title">Client Identity & Contact</div>
+              <div class="grid">
+                <div class="field"><div class="label">AWL-ID</div><div class="value">${sub.awl_id}</div></div>
+                <div class="field"><div class="label">Client Full Name</div><div class="value">${sub.client_name}</div></div>
+                <div class="field"><div class="label">Phone Number</div><div class="value">${sub.phone}</div></div>
+                <div class="field"><div class="label">WhatsApp Number</div><div class="value">${sub.whatsapp}</div></div>
+                <div class="field"><div class="label">Primary Email Address</div><div class="value">${sub.primary_email}</div></div>
+                <div class="field"><div class="label">Applications Email Address</div><div class="value">${sub.apps_email || 'N/A'}</div></div>
+              </div>
             </div>
-            ` : ''}
 
-            ${sub.onboarding_screenshot_url ? `
             <div class="section">
-              <div class="section-title">Onboarding Screenshot</div>
-              <img class="screenshot" src="${sub.onboarding_screenshot_url}" alt="Onboarding Screenshot" />
+              <div class="section-title">Sale Specifics</div>
+              <div class="grid">
+                <div class="field"><div class="label">Date of Sale</div><div class="value">${new Date(sub.sale_date).toLocaleDateString()}</div></div>
+                <div class="field"><div class="label">Preferred Job Market</div><div class="value">${sub.job_market}</div></div>
+                <div class="field"><div class="label">Digital Resume Needed?</div><div class="value">${sub.digital_resume || 'N/A'}</div></div>
+              </div>
             </div>
+
+            <div class="section">
+              <div class="section-title">Financials & Payment</div>
+              <div class="grid">
+                <div class="field"><div class="label">Total Sale Value</div><div class="value">$${sub.sale_value}</div></div>
+                <div class="field"><div class="label">Resume Amount</div><div class="value">$${sub.resume_amount || '0'}</div></div>
+                <div class="field"><div class="label">Subscription Amount</div><div class="value">$${sub.subscription_amount || '0'}</div></div>
+                <div class="field"><div class="label">Subscription Duration</div><div class="value">${sub.subscription_duration || 'N/A'}</div></div>
+                <div class="field"><div class="label">Payment Method</div><div class="value">${sub.payment_method}</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Roles & Promises</div>
+              <div class="grid">
+                <div class="field"><div class="label">Primary Role</div><div class="value">${sub.primary_role || 'N/A'}</div></div>
+                <div class="field"><div class="label">Alternate Roles</div><div class="value">${sub.alternate_roles || 'N/A'}</div></div>
+                <div class="field"><div class="label">Were any special promises made?</div><div class="value">${sub.special_promises || 'N/A'}</div></div>
+                ${sub.special_promises === 'Yes' ? `<div class="field full-width"><div class="label">If yes, specify:</div><div class="value">${sub.special_promises_specify || 'N/A'}</div></div>` : ''}
+                <div class="field full-width"><div class="label">Was the client clearly informed about: Delivery timelines of resume and start of process, Job market realities, No guaranteed placement policy, Account management process</div><div class="value">${sub.client_informed || 'N/A'}</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Onboarding</div>
+              <div class="grid">
+                <div class="field"><div class="label">Has the client completed the onboarding form?</div><div class="value">${sub.onboarding_completed ? 'Yes' : 'No'}</div></div>
+                <div class="field"><div class="label">Onboarding completed after follow-up?</div><div class="value">${sub.onboarding_after_followup || 'N/A'}</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Additional Info & Signature</div>
+              <div class="grid">
+                <div class="field full-width"><div class="label">Additional notes for account manager</div><div class="value">${sub.additional_notes || 'None'}</div></div>
+              </div>
+              <div class="signature-block">
+                <div class="signature-field">
+                  <div class="signature-value">${sub.rep_signature || 'N/A'}</div>
+                  <div class="signature-label">Full Name (Signature)</div>
+                </div>
+              </div>
+            </div>
+
+            ${(sub.payment_screenshot_url || sub.onboarding_screenshot_url) ? `
+              ${sub.payment_screenshot_url ? `
+              <div class="page-break"></div>
+              <div class="section" style="margin-top:20px;">
+                <div class="section-title">Payment Screenshot</div>
+                <img class="screenshot" src="${sub.payment_screenshot_url}" alt="Payment Screenshot" />
+              </div>
+              ` : ''}
+
+              ${sub.onboarding_screenshot_url ? `
+              <div class="page-break"></div>
+              <div class="section" style="margin-top:20px;">
+                <div class="section-title">Onboarding Screenshot</div>
+                <img class="screenshot" src="${sub.onboarding_screenshot_url}" alt="Onboarding Screenshot" />
+              </div>
+              ` : ''}
             ` : ''}
           </div>
-          ` : ''}
 
           <script>
             setTimeout(() => {
               window.print();
+              window.close();
             }, 500);
           </script>
         </body>
@@ -174,25 +268,54 @@ export function SubmissionFormsPanel() {
     printWindow.document.close()
   }
 
-  const filteredSubmissions = submissions.filter(s => 
-    (s.rep_name?.toLowerCase().includes(search.toLowerCase())) ||
-    (s.awl_id?.toLowerCase().includes(search.toLowerCase())) ||
-    (s.client_name?.toLowerCase().includes(search.toLowerCase()))
-  )
+  const uniqueReps = Array.from(new Set(submissions.map(s => s.rep_email).filter(Boolean))).sort()
+  const uniqueMarkets = Array.from(new Set(submissions.map(s => s.job_market).filter(Boolean))).sort()
+
+  const filteredSubmissions = submissions.filter(s => {
+    const matchSearch = !search.trim() || (
+      (s.rep_name?.toLowerCase().includes(search.toLowerCase())) ||
+      (s.rep_email?.toLowerCase().includes(search.toLowerCase())) ||
+      (s.awl_id?.toLowerCase().includes(search.toLowerCase())) ||
+      (s.client_name?.toLowerCase().includes(search.toLowerCase()))
+    )
+    const matchRep = repFilter === "All" || s.rep_email === repFilter
+    const matchMarket = marketFilter === "All" || s.job_market === marketFilter
+    let matchDate = true
+    if (startDate) {
+      matchDate = matchDate && new Date(s.created_at || s.sale_date) >= new Date(startDate + "T00:00:00")
+    }
+    if (endDate) {
+      matchDate = matchDate && new Date(s.created_at || s.sale_date) <= new Date(endDate + "T23:59:59")
+    }
+    if (monthOffset !== undefined && !startDate && !endDate) {
+      const now = new Date()
+      const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+      const subDate = new Date(s.created_at || s.sale_date)
+      matchDate = matchDate &&
+        subDate.getFullYear() === targetDate.getFullYear() &&
+        subDate.getMonth() === targetDate.getMonth()
+    }
+    return matchSearch && matchRep && matchMarket && matchDate
+  })
+
+  const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage) || 1
+  const paginatedSubmissions = filteredSubmissions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/20">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-            Sales Success Submissions
-          </h2>
-          <p className="text-sm text-slate-500 mt-1 ml-12">View and manage form submissions from BDA reps.</p>
+      {!hideHeader && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/20">
+                <FileText className="h-5 w-5 text-white" />
+              </div>
+              Sales Success Submissions
+            </h2>
+            <p className="text-sm text-slate-500 mt-1 ml-12">View and manage form submissions from BDA reps.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <Card className="border border-slate-200/60 shadow-sm rounded-2xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -200,11 +323,69 @@ export function SubmissionFormsPanel() {
             <CardTitle className="text-lg font-bold text-slate-800">Submission Records</CardTitle>
             <Badge variant="secondary" className="font-black bg-indigo-50 text-indigo-700">{filteredSubmissions.length} Forms</Badge>
           </div>
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input placeholder="Search by Rep, Client, or AWL-ID..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-white" />
+          <div className="flex items-center gap-2 w-full max-w-md justify-end flex-wrap sm:flex-nowrap">
+            {isFiltered && (
+              <Button variant="ghost" onClick={handleClearFilters} className="text-xs font-bold text-rose-500 hover:text-rose-750 hover:bg-rose-50 h-9 px-3 rounded-lg shrink-0">
+                Clear Filters
+              </Button>
+            )}
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input placeholder="Search by Rep, Client, or AWL-ID..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-white" />
+            </div>
           </div>
         </CardHeader>
+
+        {/* Premium Filters Grid */}
+        <div className="p-4 border-b border-slate-100 bg-slate-50/20">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${monthOffset !== undefined ? 'lg:grid-cols-2' : (repEmail ? 'lg:grid-cols-3' : 'lg:grid-cols-4')} gap-3 items-end`}>
+            {!repEmail && (
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Sales Representative</label>
+                <Select value={repFilter} onValueChange={setRepFilter}>
+                  <SelectTrigger className="h-9 text-xs bg-white border-slate-200 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Representatives</SelectItem>
+                    {uniqueReps.map(rep => (
+                      <SelectItem key={rep} value={rep}>{rep}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Job Market</label>
+              <Select value={marketFilter} onValueChange={setMarketFilter}>
+                <SelectTrigger className="h-9 text-xs bg-white border-slate-200 rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Markets</SelectItem>
+                  {uniqueMarkets.map(market => (
+                    <SelectItem key={market} value={market}>{market}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {monthOffset === undefined && (
+              <>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">From Date</label>
+                  <Input type="date" className="h-9 text-xs bg-white border-slate-200 rounded-lg" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">To Date</label>
+                  <Input type="date" className="h-9 text-xs bg-white border-slate-200 rounded-lg" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center">
@@ -212,71 +393,136 @@ export function SubmissionFormsPanel() {
               <p className="text-slate-500 font-semibold">Loading submissions...</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow>
-                  <TableHead className="pl-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Sales Rep</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Client Details</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Sale Info</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Financials</TableHead>
-                  <TableHead className="text-right pr-6 text-xs font-bold uppercase tracking-wider text-slate-400">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSubmissions.length === 0 ? (
+            <>
+              <Table>
+                <TableHeader className="bg-slate-50/50">
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-slate-400">No submissions found matching your search.</TableCell>
+                    <TableHead className="pl-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Sales Rep</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Client Details</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Sale Info</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-400">Financials</TableHead>
+                    <TableHead className="text-right pr-6 text-xs font-bold uppercase tracking-wider text-slate-400">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredSubmissions.map((sub, idx) => (
-                    <TableRow key={sub.id || idx} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
-                      <TableCell className="pl-6 py-4">
-                        <div className="font-bold text-slate-800">{sub.rep_name}</div>
-                        <div className="text-xs text-slate-400">{sub.rep_email}</div>
-                        <div className="text-[10px] text-slate-400 mt-1">{new Date(sub.created_at).toLocaleString()}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-bold text-slate-800">{sub.client_name}</div>
-                        <div className="text-xs font-mono font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded inline-block mt-1">{sub.awl_id}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400" /> {new Date(sub.sale_date).toLocaleDateString()}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mt-1">
-                          <Briefcase className="h-3.5 w-3.5 text-slate-400" /> {sub.job_market}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm font-black text-emerald-600">
-                          <DollarSign className="h-4 w-4" /> {sub.sale_value}
-                        </div>
-                        <Badge variant="outline" className="mt-1 text-[9px] uppercase font-bold text-slate-500 bg-white">
-                          {sub.payment_method}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <div className="flex items-center justify-end gap-2">
-                          {sub.payment_screenshot_url && (
-                            <Button variant="outline" size="sm" onClick={() => setPreviewUrl(sub.payment_screenshot_url)} className="h-8 gap-1.5 text-slate-600 hover:text-indigo-600">
-                              <Eye className="h-3.5 w-3.5" /> Payment
-                            </Button>
-                          )}
-                          {sub.onboarding_screenshot_url && (
-                            <Button variant="outline" size="sm" onClick={() => setPreviewUrl(sub.onboarding_screenshot_url)} className="h-8 gap-1.5 text-slate-600 hover:text-indigo-600">
-                              <Eye className="h-3.5 w-3.5" /> Onboarding
-                            </Button>
-                          )}
-                          <Button size="sm" onClick={() => generatePDF(sub)} className="h-8 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 shadow-none gap-1.5">
-                            <Download className="h-3.5 w-3.5" /> PDF
-                          </Button>
-                        </div>
-                      </TableCell>
+                </TableHeader>
+                <TableBody>
+                  {filteredSubmissions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-10 text-slate-400">No submissions found matching your search.</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    paginatedSubmissions.map((sub, idx) => (
+                      <TableRow key={sub.id || idx} className="hover:bg-slate-50 transition-colors border-b border-slate-50">
+                        <TableCell className="pl-6 py-4">
+                          {(() => {
+                            const repId = sub.rep_email ? userMap[sub.rep_email.toLowerCase()] : null
+                            return repId ? (
+                              <Link href={basePath === "/sales-head-dashboard" ? `/sales-head-dashboard/${repId}` : `${basePath}/sales/${repId}`}>
+                                <div className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer">{sub.rep_name}</div>
+                              </Link>
+                            ) : (
+                              <div className="font-bold text-slate-800">{sub.rep_name}</div>
+                            )
+                          })()}
+                          <div className="text-xs text-slate-400">{sub.rep_email}</div>
+                          <div className="text-[10px] text-slate-400 mt-1">{new Date(sub.created_at).toLocaleString()}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-bold text-slate-800">{sub.client_name}</div>
+                          <div className="text-xs font-mono font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded inline-block mt-1">{sub.awl_id}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                            <Calendar className="h-3.5 w-3.5 text-slate-400" /> {new Date(sub.sale_date).toLocaleDateString()}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 mt-1">
+                            <Briefcase className="h-3.5 w-3.5 text-slate-400" /> {sub.job_market}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm font-black text-emerald-600">
+                            <DollarSign className="h-4 w-4" /> {sub.sale_value}
+                          </div>
+                          <Badge variant="outline" className="mt-1 text-[9px] uppercase font-bold text-slate-500 bg-white">
+                            {sub.payment_method}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <div className="flex items-center justify-end gap-2">
+                            {sub.payment_screenshot_url && (
+                              <Button variant="outline" size="sm" onClick={() => setPreviewUrl(sub.payment_screenshot_url)} className="h-8 gap-1.5 text-slate-600 hover:text-indigo-600">
+                                <Eye className="h-3.5 w-3.5" /> Payment
+                              </Button>
+                            )}
+                            {sub.onboarding_screenshot_url && (
+                              <Button variant="outline" size="sm" onClick={() => setPreviewUrl(sub.onboarding_screenshot_url)} className="h-8 gap-1.5 text-slate-600 hover:text-indigo-600">
+                                <Eye className="h-3.5 w-3.5" /> Onboarding
+                              </Button>
+                            )}
+                            {isFormEdited(sub) ? (
+                              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-full">Edited</span>
+                            ) : (
+                              repEmail && !viewerMode && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setEditingSub(sub)}
+                                  className="h-8 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 shadow-none gap-1.5 border border-indigo-200/50"
+                                >
+                                  <Edit className="h-3.5 w-3.5" /> Edit
+                                </Button>
+                              )
+                            )}
+                            <Button size="sm" onClick={() => generatePDF(sub)} className="h-8 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 shadow-none gap-1.5">
+                              <Download className="h-3.5 w-3.5" /> PDF
+                            </Button>
+                            {!repEmail && (
+                              <Button size="sm" onClick={() => handleDelete(sub.id, sub.awl_id)} className="h-8 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 shadow-none gap-1.5 border border-rose-200/50">
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+
+              {/* Pagination Controls */}
+              {filteredSubmissions.length > 0 && (
+                <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-4">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <p className="text-[10px] font-bold text-slate-400">
+                      Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredSubmissions.length)} of {filteredSubmissions.length}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rows per page:</span>
+                      <Select value={String(itemsPerPage)} onValueChange={(val) => {
+                        setItemsPerPage(Number(val))
+                        setCurrentPage(1)
+                      }}>
+                        <SelectTrigger className="h-7 w-[65px] text-[10px] font-bold bg-white border-slate-200 rounded-lg">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[10, 20, 30, 50, 100].map(size => (
+                            <SelectItem key={size} value={String(size)} className="text-xs font-semibold">{size}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs font-bold text-slate-600 mx-2">{currentPage} / {totalPages}</span>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </Card>
@@ -303,6 +549,29 @@ export function SubmissionFormsPanel() {
               )
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Form Dialog */}
+      <Dialog open={editingSub !== null} onOpenChange={(open) => { if (!open) handleCloseEdit() }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-2xl">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Edit className="h-5 w-5 text-indigo-500" />
+              Edit Sales Success Record ({editingSub?.awl_id})
+            </DialogTitle>
+          </DialogHeader>
+          {editingSub && (
+            <SalesSubmissionForm
+              user={{ email: editingSub.rep_email, name: editingSub.rep_name }}
+              initialEditSub={editingSub}
+              onSuccess={() => {
+                handleCloseEdit()
+                fetchSubmissions()
+              }}
+              onCancel={handleCloseEdit}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

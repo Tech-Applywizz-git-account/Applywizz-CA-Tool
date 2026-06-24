@@ -7,8 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Download, Edit2, Save, Eye, Globe, Settings2, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Search, TrendingUp, Users, ChevronLeft, ChevronRight, Download, Edit2, Save, Eye, Globe, Settings2, AlertTriangle, CheckCircle2, ClipboardList } from "lucide-react"
 import Link from "next/link"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ResumeCompletionPanel } from "./resume-completion-panel"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { WorkingDaysCalendar } from "./working-days-calendar" // touch to refresh TS server
+import { Calendar } from "lucide-react"
 
 interface CROResumeDashboardProps {
     basePath: string;
@@ -18,13 +23,15 @@ interface CROResumeDashboardProps {
 
 export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashboardProps) {
     const [resumeReps, setResumeReps] = useState<any[]>([])
+    const [forageSales, setForageSales] = useState<any[]>([])
+    const [selectedRepSales, setSelectedRepSales] = useState<{ repName: string; sales: any[] } | null>(null)
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
 
     const [monthOffset, setMonthOffset] = useState<number>(0)
 
     const [configMode, setConfigMode] = useState<"resume" | "forage">("resume")
-    
+
     // Rate config
     const [resumeRate, setResumeRate] = useState<string>("80")
     const [forageBaseUsd, setForageBaseUsd] = useState<string>("3")
@@ -88,6 +95,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                 const data = await calcRes.json();
                 setTargetBaseline(data.baselineTarget || 0);
                 setWorkingDays(data.workingDays || 0);
+                setForageSales(data.forageSalesData || []);
             }
 
             // 2. Process Users + Incentives
@@ -125,7 +133,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     const r = (rep.role || "").toLowerCase();
                     const d = (rep.designation || "").toLowerCase();
                     const isTraineeRep = r.includes("trainee") || d.includes("trainee") || r === "bdt-p" || d === "bdt-p";
-                    
+
                     return {
                         ...rep,
                         target_resumes: incn?.target_resumes || 0,
@@ -257,6 +265,39 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
         return r.includes("trainee") || d.includes("trainee") || r === "bdt-p" || d === "bdt-p";
     }
 
+    const getJobSimulationsCount = (email: string) => {
+        const targetEmail = email.toLowerCase();
+        return forageSales.filter((s: any) => {
+            if (!s.forage_info || !s.forage_info[0]) return false;
+            const sellerEmailRaw = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmailRaw) return false;
+            return sellerEmailRaw === targetEmail ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+        }).length;
+    };
+
+    const handleShowSalesDetails = (repName: string, email: string) => {
+        const targetEmail = email.toLowerCase();
+        const repSales = forageSales.filter((s: any) => {
+            if (!s.forage_info || !s.forage_info[0]) return false;
+            const sellerEmailRaw = s.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmailRaw) return false;
+            return sellerEmailRaw === targetEmail ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                sellerEmailRaw === targetEmail.replace('@applywizz.ai', '@applywizz.com');
+        }).map((s: any) => {
+            const fInfo = s.forage_info[0];
+            return {
+                id: s.id,
+                lead_name: s.lead_name || s.lead_id || "Unknown Client",
+                certs: parseInt(s.forage_internship_certification || fInfo.forage_internship_certification || "0"),
+                sold_value: parseFloat(fInfo.forage_sold_value || s.forage_internship_sale_value || "0")
+            };
+        });
+        setSelectedRepSales({ repName, sales: repSales });
+    };
+
     const filteredReps = useMemo(() => {
         return resumeReps.filter(rep => {
             if (!searchTerm.trim()) return true
@@ -270,14 +311,35 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
         activeTrainees: filteredReps.filter(rep => rep.isactive && isTrainee(rep))
     }), [filteredReps]);
 
-    const { totalIncentivesINR, totalResumeIncentivesINR, totalForageIncentivesINR, totalCompletedResumes, totalExtraResumes, totalJobSimulationsUSD } = useMemo(() => ({
-        totalIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.total_incentive_inr || 0), 0),
-        totalResumeIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.incentive_inr || 0), 0),
-        totalForageIncentivesINR: activeReps.reduce((sum, rep) => sum + ((rep.forage_direct_incentive_inr || 0) + (rep.forage_team_split_inr || 0) + (rep.forage_bonus_inr || 0)), 0),
-        totalCompletedResumes: activeReps.reduce((sum, rep) => sum + (rep.completed_resumes || 0), 0),
-        totalExtraResumes: activeReps.reduce((sum, rep) => sum + (rep.extra_resumes || 0), 0),
-        totalJobSimulationsUSD: activeReps.reduce((sum, rep) => sum + (rep.forage_sales_usd || 0), 0)
-    }), [activeReps]);
+    const { totalIncentivesINR, totalResumeIncentivesINR, totalForageIncentivesINR, totalCompletedResumes, totalExtraResumes, totalJobSimulationsUSD, totalCertifications } = useMemo(() => {
+        const activeRepEmails = activeReps.map(r => r.email?.toLowerCase());
+        const forageStats = forageSales.reduce((acc: { certs: number, usd: number }, sale: any) => {
+            if (!sale.forage_info || !sale.forage_info[0]) return acc;
+            const sellerEmail = sale.forage_info[0].forage_sold_by_email?.toLowerCase();
+            if (!sellerEmail) return acc;
+            const matched = activeRepEmails.find(e =>
+                e === sellerEmail ||
+                e === sellerEmail.replace('@applywizz.com', '@applywizz.ai') ||
+                e === sellerEmail.replace('@applywizz.ai', '@applywizz.com')
+            );
+            if (matched) {
+                const certs = parseInt(sale.forage_info[0].forage_internship_certification || sale.forage_internship_certification || "0");
+                const usd = parseFloat(sale.forage_info[0].forage_sold_value || sale.forage_internship_sale_value || "0");
+                return { certs: acc.certs + certs, usd: acc.usd + usd };
+            }
+            return acc;
+        }, { certs: 0, usd: 0 });
+
+        return {
+            totalIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.total_incentive_inr || 0), 0),
+            totalResumeIncentivesINR: activeReps.reduce((sum, rep) => sum + (rep.incentive_inr || 0), 0),
+            totalForageIncentivesINR: activeReps.reduce((sum, rep) => sum + ((rep.forage_direct_incentive_inr || 0) + (rep.forage_team_split_inr || 0) + (rep.forage_bonus_inr || 0)), 0),
+            totalCompletedResumes: activeReps.reduce((sum, rep) => sum + (rep.completed_resumes || 0), 0),
+            totalExtraResumes: activeReps.reduce((sum, rep) => sum + (rep.extra_resumes || 0), 0),
+            totalJobSimulationsUSD: forageStats.usd,
+            totalCertifications: forageStats.certs
+        };
+    }, [activeReps, forageSales]);
 
     const exportToCSV = () => {
         const headers = ["Name", "Email", "Designation", "Status", "Working Days", "Required Target", "Completed", "Extra Resumes", "Incentive (INR)"];
@@ -288,7 +350,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
             const email = `"${(rep.email || "").replace(/"/g, '""')}"`;
             const role = `"${(rep.role || "").replace(/"/g, '""')}"`;
             const status = `"${rep.isactive ? "Active" : "Inactive"}"`;
-            
+
             csvRows.push([name, email, role, status, workingDays, rep.target_resumes, rep.completed_resumes, rep.extra_resumes, rep.incentive_inr].join(","));
         });
 
@@ -343,7 +405,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     </div>
                 </div>
             )}
-            
+
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex justify-between items-start mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <div>
@@ -375,7 +437,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                     <ChevronLeft className="h-4 w-4 mr-1" /> Previous Month
                                 </Button>
                                 <Button variant="default" onClick={() => setMonthOffset(0)}>
-                                    This Month
+                                    {getMonthName()}
                                 </Button>
                                 <Button variant="outline" onClick={() => setMonthOffset((prev) => prev + 1)}>
                                     Next Month <ChevronRight className="h-4 w-4 ml-1" />
@@ -415,8 +477,12 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                 <span className="font-black text-slate-800 text-lg">{totalCompletedResumes}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-emerald-700 font-bold">Job Simulations Target Volume</span>
+                                <span className="text-emerald-700 font-bold">Job Simulations Revenue (All)</span>
                                 <span className="font-black text-emerald-600 border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 rounded text-lg">${totalJobSimulationsUSD.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-amber-700 font-bold">Total Certifications</span>
+                                <span className="font-black text-amber-600 border border-amber-200 bg-amber-50 px-2 py-0.5 rounded text-sm">{totalCertifications}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs">
                                 <span className="text-indigo-700 font-bold">Resumes Exceeding Quota</span>
@@ -472,163 +538,187 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     </Card>
                 </div>
 
-                <Card className={`mb-8 border-0 shadow-xl overflow-hidden ring-1 transition-all duration-500 ${editingRate ? 'ring-indigo-500/30' : 'ring-slate-200/50 hover:ring-indigo-300'}`}>
-                    <CardHeader className={`transition-all duration-500 relative overflow-hidden ${editingRate ? 'bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 text-white py-8' : 'bg-white hover:bg-slate-50/80 py-6'}`}>
-                        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                            <div className="flex items-center gap-5">
-                                <div className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${editingRate ? 'bg-white/10 border border-white/20' : 'bg-indigo-50 border border-indigo-100'}`}>
-                                    <Settings2 className={`h-7 w-7 ${editingRate ? 'text-indigo-100' : 'text-indigo-600'}`} />
+                <Tabs defaultValue="financial-engine" className="w-full mb-8">
+                    <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-14 bg-white border border-slate-200 shadow-sm mb-6 p-1.5 rounded-xl gap-1">
+                        <TabsTrigger value="financial-engine" className="rounded-lg font-bold transition-all data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm py-2 md:py-0">
+                            <Settings2 className="mr-2 h-4 w-4" />
+                            Department Financial Engine
+                        </TabsTrigger>
+                        <TabsTrigger value="submitted-forms" className="rounded-lg font-bold transition-all data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 data-[state=active]:shadow-sm py-2 md:py-0">
+                            <ClipboardList className="mr-2 h-4 w-4" />
+                            Resume Submitted Forms
+                        </TabsTrigger>
+                        <TabsTrigger value="calendar-config" className="rounded-lg font-bold transition-all data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 data-[state=active]:shadow-sm py-2 md:py-0">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Working Days Calendar
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="financial-engine" className="mt-0 focus-visible:ring-0">
+                        <Card className={`border-0 shadow-xl overflow-hidden ring-1 transition-all duration-500 ${editingRate ? 'ring-indigo-500/30' : 'ring-slate-200/50 hover:ring-indigo-300'}`}>
+                            <CardHeader className={`transition-all duration-500 relative overflow-hidden ${editingRate ? 'bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 text-white py-8' : 'bg-white hover:bg-slate-50/80 py-6'}`}>
+                                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                    <div className="flex items-center gap-5">
+                                        <div className={`p-4 rounded-2xl shadow-inner transition-colors duration-500 ${editingRate ? 'bg-white/10 border border-white/20' : 'bg-indigo-50 border border-indigo-100'}`}>
+                                            <Settings2 className={`h-7 w-7 ${editingRate ? 'text-indigo-100' : 'text-indigo-600'}`} />
+                                        </div>
+                                        <div>
+                                            <CardTitle className={`text-2xl font-black tracking-tight flex items-center gap-3 ${editingRate ? 'text-white' : 'text-slate-800'}`}>
+                                                Department Financial Engine
+                                            </CardTitle>
+                                            <p className={`text-sm mt-1.5 font-medium max-w-lg leading-relaxed ${editingRate ? 'text-indigo-200/90' : 'text-slate-500'}`}>
+                                                Configure flat rates for extra volume output for {getMonthName()}.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        onClick={() => setEditingRate(!editingRate)}
+                                        size="lg"
+                                        className={`font-bold transition-all duration-300 shadow-md ${!editingRate ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                                        variant={editingRate ? "outline" : "default"}
+                                    >
+                                        {editingRate ? "Hide Board" : "Launch Configuration Panel"}
+                                    </Button>
                                 </div>
-                                <div>
-                                    <CardTitle className={`text-2xl font-black tracking-tight flex items-center gap-3 ${editingRate ? 'text-white' : 'text-slate-800'}`}>
-                                        Department Financial Engine
-                                    </CardTitle>
-                                    <p className={`text-sm mt-1.5 font-medium max-w-lg leading-relaxed ${editingRate ? 'text-indigo-200/90' : 'text-slate-500'}`}>
-                                        Configure flat rates for extra volume output for {getMonthName()}.
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                onClick={() => setEditingRate(!editingRate)}
-                                size="lg"
-                                className={`font-bold transition-all duration-300 shadow-md ${!editingRate ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-                                variant={editingRate ? "outline" : "default"}
-                            >
-                                {editingRate ? "Hide Board" : "Launch Configuration Panel"}
-                            </Button>
-                        </div>
-                    </CardHeader>
+                            </CardHeader>
 
-                    {editingRate && (
-                        <div className="bg-slate-50/50 animate-in slide-in-from-top-8 fade-in duration-500 ease-out border-t border-slate-200 p-6 md:p-8">
-                            <div className="flex bg-slate-200/60 p-1 w-fit rounded-lg mb-8 mx-auto">
-                                <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "resume" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("resume")}>Resume Pricing</button>
-                                <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "forage" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("forage")}>Job Simulation Details</button>
-                            </div>
+                            {editingRate && (
+                                <div className="bg-slate-50/50 animate-in slide-in-from-top-8 fade-in duration-500 ease-out border-t border-slate-200 p-6 md:p-8">
+                                    <div className="flex bg-slate-200/60 p-1 w-fit rounded-lg mb-8 mx-auto">
+                                        <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "resume" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("resume")}>Resume Pricing</button>
+                                        <button className={`px-6 py-2 text-sm font-bold rounded-md transition-all ${configMode === "forage" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setConfigMode("forage")}>Job Simulation Details</button>
+                                    </div>
 
-                            {configMode === "resume" ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                                    <Card className="border border-indigo-100 shadow-sm w-full">
-                                        <div className="h-1 w-full bg-indigo-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rate Per Extra Resume</label>
-                                            </div>
-                                            <div className="relative group">
-                                                <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">₹</span>
-                                                <Input value={resumeRate} onChange={(e) => setResumeRate(e.target.value)} className="pl-7 h-11 border-indigo-200 bg-indigo-50/30 font-bold" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <Card className="border border-emerald-100 shadow-sm md:col-span-3">
-                                        <div className="h-1 w-full bg-emerald-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
+                                    {configMode === "resume" ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                                            <Card className="border border-indigo-100 shadow-sm w-full">
+                                                <div className="h-1 w-full bg-indigo-500"></div>
+                                                <CardContent className="p-5">
                                                     <div className="flex items-center gap-2 mb-3">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pricing Matrix Bases</label>
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rate Per Extra Resume</label>
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                    <div className="relative group">
+                                                        <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">₹</span>
+                                                        <Input value={resumeRate} onChange={(e) => setResumeRate(e.target.value)} className="pl-7 h-11 border-indigo-200 bg-indigo-50/30 font-bold" />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <Card className="border border-emerald-100 shadow-sm md:col-span-3">
+                                                <div className="h-1 w-full bg-emerald-500"></div>
+                                                <CardContent className="p-5">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                         <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">1 Cert</span>
-                                                            <Input value={forageBase1Usd} onChange={(e) => setForageBase1Usd(e.target.value)} className="h-8 text-xs" />
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pricing Matrix Bases</label>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">1 Cert</span>
+                                                                    <Input value={forageBase1Usd} onChange={(e) => setForageBase1Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">2 Certs</span>
+                                                                    <Input value={forageBase2Usd} onChange={(e) => setForageBase2Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">3 Certs</span>
+                                                                    <Input value={forageBase3Usd} onChange={(e) => setForageBase3Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">4+ Certs</span>
+                                                                    <Input value={forageBase4Usd} onChange={(e) => setForageBase4Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">5+ Certs</span>
+                                                                    <Input value={forageBase5Usd} onChange={(e) => setForageBase5Usd(e.target.value)} className="h-8 text-xs" />
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                         <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">2 Certs</span>
-                                                            <Input value={forageBase2Usd} onChange={(e) => setForageBase2Usd(e.target.value)} className="h-8 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">3 Certs</span>
-                                                            <Input value={forageBase3Usd} onChange={(e) => setForageBase3Usd(e.target.value)} className="h-8 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">4+ Certs</span>
-                                                            <Input value={forageBase4Usd} onChange={(e) => setForageBase4Usd(e.target.value)} className="h-8 text-xs" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">5+ Certs</span>
-                                                            <Input value={forageBase5Usd} onChange={(e) => setForageBase5Usd(e.target.value)} className="h-8 text-xs" />
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Baseline Split Configuration</label>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">Seller ($)</span>
+                                                                    <Input value={forageBaseUsd} onChange={(e) => setForageBaseUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-[10px] uppercase font-bold text-slate-400">Team Pool ($)</span>
+                                                                    <Input value={forageTeamUsd} onChange={(e) => setForageTeamUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Baseline Split Configuration</label>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">Seller ($)</span>
-                                                            <Input value={forageBaseUsd} onChange={(e) => setForageBaseUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">Team Pool ($)</span>
-                                                            <Input value={forageTeamUsd} onChange={(e) => setForageTeamUsd(e.target.value)} className="h-9 border-emerald-200 bg-emerald-50/30 text-sm" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                                </CardContent>
+                                            </Card>
 
-                                    <Card className="border border-blue-100 shadow-sm w-full">
-                                        <div className="h-1 w-full bg-blue-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">USD to INR Forex Rate</label>
-                                            </div>
-                                            <div className="relative group mt-5">
-                                                <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">₹</span>
-                                                <Input value={forageUsdInr} onChange={(e) => setForageUsdInr(e.target.value)} className="pl-7 h-9 border-blue-200 bg-blue-50/30 text-sm" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                    
-                                    <Card className="border border-violet-100 shadow-sm w-full">
-                                        <div className="h-1 w-full bg-violet-500"></div>
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Volume Threshold Bonuses</label>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
-                                                    <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 1</span>
-                                                    <span className="text-xs text-slate-500">Hit</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs1Usd} onChange={(e) => setForageMs1Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                    <span className="text-xs text-slate-500">→ Get</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs1Inr} onChange={(e) => setForageMs1Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
-                                                    <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 2</span>
-                                                    <span className="text-xs text-slate-500">Hit</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs2Usd} onChange={(e) => setForageMs2Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                    <span className="text-xs text-slate-500">→ Get</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs2Inr} onChange={(e) => setForageMs2Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
-                                                    <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 3</span>
-                                                    <span className="text-xs text-slate-500">Hit</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs3Usd} onChange={(e) => setForageMs3Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                    <span className="text-xs text-slate-500">→ Get</span>
-                                                    <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs3Inr} onChange={(e) => setForageMs3Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                            <Card className="border border-blue-100 shadow-sm w-full">
+                                                <div className="h-1 w-full bg-blue-500"></div>
+                                                <CardContent className="p-5">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">USD to INR Forex Rate</label>
+                                                    </div>
+                                                    <div className="relative group mt-5">
+                                                        <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">₹</span>
+                                                        <Input value={forageUsdInr} onChange={(e) => setForageUsdInr(e.target.value)} className="pl-7 h-9 border-blue-200 bg-blue-50/30 text-sm" />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card className="border border-violet-100 shadow-sm w-full">
+                                                <div className="h-1 w-full bg-violet-500"></div>
+                                                <CardContent className="p-5">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Volume Threshold Bonuses</label>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
+                                                            <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 1</span>
+                                                            <span className="text-xs text-slate-500">Hit</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs1Usd} onChange={(e) => setForageMs1Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                            <span className="text-xs text-slate-500">→ Get</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs1Inr} onChange={(e) => setForageMs1Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
+                                                            <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 2</span>
+                                                            <span className="text-xs text-slate-500">Hit</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs2Usd} onChange={(e) => setForageMs2Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                            <span className="text-xs text-slate-500">→ Get</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs2Inr} onChange={(e) => setForageMs2Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-violet-50/50 rounded-lg p-2.5 border border-violet-100">
+                                                            <span className="text-[10px] font-bold text-violet-500 uppercase w-14 shrink-0">Tier 3</span>
+                                                            <span className="text-xs text-slate-500">Hit</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">$</span><Input value={forageMs3Usd} onChange={(e) => setForageMs3Usd(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                            <span className="text-xs text-slate-500">→ Get</span>
+                                                            <div className="relative flex-1"><span className="absolute left-2 top-1.5 text-slate-400 text-xs">₹</span><Input value={forageMs3Inr} onChange={(e) => setForageMs3Inr(e.target.value)} className="h-7 pl-5 text-xs" /></div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col flex-row justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm mt-8">
+                                        <Button size="lg" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg" onClick={saveSettings} disabled={savingRate}>
+                                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                                            {savingRate ? "Committing Sync..." : "Commit Setting"}
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
-                            
-                            <div className="flex flex-col flex-row justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm mt-8">
-                                <Button size="lg" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg" onClick={saveSettings} disabled={savingRate}>
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    {savingRate ? "Committing Sync..." : "Commit Setting"}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </Card>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="submitted-forms" className="mt-0 focus-visible:ring-0">
+                        <ResumeCompletionPanel monthOffset={monthOffset} />
+                    </TabsContent>
+                    <TabsContent value="calendar-config" className="mt-0 focus-visible:ring-0">
+                        <WorkingDaysCalendar monthOffset={monthOffset} periodName={getMonthName()} onRecalculateNeeded={() => handleRecalculate(true)} />
+                    </TabsContent>
+                </Tabs>
 
                 <Card className="mb-8 overflow-hidden shadow-sm">
                     <CardHeader className="bg-white border-b border-slate-100">
@@ -660,10 +750,11 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                     <TableRow className="bg-slate-50/50">
                                         <TableHead className="pl-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Identity Details</TableHead>
                                         <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">Status</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500 text-blue-700">Total Completed</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700">Extra Volume</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-center">Job Simulation Yield</TableHead>
-                                        <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-indigo-700">Total Compensation</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500 text-blue-700">Resumes Completed</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-center">Job Simulations</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-blue-700 text-right">Incentive on Resumes</TableHead>
+                                        <TableHead className="text-xs font-bold uppercase tracking-wider text-emerald-700 text-right">Incentive on Job Sim</TableHead>
+                                        <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-indigo-700">Total Incentives</TableHead>
                                         <TableHead className="text-right pr-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -673,7 +764,7 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                             <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <Users className="h-8 w-8 text-slate-300" />
-                                                    <p>No active resume representatives found for this month.</p>
+                                                    <p>No active resume representatives found for {getMonthName()}.</p>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -691,29 +782,37 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                                                     <Badge className="bg-emerald-100 text-emerald-800 shadow-none hover:bg-emerald-200">Active</Badge>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-bold text-blue-700 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
-                                                        {rep.completed_resumes}
+                                                    <div className="flex flex-col">
+                                                        <div className="font-bold text-blue-700 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100">
+                                                            {rep.completed_resumes}
+                                                        </div>
+                                                        {rep.extra_resumes > 0 && (
+                                                            <div className="text-[10px] text-emerald-600 font-bold mt-1">+{rep.extra_resumes} Extra</div>
+                                                        )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {rep.extra_resumes > 0 ? (
-                                                        <div className="flex items-center gap-1.5 font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded border border-emerald-100">
-                                                            <span>+{rep.extra_resumes}</span>
-                                                            <TrendingUp className="h-3 w-3" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="font-semibold text-slate-400">-</div>
-                                                    )}
-                                                </TableCell>
                                                 <TableCell className="text-center">
-                                                    {rep.forage_sales_usd > 0 ? (
-                                                        <div className="flex flex-col items-center">
-                                                            <div className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">${rep.forage_sales_usd}</div>
-                                                            <div className="text-[10px] text-emerald-500/70 mt-0.5 font-bold">Split + Bonus</div>
+                                                    <div
+                                                        className="flex flex-col items-center cursor-pointer hover:scale-105 transition-all"
+                                                        onClick={() => handleShowSalesDetails(rep.name || rep.email, rep.email)}
+                                                    >
+                                                        <div className="font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 w-fit px-2 py-0.5 rounded border border-emerald-200 shadow-sm">
+                                                            {getJobSimulationsCount(rep.email)}
                                                         </div>
-                                                    ) : (
-                                                        <div className="font-semibold text-slate-400">-</div>
-                                                    )}
+                                                        {rep.forage_sales_usd > 0 && (
+                                                            <div className="text-[10px] text-emerald-500/70 mt-1 font-bold">${rep.forage_sales_usd.toLocaleString()}</div>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="font-bold text-slate-700">
+                                                        ₹{(rep.incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="font-bold text-slate-700">
+                                                        ₹{((rep.forage_direct_incentive_inr || 0) + (rep.forage_team_split_inr || 0) + (rep.forage_bonus_inr || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="font-black text-lg text-indigo-700 tracking-tight">
@@ -801,6 +900,66 @@ export function CROResumeDashboard({ basePath, user, onLogout }: CROResumeDashbo
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={!!selectedRepSales} onOpenChange={() => setSelectedRepSales(null)}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-black text-slate-800">
+                            Job Simulations for {selectedRepSales?.repName}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            Detailed list of all forage certifications sold in {getMonthName()}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-x-auto border border-slate-100 rounded-xl mt-4">
+                        <Table>
+                            <TableHeader className="bg-slate-50">
+                                <TableRow>
+                                    <TableHead className="font-bold text-xs">Client Name</TableHead>
+                                    <TableHead className="font-bold text-xs text-center">Certifications</TableHead>
+                                    <TableHead className="font-bold text-xs text-right pr-6">Sale Value (USD)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedRepSales?.sales.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center py-6 text-slate-400 text-sm">
+                                            No qualified job simulation sales found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    <>
+                                        {selectedRepSales?.sales.map((sale: any, idx: number) => (
+                                            <TableRow key={idx} className="hover:bg-slate-50/50">
+                                                <TableCell className="font-semibold text-slate-700 text-sm">{sale.lead_name}</TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant="secondary" className="font-bold text-indigo-600 bg-indigo-50 border-indigo-100">
+                                                        {sale.certs} Cert{sale.certs > 1 ? "s" : ""}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-6 font-bold text-slate-800 text-sm">
+                                                    ${sale.sold_value.toLocaleString()}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        <TableRow className="bg-slate-50/80 font-black border-t border-slate-200">
+                                            <TableCell className="text-slate-800 text-sm font-bold pl-6">Total</TableCell>
+                                            <TableCell className="text-center font-bold">
+                                                <Badge className="font-black text-indigo-700 bg-indigo-100 border-indigo-200 hover:bg-indigo-150">
+                                                    {selectedRepSales?.sales.reduce((sum, s) => sum + s.certs, 0)} Certs
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 text-indigo-700 text-sm font-black">
+                                                ${selectedRepSales?.sales.reduce((sum, s) => sum + s.sold_value, 0).toLocaleString()}
+                                            </TableCell>
+                                        </TableRow>
+                                    </>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

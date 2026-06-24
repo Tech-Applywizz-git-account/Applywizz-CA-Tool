@@ -23,8 +23,6 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
 
     // Scrolled header state
     const [isScrolled, setIsScrolled] = useState(false)
-
-    // Tab state
     const [activeTab, setActiveTab] = useState<"incentives" | "invites">("incentives")
 
     // Month toggles
@@ -66,6 +64,9 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
     const fetchData = useCallback(async () => {
         if (isFirstLoad.current) setLoading(true);
         try {
+            const periodStr = targetDate.toLocaleString("default", { month: "long", year: "numeric" });
+            await fetch(`/api/calculate-marketing-incentives?period=${encodeURIComponent(periodStr)}`, { cache: 'no-store' });
+
             const monthStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
             const res = await fetch(`/api/marketing-data?email=${encodeURIComponent(user.email)}&month=${monthStr}`);
             const data = await res.json();
@@ -201,8 +202,9 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
                     </button>
                 </div>
 
-                {activeTab === "incentives" ? (
+               {activeTab === "incentives" ? (
                     <>
+                        
                         {/* Global Controls - Month Filter (Animating out!) */}
                         <div className={`transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden w-full ${isScrolled ? 'max-h-0 opacity-0 transform -translate-y-8 mb-0 invisible' : 'max-h-[300px] opacity-100 transform translate-y-0 mb-6 visible'}`}>
                             <Card className="shadow-md border-slate-200 overflow-hidden bg-white">
@@ -231,7 +233,7 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
                             </div>
                         ) : (
                             <>
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
                             <TrendingUp className="h-6 w-6 text-indigo-600" />
                             Incentive Achievements ({getMonthName()})
                         </h2>
@@ -520,7 +522,7 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
                                             <div className="absolute left-0 top-0 w-1.5 h-full bg-pink-500"></div>
                                             <h3 className="font-bold text-pink-800 mb-2 flex items-center justify-between">
                                                 <span>1. Influencer Referrals</span>
-                                                <span className="text-pink-600 font-black">{showIncentives ? `₹${(incentiveData?.influencer_incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '****'}</span>
+                                                <span className="text-pink-600 font-black">{showIncentives ? `₹${(incentiveData?.influencer_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}</span>
                                             </h3>
                                             <p className="text-sm text-pink-700 italic">
                                                 Sales attributed through influencer channels are split into two categories:
@@ -546,7 +548,7 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
                                             <div className="absolute left-0 top-0 w-1.5 h-full bg-slate-400"></div>
                                             <h3 className="font-bold text-slate-700 mb-2 flex items-center justify-between">
                                                 <span>2. The Job Board Targets</span>
-                                                <span className="text-indigo-600 font-black">{showIncentives ? `₹${(incentiveData?.job_board_incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '****'}</span>
+                                                <span className="text-indigo-600 font-black">{showIncentives ? `₹${(incentiveData?.job_board_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}</span>
                                             </h3>
                                             <p className="text-sm text-slate-500 italic">
                                                 Job board sales structure an INR direct pool scaling against total global sales:
@@ -564,7 +566,7 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
                                             <div className="absolute left-0 top-0 w-1.5 h-full bg-slate-400"></div>
                                             <h3 className="font-bold text-slate-700 mb-2 flex items-center justify-between">
                                                 <span>3. The Skill Passport Targets</span>
-                                                <span className="text-orange-500 font-black">{showIncentives ? `₹${(incentiveData?.skill_passport_incentive_inr || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '****'}</span>
+                                                <span className="text-orange-500 font-black">{showIncentives ? `₹${(incentiveData?.skill_passport_incentive_inr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}</span>
                                             </h3>
                                             <p className="text-sm text-slate-500 italic">
                                                 Every uniquely completed Skill Passport check generates a fixed ₹{rates.spRate} into the communal incentive pool, which is ultimately divided evenly amongst the entire marketing team!
@@ -579,7 +581,7 @@ export function MarketingDashboard({ user, onLogout, viewerMode }: MarketingDash
                             </CardContent>
                         </Card>
 
-                            </>
+                    </>
                         )}
                     </>
                 ) : (
